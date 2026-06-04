@@ -88,6 +88,8 @@
 
     <!-- Macroquad JS Bundle -->
     <script src="mq_js_bundle.js"></script>
+    <script src="sapp_jsutils.js"></script>
+    <script src="storage.js"></script>
     <script>
         document.getElementById('loading').style.display = 'none';
         
@@ -113,6 +115,7 @@
             const logicalHeight = 720;
             const blockedRegions = [
                 { x: 18, y: 16, w: logicalWidth - 36, h: 64 },
+                { x: 315, y: 604, w: 650, h: 58 },
                 { x: 922, y: 96, w: 344, h: 600 },
                 { x: 28, y: logicalHeight - 72, w: 884, h: 52 },
             ];

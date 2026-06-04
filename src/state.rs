@@ -1,9 +1,12 @@
 //! Runtime toy-store state, save data, and save migration helpers.
 
 use crate::data::{DisplayDef, GameConfig, GameData, ToyCategory};
+use crate::toys::{spawn_pose_for_toy, toy_name, ToySpawnPose};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+mod interactions;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -46,8 +49,12 @@ pub struct ToyState {
     pub slot_number: usize,
     pub color_index: usize,
     pub position: WorldPoint,
+    #[serde(default)]
+    pub spawn_pose: ToySpawnPose,
     pub is_held: bool,
     pub placed_display_id: Option<String>,
+    #[serde(default)]
+    pub placed_slot_index: Option<usize>,
     #[serde(default)]
     pub wrong_marker_seconds: f32,
 }
@@ -97,6 +104,8 @@ pub enum InteractionResult {
         finished: bool,
     },
     InventoryFull,
+    ShelfFull,
+    ShelfSlotUnavailable,
     NothingNearby,
 }
 
@@ -104,12 +113,18 @@ pub enum InteractionResult {
 pub enum InteractionPreview {
     PlaceMatch,
     PlaceMismatch,
-    Pickup {
-        toy_name: String,
-    },
+    Pickup { toy_name: String },
     InventoryFull,
+    ShelfFull,
+    LookAtEmptySlot,
     NothingNearby,
     Finished,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DisplaySlotTarget {
+    pub display_index: usize,
+    pub slot_index: usize,
 }
 
 impl GameSession {
@@ -132,11 +147,11 @@ impl GameSession {
         Self {
             player: PlayerState {
                 position: WorldPoint {
-                    x: config.room_width * 0.5,
-                    y: config.room_height * 0.5,
+                    x: config.room_width * 0.63,
+                    y: config.room_height * 0.72,
                 },
                 yaw: default_player_yaw(),
-                pitch: 0.0,
+                pitch: -0.12,
                 carried_toy_ids: Vec::new(),
                 active_carry_index: 0,
                 mistakes: 0,
@@ -230,12 +245,6 @@ impl GameSession {
         self.toys.iter().find(|toy| &toy.id == toy_id)
     }
 
-    pub fn select_carried(&mut self, index: usize) {
-        if index < self.player.carried_toy_ids.len() {
-            self.player.active_carry_index = index;
-        }
-    }
-
     pub fn cycle_carried(&mut self) {
         if self.player.carried_toy_ids.is_empty() {
             self.player.active_carry_index = 0;
@@ -252,61 +261,12 @@ impl GameSession {
 
         self.toys[toy_index].is_held = false;
         self.toys[toy_index].placed_display_id = None;
+        self.toys[toy_index].placed_slot_index = None;
         self.toys[toy_index].position = self.player.position;
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
         self.normalize_active_carry();
 
         Some(toy_name)
-    }
-
-    pub fn interact(&mut self, data: &GameData) -> InteractionResult {
-        if self.phase != GamePhase::Playing {
-            return InteractionResult::NothingNearby;
-        }
-
-        if self.active_toy().is_some() {
-            if let Some(display_index) = self.nearest_display_index(data) {
-                return self.place_active_toy(display_index, data);
-            }
-        }
-
-        if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
-            return InteractionResult::InventoryFull;
-        }
-
-        if let Some(toy_index) = self.nearest_loose_toy_index(&data.config) {
-            return self.pick_up_toy(toy_index);
-        }
-
-        InteractionResult::NothingNearby
-    }
-
-    pub fn interaction_preview(&self, data: &GameData) -> InteractionPreview {
-        if self.phase != GamePhase::Playing {
-            return InteractionPreview::Finished;
-        }
-
-        if let Some(active_toy) = self.active_toy() {
-            if let Some(display_index) = self.nearest_display_index(data) {
-                let display = &data.displays[display_index];
-                if toy_matches_display(active_toy, display) {
-                    return InteractionPreview::PlaceMatch;
-                }
-                return InteractionPreview::PlaceMismatch;
-            }
-        }
-
-        if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
-            return InteractionPreview::InventoryFull;
-        }
-
-        if let Some(toy_index) = self.nearest_loose_toy_index(&data.config) {
-            return InteractionPreview::Pickup {
-                toy_name: self.toys[toy_index].name.clone(),
-            };
-        }
-
-        InteractionPreview::NothingNearby
     }
 
     pub fn completed_display_count(&self) -> usize {
@@ -331,27 +291,6 @@ impl GameSession {
             .unwrap_or(false)
     }
 
-    pub fn is_display_slot_filled(&self, display_id: &str, slot_number: usize) -> bool {
-        self.toys.iter().any(|toy| {
-            toy.slot_number == slot_number
-                && toy
-                    .placed_display_id
-                    .as_deref()
-                    .is_some_and(|placed_id| placed_id == display_id)
-        })
-    }
-
-    pub fn placed_toys_for_display<'a>(
-        &'a self,
-        display_id: &'a str,
-    ) -> impl Iterator<Item = &'a ToyState> + 'a {
-        self.toys.iter().filter(move |toy| {
-            toy.placed_display_id
-                .as_deref()
-                .is_some_and(|placed_id| placed_id == display_id)
-        })
-    }
-
     fn repair_after_load(&mut self, data: &GameData) {
         for display in &data.displays {
             if !self.displays.iter().any(|state| state.id == display.id) {
@@ -366,140 +305,44 @@ impl GameSession {
         self.player
             .carried_toy_ids
             .retain(|toy_id| self.toys.iter().any(|toy| &toy.id == toy_id));
+        for (toy_index, toy) in self.toys.iter_mut().enumerate() {
+            if toy.spawn_pose.is_uninitialized() {
+                toy.spawn_pose = spawn_pose_for_toy(
+                    toy_index,
+                    toy.color_index,
+                    toy.slot_number.saturating_sub(1),
+                );
+            }
+        }
+        self.repair_display_slots(data);
         self.normalize_active_carry();
         self.repair_player_view();
         self.refresh_display_completion(data);
         self.unlock_available_upgrades(data);
     }
 
-    fn pick_up_toy(&mut self, toy_index: usize) -> InteractionResult {
-        let toy_id = self.toys[toy_index].id.clone();
-        let toy_name = self.toys[toy_index].name.clone();
-
-        self.toys[toy_index].is_held = true;
-        self.toys[toy_index].placed_display_id = None;
-        self.player.carried_toy_ids.push(toy_id);
-        self.player.active_carry_index = self.player.carried_toy_ids.len().saturating_sub(1);
-
-        InteractionResult::PickedUp { toy_name }
-    }
-
-    fn place_active_toy(&mut self, display_index: usize, data: &GameData) -> InteractionResult {
-        let display = &data.displays[display_index];
-        let toy_id = match self.active_toy() {
-            Some(toy) => toy.id.clone(),
-            None => return InteractionResult::NothingNearby,
-        };
-        let toy_index = match self.toys.iter().position(|toy| toy.id == toy_id) {
-            Some(index) => index,
-            None => return InteractionResult::NothingNearby,
-        };
-        let toy_name = self.toys[toy_index].name.clone();
-
-        let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
-        if is_wrong_display {
-            self.player.mistakes += 1;
-            self.player.elapsed_seconds += data.config.mistake_penalty_seconds;
-        }
-
-        self.toys[toy_index].is_held = false;
-        self.toys[toy_index].placed_display_id = Some(display.id.clone());
-        self.toys[toy_index].wrong_marker_seconds = if is_wrong_display {
-            Self::WRONG_MARKER_SECONDS
-        } else {
-            0.0
-        };
-        self.toys[toy_index].position = display_slot_position(
-            display,
-            self.toys[toy_index].slot_number.saturating_sub(1),
-            data.config.room_width,
-        );
-        self.player.carried_toy_ids.retain(|id| id != &toy_id);
-        self.normalize_active_carry();
-
-        let was_complete = self.is_display_complete(&display.id);
-        if let Some(display_state) = self
-            .displays
-            .iter_mut()
-            .find(|display_state| display_state.id == display.id)
-        {
-            if !display_state.placed_toy_ids.iter().any(|id| id == &toy_id) {
-                display_state.placed_toy_ids.push(toy_id);
-            }
-        }
-
-        self.refresh_display_completion(data);
-        let completed_display = if !was_complete && self.is_display_complete(&display.id) {
-            Some(display.name.clone())
-        } else {
-            None
-        };
-        let unlocked_upgrades = self.unlock_available_upgrades(data);
-        let finished = self
-            .displays
-            .iter()
-            .all(|display_state| display_state.is_complete);
-        if finished {
-            self.phase = GamePhase::Finished;
-        }
-
-        InteractionResult::Placed {
-            toy_name,
-            display_name: display.name.clone(),
-            completed_display,
-            unlocked_upgrades,
-            finished,
-        }
-    }
-
-    fn nearest_loose_toy_index(&self, config: &GameConfig) -> Option<usize> {
-        let player = self.player.position.to_vec2();
-        let max_distance_sq = config.interaction_radius * config.interaction_radius;
-
-        self.toys
-            .iter()
-            .enumerate()
-            .filter(|(_, toy)| !toy.is_held && toy.placed_display_id.is_none())
-            .filter_map(|(index, toy)| {
-                let distance_sq = toy.position.to_vec2().distance_squared(player);
-                (distance_sq <= max_distance_sq).then_some((index, distance_sq))
-            })
-            .min_by(|(_, left), (_, right)| left.total_cmp(right))
-            .map(|(index, _)| index)
-    }
-
-    fn nearest_display_index(&self, data: &GameData) -> Option<usize> {
-        let player = self.player.position.to_vec2();
-        let max_distance_sq = data.config.interaction_radius * data.config.interaction_radius;
-
-        data.displays
-            .iter()
-            .enumerate()
-            .filter_map(|(index, display)| {
-                let nearest_point = vec2(
-                    player.x.clamp(display.x, display.x + display.w),
-                    player.y.clamp(display.y, display.y + display.h),
-                );
-                let distance_sq = nearest_point.distance_squared(player);
-                (distance_sq <= max_distance_sq).then_some((index, distance_sq))
-            })
-            .min_by(|(_, left), (_, right)| left.total_cmp(right))
-            .map(|(index, _)| index)
-    }
-
     fn refresh_display_completion(&mut self, data: &GameData) {
         for display_state in &mut self.displays {
             if let Some(display) = data.display_by_id(&display_state.id) {
-                display_state.placed_toy_ids.retain(|toy_id| {
+                display_state.placed_toy_ids = self
+                    .toys
+                    .iter()
+                    .filter(|toy| {
+                        toy.placed_display_id
+                            .as_deref()
+                            .is_some_and(|placed_id| placed_id == display.id)
+                    })
+                    .map(|toy| toy.id.clone())
+                    .collect();
+                display_state.is_complete = (0..display.capacity).all(|slot_index| {
                     self.toys.iter().any(|toy| {
-                        &toy.id == toy_id
-                            && toy
-                                .placed_display_id
-                                .as_deref()
-                                .is_some_and(|placed_id| placed_id == display.id)
+                        toy.placed_display_id
+                            .as_deref()
+                            .is_some_and(|placed_id| placed_id == display.id)
+                            && toy.placed_slot_index == Some(slot_index)
+                            && toy_matches_display(toy, display)
                     })
                 });
-                display_state.is_complete = display_state.placed_toy_ids.len() >= display.capacity;
             }
         }
     }
@@ -591,24 +434,16 @@ fn build_toys(data: &GameData) -> Vec<ToyState> {
                 slot_number,
                 color_index: (display_index + slot_index) % 5,
                 position: scattered_position(toy_index, display_index, slot_index, data),
+                spawn_pose: spawn_pose_for_toy(toy_index, display_index, slot_index),
                 is_held: false,
                 placed_display_id: None,
+                placed_slot_index: None,
                 wrong_marker_seconds: 0.0,
             });
         }
     }
 
     toys
-}
-
-fn toy_name(display: &DisplayDef, slot_number: usize) -> String {
-    match display.category {
-        ToyCategory::Plushies => format!("{} Plush #{slot_number:02}", display.theme),
-        ToyCategory::TinyDragons => format!("Tiny Dragon {} #{slot_number:02}", display.theme),
-        ToyCategory::BuildingBlocks => format!("{} Block Set #{slot_number:02}", display.theme),
-        ToyCategory::ActionFigures => format!("{} Figure #{slot_number:02}", display.theme),
-        ToyCategory::BoardGames => format!("{} Game Box #{slot_number:02}", display.theme),
-    }
 }
 
 fn scattered_position(

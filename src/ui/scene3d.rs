@@ -1,7 +1,9 @@
 //! Macroquad 3D renderer for the tiny toy shop.
 
-use crate::data::{DisplayDef, ToyCategory};
+use crate::data::DisplayDef;
 use crate::state::{display_slot_position, toy_matches_display, ToyState, WorldPoint};
+use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, toy_color};
+use crate::ui::signs::draw_stock_sign;
 use crate::ui::UiContext;
 use macroquad::prelude::*;
 
@@ -123,6 +125,7 @@ fn draw_displays(ctx: &UiContext<'_>) {
             "blocks_table" => draw_blocks_table(display, accent),
             _ => draw_generic_display(display, accent),
         }
+        draw_stock_sign(display, accent);
         draw_slot_markers(ctx, display, accent);
 
         if is_complete {
@@ -330,9 +333,9 @@ fn draw_loose_toys(ctx: &UiContext<'_>) {
     for (index, toy) in ctx.session.toys.iter().enumerate() {
         if !toy.is_held && toy.placed_display_id.is_none() {
             let layer = (index % 7) as f32;
-            let height = 0.20 + layer * 0.035;
+            let height = 0.20 + layer * 0.020 + toy.spawn_pose.floor_lift;
             let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
-            draw_toy_3d(
+            draw_loose_toy_3d(
                 toy,
                 world_point(toy.position, height),
                 toy_color(toy),
@@ -371,20 +374,17 @@ fn draw_wrong_placement_marker(center: Vec3) {
 }
 
 fn draw_placement_preview(ctx: &UiContext<'_>) {
-    let Some(toy) = ctx.session.active_toy() else {
+    let Some(_toy) = ctx.session.active_toy() else {
         return;
     };
-    let Some(display) = nearest_display_to_player(ctx) else {
+    let Some(target) = ctx.session.targeted_empty_display_slot(ctx.data) else {
         return;
     };
+    let display = &ctx.data.displays[target.display_index];
 
     let accent = Color::new(0.98, 0.80, 0.30, 1.0);
-    let slot = display_slot_position(
-        display,
-        toy.slot_number.saturating_sub(1),
-        ctx.data.config.room_width,
-    );
-    let height = placed_height(display, toy);
+    let slot = display_slot_position(display, target.slot_index, ctx.data.config.room_width);
+    let height = placed_height_for_slot(display, target.slot_index + 1);
     let center = world_point(slot, height);
 
     draw_cube(
@@ -405,25 +405,6 @@ fn draw_placement_preview(ctx: &UiContext<'_>) {
         accent,
     );
     draw_sphere(center + vec3(0.0, 0.52, 0.0), 0.10, None, accent);
-}
-
-fn nearest_display_to_player<'a>(ctx: &'a UiContext<'a>) -> Option<&'a DisplayDef> {
-    let player = ctx.session.player.position.to_vec2();
-    let max_distance_sq = ctx.data.config.interaction_radius * ctx.data.config.interaction_radius;
-
-    ctx.data
-        .displays
-        .iter()
-        .filter_map(|display| {
-            let nearest_point = vec2(
-                player.x.clamp(display.x, display.x + display.w),
-                player.y.clamp(display.y, display.y + display.h),
-            );
-            let distance_sq = nearest_point.distance_squared(player);
-            (distance_sq <= max_distance_sq).then_some((display, distance_sq))
-        })
-        .min_by(|(_, left), (_, right)| left.total_cmp(right))
-        .map(|(display, _)| display)
 }
 
 fn draw_player_presence(ctx: &UiContext<'_>) {
@@ -450,138 +431,13 @@ fn draw_player_presence(ctx: &UiContext<'_>) {
     }
 }
 
-fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
-    match toy.category {
-        ToyCategory::Plushies => draw_plush(center, color, scale),
-        ToyCategory::TinyDragons => draw_dragon(center, color, scale),
-        ToyCategory::ActionFigures => draw_robot(center, color, scale),
-        ToyCategory::BoardGames => draw_board_game(center, color, scale),
-        ToyCategory::BuildingBlocks => draw_blocks(center, color, scale),
-    }
-    draw_cube(
-        center + vec3(0.23 * scale, 0.08 * scale, -0.18 * scale),
-        vec3(0.16, 0.05, 0.10) * scale,
-        None,
-        Color::new(0.95, 0.90, 0.72, 1.0),
-    );
-}
-
-fn draw_plush(center: Vec3, color: Color, scale: f32) {
-    draw_sphere(center, 0.28 * scale, None, color);
-    draw_sphere(
-        center + vec3(-0.20, 0.22, 0.0) * scale,
-        0.13 * scale,
-        None,
-        color,
-    );
-    draw_sphere(
-        center + vec3(0.20, 0.22, 0.0) * scale,
-        0.13 * scale,
-        None,
-        color,
-    );
-    draw_sphere(
-        center + vec3(-0.08, 0.05, -0.25) * scale,
-        0.035 * scale,
-        None,
-        BLACK,
-    );
-    draw_sphere(
-        center + vec3(0.08, 0.05, -0.25) * scale,
-        0.035 * scale,
-        None,
-        BLACK,
-    );
-}
-
-fn draw_dragon(center: Vec3, color: Color, scale: f32) {
-    draw_sphere(center, 0.25 * scale, None, color);
-    draw_sphere(
-        center + vec3(0.0, 0.18, -0.30) * scale,
-        0.15 * scale,
-        None,
-        brighten(color, 0.08),
-    );
-    draw_cube(
-        center + vec3(-0.26, 0.06, 0.02) * scale,
-        vec3(0.10, 0.26, 0.38) * scale,
-        None,
-        darken(color, 0.10),
-    );
-    draw_cube(
-        center + vec3(0.26, 0.06, 0.02) * scale,
-        vec3(0.10, 0.26, 0.38) * scale,
-        None,
-        darken(color, 0.10),
-    );
-    draw_cube(
-        center + vec3(0.0, 0.38, -0.34) * scale,
-        vec3(0.10, 0.16, 0.08) * scale,
-        None,
-        Color::new(0.96, 0.88, 0.58, 1.0),
-    );
-}
-
-fn draw_robot(center: Vec3, color: Color, scale: f32) {
-    draw_cube(
-        center + vec3(0.0, 0.08, 0.0) * scale,
-        vec3(0.34, 0.36, 0.30) * scale,
-        None,
-        color,
-    );
-    draw_cube(
-        center + vec3(0.0, 0.39, -0.01) * scale,
-        vec3(0.28, 0.24, 0.26) * scale,
-        None,
-        brighten(color, 0.10),
-    );
-    draw_cube(
-        center + vec3(-0.26, 0.08, 0.0) * scale,
-        vec3(0.10, 0.30, 0.12) * scale,
-        None,
-        darken(color, 0.12),
-    );
-    draw_cube(
-        center + vec3(0.26, 0.08, 0.0) * scale,
-        vec3(0.10, 0.30, 0.12) * scale,
-        None,
-        darken(color, 0.12),
-    );
-}
-
-fn draw_board_game(center: Vec3, color: Color, scale: f32) {
-    draw_cube(center, vec3(0.52, 0.12, 0.38) * scale, None, color);
-    draw_cube(
-        center + vec3(0.0, 0.08, -0.01) * scale,
-        vec3(0.42, 0.035, 0.28) * scale,
-        None,
-        brighten(color, 0.12),
-    );
-}
-
-fn draw_blocks(center: Vec3, color: Color, scale: f32) {
-    draw_cube(
-        center + vec3(-0.13, 0.0, -0.06) * scale,
-        vec3(0.22, 0.22, 0.22) * scale,
-        None,
-        color,
-    );
-    draw_cube(
-        center + vec3(0.12, 0.0, 0.02) * scale,
-        vec3(0.22, 0.22, 0.22) * scale,
-        None,
-        brighten(color, 0.10),
-    );
-    draw_cube(
-        center + vec3(0.0, 0.22, 0.0) * scale,
-        vec3(0.22, 0.22, 0.22) * scale,
-        None,
-        darken(color, 0.08),
-    );
-}
-
 fn placed_height(display: &DisplayDef, toy: &ToyState) -> f32 {
-    placed_height_for_slot(display, toy.slot_number)
+    placed_height_for_slot(
+        display,
+        toy.placed_slot_index
+            .map(|slot_index| slot_index + 1)
+            .unwrap_or(toy.slot_number),
+    )
 }
 
 fn placed_height_for_slot(display: &DisplayDef, slot_number: usize) -> f32 {
@@ -631,40 +487,5 @@ fn accent_color(display: &DisplayDef, alpha: f32) -> Color {
         display.accent[1],
         display.accent[2],
         display.accent[3] * alpha,
-    )
-}
-
-fn toy_color(toy: &ToyState) -> Color {
-    let base = match toy.category {
-        ToyCategory::Plushies => Color::new(0.34, 0.78, 0.50, 1.0),
-        ToyCategory::TinyDragons => Color::new(0.70, 0.42, 0.94, 1.0),
-        ToyCategory::ActionFigures => Color::new(0.52, 0.74, 0.90, 1.0),
-        ToyCategory::BoardGames => Color::new(0.92, 0.62, 0.30, 1.0),
-        ToyCategory::BuildingBlocks => Color::new(0.94, 0.80, 0.26, 1.0),
-    };
-    let offset = toy.color_index as f32 * 0.025 - 0.045;
-    Color::new(
-        (base.r + offset).clamp(0.08, 0.98),
-        (base.g + offset).clamp(0.08, 0.98),
-        (base.b + offset).clamp(0.08, 0.98),
-        1.0,
-    )
-}
-
-fn brighten(color: Color, amount: f32) -> Color {
-    Color::new(
-        (color.r + amount).clamp(0.0, 1.0),
-        (color.g + amount).clamp(0.0, 1.0),
-        (color.b + amount).clamp(0.0, 1.0),
-        color.a,
-    )
-}
-
-fn darken(color: Color, amount: f32) -> Color {
-    Color::new(
-        (color.r - amount).clamp(0.0, 1.0),
-        (color.g - amount).clamp(0.0, 1.0),
-        (color.b - amount).clamp(0.0, 1.0),
-        color.a,
     )
 }

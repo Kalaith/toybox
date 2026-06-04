@@ -2,15 +2,20 @@
 
 use crate::data::GameData;
 use crate::state::{format_elapsed_time, GamePhase, GameSession, InteractionPreview};
+use crate::toys::{toy_color, toy_profile};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 
 mod scene3d;
+mod signs;
 mod space;
+mod title;
 mod widgets;
 
 use scene3d::draw_shop_scene;
-pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera, UiSpace};
+use signs::draw_stock_sign_labels;
+pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
+pub(crate) use title::{draw_settings_screen, draw_title_screen};
 use widgets::draw_fitted_text;
 
 pub const LOGICAL_WIDTH: f32 = 1280.0;
@@ -19,6 +24,11 @@ pub const LOGICAL_HEIGHT: f32 = 720.0;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiAction {
     NewGame,
+    Continue,
+    Settings,
+    BackToTitle,
+    ToggleFullscreen,
+    QuitGame,
     Save,
     Load,
     Interact,
@@ -38,6 +48,7 @@ pub fn draw_game_ui(ctx: UiContext<'_>) -> Vec<UiAction> {
 
     let actions = Vec::new();
 
+    draw_stock_sign_labels(&ctx);
     draw_minimal_hud(&ctx);
     draw_context_prompt(&ctx);
     draw_crosshair(&ctx);
@@ -164,9 +175,9 @@ fn draw_carried_panel(ctx: &UiContext<'_>) {
         return;
     };
 
-    draw_swatch(
+    draw_identity_token(
         Rect::new(rect.x + 12.0, rect.y + 13.0, 20.0, 20.0),
-        toy_color(active_toy),
+        active_toy,
     );
     draw_text_ex(
         "Holding",
@@ -195,7 +206,7 @@ fn draw_carried_panel(ctx: &UiContext<'_>) {
             continue;
         };
         let pip = Rect::new(x, rect.y + 15.0, 16.0, 16.0);
-        draw_swatch(pip, toy_color(toy));
+        draw_identity_token(pip, toy);
         if index == ctx.session.player.active_carry_index {
             draw_rectangle_lines(
                 pip.x - 3.0,
@@ -217,6 +228,8 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
         }
         InteractionPreview::Pickup { toy_name } => format!("E Pick up {toy_name}"),
         InteractionPreview::InventoryFull => "Carry full".to_owned(),
+        InteractionPreview::ShelfFull => "Shelf full".to_owned(),
+        InteractionPreview::LookAtEmptySlot => "Aim at an empty shelf spot".to_owned(),
         InteractionPreview::NothingNearby => {
             if ctx.mouse_locked {
                 String::new()
@@ -248,7 +261,9 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
     );
 }
 
-fn draw_swatch(rect: Rect, color: Color) {
+fn draw_identity_token(rect: Rect, toy: &crate::state::ToyState) {
+    let color = toy_color(toy);
+    let profile = toy_profile(toy.category, toy.slot_number);
     draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
     draw_rectangle_lines(
         rect.x,
@@ -258,15 +273,23 @@ fn draw_swatch(rect: Rect, color: Color) {
         1.0,
         Color::new(0.02, 0.02, 0.02, 0.8),
     );
+    let text_size = (rect.h * 0.54).clamp(8.0, 11.0);
+    let text_color = readable_token_text(color);
+    let measured = measure_text(profile.short_code, None, text_size as u16, 1.0);
+    draw_text_ex(
+        profile.short_code,
+        rect.x + (rect.w - measured.width) * 0.5,
+        rect.y + (rect.h + measured.height) * 0.5 - 1.0,
+        TextStyle::new(text_size, text_color).params(),
+    );
 }
 
-fn toy_color(toy: &crate::state::ToyState) -> Color {
-    match toy.category {
-        crate::data::ToyCategory::Plushies => Color::new(0.34, 0.78, 0.50, 1.0),
-        crate::data::ToyCategory::TinyDragons => Color::new(0.70, 0.42, 0.94, 1.0),
-        crate::data::ToyCategory::ActionFigures => Color::new(0.52, 0.74, 0.90, 1.0),
-        crate::data::ToyCategory::BoardGames => Color::new(0.92, 0.62, 0.30, 1.0),
-        crate::data::ToyCategory::BuildingBlocks => Color::new(0.94, 0.80, 0.26, 1.0),
+fn readable_token_text(color: Color) -> Color {
+    let luminance = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
+    if luminance > 0.54 {
+        Color::new(0.035, 0.040, 0.048, 1.0)
+    } else {
+        Color::new(0.96, 0.96, 0.92, 1.0)
     }
 }
 

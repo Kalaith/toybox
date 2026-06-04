@@ -5,6 +5,7 @@ use macroquad::prelude::*;
 mod data;
 mod game;
 mod state;
+mod toys;
 mod ui;
 
 use game::Game;
