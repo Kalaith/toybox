@@ -1,0 +1,8 @@
+[
+  {
+    "id": "tag_lantern",
+    "name": "Tag Lantern",
+    "description": "After one display is restored, the matching display glows for the carried toy and its tag shows the exact destination.",
+    "unlock_completed_displays": 1
+  }
+]

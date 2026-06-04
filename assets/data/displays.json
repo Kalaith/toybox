@@ -1,0 +1,67 @@
+[
+  {
+    "id": "plushie_wall",
+    "name": "Plushie Wall",
+    "category": "plushies",
+    "theme": "Cozy Critters",
+    "capacity": 20,
+    "x": 1.1,
+    "y": 0.7,
+    "w": 4.0,
+    "h": 1.4,
+    "accent": [0.34, 0.78, 0.50, 1.0],
+    "symbol": "PW"
+  },
+  {
+    "id": "dragon_bin",
+    "name": "Dragon Bin",
+    "category": "tiny_dragons",
+    "theme": "Moonbeam Series",
+    "capacity": 20,
+    "x": 12.9,
+    "y": 0.9,
+    "w": 3.1,
+    "h": 1.7,
+    "accent": [0.70, 0.42, 0.94, 1.0],
+    "symbol": "DB"
+  },
+  {
+    "id": "robot_pegboard",
+    "name": "Robot Pegboard",
+    "category": "action_figures",
+    "theme": "Chrome Bot Wave",
+    "capacity": 20,
+    "x": 0.9,
+    "y": 8.5,
+    "w": 4.2,
+    "h": 1.6,
+    "accent": [0.52, 0.74, 0.90, 1.0],
+    "symbol": "RB"
+  },
+  {
+    "id": "board_game_shelf",
+    "name": "Board Game Shelf",
+    "category": "board_games",
+    "theme": "Family Strategy",
+    "capacity": 20,
+    "x": 12.1,
+    "y": 8.1,
+    "w": 4.6,
+    "h": 1.8,
+    "accent": [0.92, 0.62, 0.30, 1.0],
+    "symbol": "GS"
+  },
+  {
+    "id": "blocks_table",
+    "name": "Building Blocks Table",
+    "category": "building_blocks",
+    "theme": "Starter Builder",
+    "capacity": 20,
+    "x": 7.0,
+    "y": 5.0,
+    "w": 3.4,
+    "h": 2.0,
+    "accent": [0.94, 0.80, 0.26, 1.0],
+    "symbol": "BT"
+  }
+]

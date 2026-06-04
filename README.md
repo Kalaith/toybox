@@ -1,0 +1,34 @@
+# Toybox After Hours: Closing Shift
+
+A Rust + Macroquad 3D cleanup prototype for Web Hatchery Games.
+
+You are the night-shift worker in a magical toy store after closing. Pick up
+scattered toys, read their visual clues, and return every plushie, block set,
+action figure, and board game to its matching display before opening.
+
+## Current Prototype
+
+- One small 3D toy store room
+- 5 physical display areas
+- 40 deterministic toys generated from display data
+- Five categories: plushies, tiny dragons, robots, board games, building blocks
+- Carry limit, active carried toy selection, mistakes, timer, and finish screen
+- One unlock: Tag Lantern
+- Toolkit save/load slot support
+
+## Controls
+
+- `WASD`: move relative to the first-person view
+- Mouse or arrow keys: look around, including up and down
+- Click the shop view to lock mouse look; `Tab` or `Esc` releases it
+- `E` or `Space`: pick up or place the active toy
+- `Q`: cycle carried toys
+- `G`: drop the active toy
+- `Ctrl+S` / `Ctrl+L`: save / load
+- `R`: restart
+
+## Validation
+
+```powershell
+.\publish.ps1
+```
