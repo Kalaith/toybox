@@ -121,9 +121,24 @@ fn build_sign_texture(display: &DisplayDef, accent: Color) -> Texture2D {
         Color::new(0.05, 0.045, 0.038, 1.0),
     );
 
+    flip_image_vertical(&mut image);
     let texture = Texture2D::from_image(&image);
     texture.set_filter(FilterMode::Nearest);
     texture
+}
+
+fn flip_image_vertical(image: &mut Image) {
+    let width = image.width() as u32;
+    let height = image.height() as u32;
+    for y in 0..height / 2 {
+        let opposite_y = height - 1 - y;
+        for x in 0..width {
+            let top = image.get_pixel(x, y);
+            let bottom = image.get_pixel(x, opposite_y);
+            image.set_pixel(x, y, bottom);
+            image.set_pixel(x, opposite_y, top);
+        }
+    }
 }
 
 fn fill_rect(image: &mut Image, x: u32, y: u32, w: u32, h: u32, color: Color) {
