@@ -7,6 +7,8 @@ use macroquad::prelude::*;
 
 const SLOT_LOOK_MIN_DOT: f32 = 0.42;
 const SLOT_LOOK_MAX_LATERAL: f32 = 1.15;
+const LOOSE_TOY_LOOK_RADIUS: f32 = 0.58;
+const PLAYER_EYE_HEIGHT: f32 = 1.08;
 
 impl GameSession {
     pub fn interact(&mut self, data: &GameData) -> InteractionResult {
@@ -46,7 +48,7 @@ impl GameSession {
             return InteractionResult::InventoryFull;
         }
 
-        if let Some(toy_index) = self.nearest_loose_toy_index(&data.config) {
+        if let Some(toy_index) = self.targeted_loose_toy_index(&data.config) {
             return self.pick_up_toy(toy_index);
         }
 
@@ -95,20 +97,13 @@ impl GameSession {
             return InteractionPreview::InventoryFull;
         }
 
-        if let Some(toy_index) = self.nearest_loose_toy_index(&data.config) {
+        if let Some(toy_index) = self.targeted_loose_toy_index(&data.config) {
             return InteractionPreview::Pickup {
                 toy_name: self.toys[toy_index].name.clone(),
             };
         }
 
         InteractionPreview::NothingNearby
-    }
-
-    pub fn is_display_slot_filled(&self, display_id: &str, slot_number: usize) -> bool {
-        let Some(slot_index) = slot_number.checked_sub(1) else {
-            return false;
-        };
-        self.toy_at_display_slot(display_id, slot_index).is_some()
     }
 
     pub fn placed_toys_for_display<'a>(
@@ -363,17 +358,38 @@ impl GameSession {
         })
     }
 
-    fn nearest_loose_toy_index(&self, config: &GameConfig) -> Option<usize> {
-        let player = self.player.position.to_vec2();
-        let max_distance_sq = config.interaction_radius * config.interaction_radius;
+    fn targeted_loose_toy_index(&self, config: &GameConfig) -> Option<usize> {
+        let player_2d = self.player.position.to_vec2();
+        let eye = vec3(player_2d.x, PLAYER_EYE_HEIGHT, player_2d.y);
+        let forward = self.look_forward_3d();
+        if forward.length_squared() <= f32::EPSILON {
+            return None;
+        }
 
         self.toys
             .iter()
             .enumerate()
             .filter(|(_, toy)| !toy.is_held && toy.placed_display_id.is_none())
             .filter_map(|(index, toy)| {
-                let distance_sq = toy.position.to_vec2().distance_squared(player);
-                (distance_sq <= max_distance_sq).then_some((index, distance_sq))
+                let horizontal_distance = toy.position.to_vec2().distance(player_2d);
+                if horizontal_distance > config.interaction_radius {
+                    return None;
+                }
+
+                let center = loose_toy_aim_center(index, toy);
+                let to_toy = center - eye;
+                let along_ray = to_toy.dot(forward);
+                if along_ray <= 0.10 {
+                    return None;
+                }
+
+                let lateral = (to_toy - forward * along_ray).length();
+                if lateral > LOOSE_TOY_LOOK_RADIUS {
+                    return None;
+                }
+
+                let score = lateral * 5.0 + along_ray * 0.08 + horizontal_distance * 0.05;
+                Some((index, score))
             })
             .min_by(|(_, left), (_, right)| left.total_cmp(right))
             .map(|(index, _)| index)
@@ -401,4 +417,22 @@ impl GameSession {
         let max_distance_sq = config.interaction_radius * config.interaction_radius;
         nearest_point.distance_squared(player) <= max_distance_sq
     }
+
+    fn look_forward_3d(&self) -> Vec3 {
+        vec3(
+            self.player.yaw.cos() * self.player.pitch.cos(),
+            self.player.pitch.sin(),
+            self.player.yaw.sin() * self.player.pitch.cos(),
+        )
+        .normalize_or_zero()
+    }
+}
+
+fn loose_toy_aim_center(index: usize, toy: &ToyState) -> Vec3 {
+    let layer = (index % 7) as f32;
+    vec3(
+        toy.position.x,
+        0.32 + layer * 0.020 + toy.spawn_pose.floor_lift,
+        toy.position.y,
+    )
 }

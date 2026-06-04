@@ -110,6 +110,35 @@ fn new_session_starts_with_all_toys_on_the_floor() {
 }
 
 #[test]
+fn pickup_uses_crosshair_target_instead_of_closest_toy() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let aimed_toy_id = session.toys[1].id.clone();
+
+    session.player.position = WorldPoint { x: 5.0, y: 5.0 };
+    session.player.yaw = 0.0;
+    session.player.pitch = -0.50;
+
+    for toy in &mut session.toys {
+        toy.position = WorldPoint { x: 16.8, y: 11.2 };
+        toy.is_held = false;
+        toy.placed_display_id = None;
+        toy.placed_slot_index = None;
+    }
+
+    session.toys[0].position = WorldPoint { x: 5.45, y: 5.68 };
+    session.toys[1].position = WorldPoint { x: 6.30, y: 5.00 };
+
+    let result = session.interact(&data);
+
+    assert!(matches!(result, InteractionResult::PickedUp { .. }));
+    assert_eq!(
+        session.active_toy().map(|toy| toy.id.as_str()),
+        Some(aimed_toy_id.as_str())
+    );
+}
+
+#[test]
 fn correct_placement_completes_a_display() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);

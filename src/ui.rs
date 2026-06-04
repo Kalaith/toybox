@@ -6,14 +6,16 @@ use crate::toys::{toy_color, toy_profile};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 
+mod environment;
+mod fixtures;
 mod scene3d;
 mod signs;
 mod space;
 mod title;
 mod widgets;
+mod wood;
 
 use scene3d::draw_shop_scene;
-use signs::draw_stock_sign_labels;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
 pub(crate) use title::{draw_settings_screen, draw_title_screen};
 use widgets::draw_fitted_text;
@@ -48,7 +50,6 @@ pub fn draw_game_ui(ctx: UiContext<'_>) -> Vec<UiAction> {
 
     let actions = Vec::new();
 
-    draw_stock_sign_labels(&ctx);
     draw_minimal_hud(&ctx);
     draw_context_prompt(&ctx);
     draw_crosshair(&ctx);
