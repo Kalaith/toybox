@@ -10,10 +10,10 @@ action figure, and board game to its matching display before opening.
 
 - One small 3D toy store room
 - 5 physical display areas
-- 40 deterministic toys generated from display data
+- 100 deterministic toys generated from display data
 - Five categories: plushies, tiny dragons, robots, board games, building blocks
 - Carry limit, active carried toy selection, mistakes, timer, and finish screen
-- One unlock: Tag Lantern
+- Tool credits from completed displays, with Toy Scanner and Small Trolley purchases
 - Toolkit save/load slot support
 
 ## Controls
@@ -24,6 +24,7 @@ action figure, and board game to its matching display before opening.
 - `E` or `Space`: pick up or place the active toy
 - `Q`: cycle carried toys
 - `G`: drop the active toy
+- `T`: open or close the shop tools screen
 - `Ctrl+S` / `Ctrl+L`: save / load
 - `R`: restart
 

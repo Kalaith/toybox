@@ -1,7 +1,9 @@
 //! High-level game loop, state transitions, and toolkit integration.
 
 use crate::data::GameData;
-use crate::state::{migrate_save_value, GameSession, InteractionResult, SaveData};
+use crate::state::{
+    migrate_save_value, GameSession, InteractionResult, SaveData, ToolPurchaseResult,
+};
 use crate::ui::{self, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
 use macroquad::prelude::*;
@@ -32,6 +34,7 @@ pub struct Game {
 enum GameScreen {
     Title,
     Settings,
+    ToolShop,
     Playing,
 }
 
@@ -75,6 +78,10 @@ impl Game {
         if self.screen != GameScreen::Playing {
             if self.screen == GameScreen::Settings && is_key_pressed(KeyCode::Escape) {
                 self.screen = GameScreen::Title;
+            } else if self.screen == GameScreen::ToolShop
+                && (is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::T))
+            {
+                self.events.push(UiAction::CloseToolShop);
             }
             self.apply_queued_actions();
             return;
@@ -116,6 +123,9 @@ impl Game {
         if is_key_pressed(KeyCode::G) {
             self.events.push(UiAction::DropActive);
         }
+        if is_key_pressed(KeyCode::T) {
+            self.events.push(UiAction::OpenToolShop);
+        }
         if is_key_pressed(KeyCode::S) && is_control_down() {
             self.events.push(UiAction::Save);
         }
@@ -136,6 +146,14 @@ impl Game {
             }
             GameScreen::Settings => {
                 ui::draw_settings_screen(self.title_texture.as_ref(), self.fullscreen_enabled)
+            }
+            GameScreen::ToolShop => {
+                let ctx = UiContext {
+                    data: &self.data,
+                    session: &self.session,
+                    mouse_locked: self.mouse_locked,
+                };
+                ui::draw_tool_shop_screen(ctx)
             }
             GameScreen::Playing => {
                 let ctx = UiContext {
@@ -188,6 +206,13 @@ impl Game {
                 self.has_save_file =
                     slot_exists(&self.data.config.game_name, &self.data.config.save_slot);
             }
+            UiAction::OpenToolShop => {
+                self.set_mouse_locked(false);
+                self.screen = GameScreen::ToolShop;
+            }
+            UiAction::CloseToolShop => {
+                self.screen = GameScreen::Playing;
+            }
             UiAction::ToggleFullscreen => {
                 self.fullscreen_enabled = !self.fullscreen_enabled;
                 set_fullscreen(self.fullscreen_enabled);
@@ -207,6 +232,7 @@ impl Game {
                     self.notifications.info(format!("Dropped {}", toy_name));
                 }
             }
+            UiAction::BuyTool(tool_id) => self.handle_tool_purchase(&tool_id),
         }
     }
 
@@ -219,7 +245,7 @@ impl Game {
                 toy_name,
                 display_name,
                 completed_display,
-                unlocked_upgrades,
+                available_tools,
                 finished,
             } => {
                 self.notifications
@@ -227,9 +253,9 @@ impl Game {
                 if let Some(name) = completed_display {
                     self.notifications.success(format!("Completed {}", name));
                 }
-                for upgrade_name in unlocked_upgrades {
+                for tool_name in available_tools {
                     self.notifications
-                        .success(format!("Unlocked {}", upgrade_name));
+                        .info(format!("Tool available: {} (press T)", tool_name));
                 }
                 if finished {
                     self.notifications.success("Store restored before opening");
@@ -242,6 +268,40 @@ impl Game {
             }
             InteractionResult::NothingNearby => {
                 self.notifications.info("Move closer to a toy or display");
+            }
+        }
+    }
+
+    fn handle_tool_purchase(&mut self, tool_id: &str) {
+        match self.session.purchase_tool(&self.data, tool_id) {
+            ToolPurchaseResult::Purchased {
+                tool_name,
+                remaining_credits,
+            } => self.notifications.success(format!(
+                "Purchased {}. Tool credits left: {}",
+                tool_name, remaining_credits
+            )),
+            ToolPurchaseResult::NeedMoreCredits {
+                tool_name,
+                cost,
+                available_credits,
+            } => self.notifications.warning(format!(
+                "{} needs {} tool credit(s). You have {}",
+                tool_name, cost, available_credits
+            )),
+            ToolPurchaseResult::AlreadyOwned { tool_name } => self
+                .notifications
+                .info(format!("{} already owned", tool_name)),
+            ToolPurchaseResult::Locked {
+                tool_name,
+                required_displays,
+                completed_displays,
+            } => self.notifications.warning(format!(
+                "{} unlocks at {}/{} restored displays",
+                tool_name, completed_displays, required_displays
+            )),
+            ToolPurchaseResult::NoToolsAvailable => {
+                self.notifications.info("No tools available to buy")
             }
         }
     }

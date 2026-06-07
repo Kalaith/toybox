@@ -228,6 +228,7 @@ impl GameSession {
             None => return InteractionResult::NothingNearby,
         };
         let toy_name = self.toys[toy_index].name.clone();
+        let previous_completed_count = self.completed_display_count();
 
         let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
         if is_wrong_display {
@@ -255,7 +256,7 @@ impl GameSession {
         } else {
             None
         };
-        let unlocked_upgrades = self.unlock_available_upgrades(data);
+        let available_tools = self.newly_available_upgrades(data, previous_completed_count);
         let finished = self
             .displays
             .iter()
@@ -268,7 +269,7 @@ impl GameSession {
             toy_name,
             display_name: display.name.clone(),
             completed_display,
-            unlocked_upgrades,
+            available_tools,
             finished,
         }
     }

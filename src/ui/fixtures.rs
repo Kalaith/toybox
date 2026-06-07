@@ -1,4 +1,5 @@
 use crate::data::DisplayDef;
+use crate::state::toy_matches_display;
 use crate::ui::signs::draw_stock_sign;
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube};
 use crate::ui::UiContext;
@@ -21,6 +22,14 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
 
         if is_complete {
             draw_completion_lights(display, accent);
+        }
+
+        if ctx
+            .session
+            .active_toy()
+            .is_some_and(|toy| ctx.session.scanner_enabled() && toy_matches_display(toy, display))
+        {
+            draw_scanner_guidance(display);
         }
     }
 }
@@ -179,6 +188,27 @@ fn draw_completion_lights(display: &DisplayDef, accent: Color) {
         );
         draw_sphere(center + offset, 0.07, None, accent);
     }
+}
+
+fn draw_scanner_guidance(display: &DisplayDef) {
+    let color = Color::new(0.42, 0.95, 0.96, 0.92);
+    let center = display_center(display, 0.88);
+    draw_cube_wires(
+        center,
+        vec3(display.w + 0.34, 1.36, display.h + 0.34),
+        color,
+    );
+    draw_sphere(center + vec3(0.0, 0.82, 0.0), 0.12, None, color);
+    draw_line_3d(
+        center + vec3(-display.w * 0.44, 1.58, -display.h * 0.44),
+        center + vec3(display.w * 0.44, 1.58, display.h * 0.44),
+        color,
+    );
+    draw_line_3d(
+        center + vec3(-display.w * 0.44, 1.58, display.h * 0.44),
+        center + vec3(display.w * 0.44, 1.58, -display.h * 0.44),
+        color,
+    );
 }
 
 fn display_center(display: &DisplayDef, height: f32) -> Vec3 {

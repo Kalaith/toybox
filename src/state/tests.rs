@@ -170,6 +170,46 @@ fn correct_placement_completes_a_display() {
 }
 
 #[test]
+fn tool_purchases_use_completed_display_credits() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    assert_eq!(session.carry_limit(&data.config), 3);
+    assert!(!session.scanner_enabled());
+    assert!(matches!(
+        session.purchase_tool(&data, "toy_scanner"),
+        ToolPurchaseResult::Locked { .. }
+    ));
+
+    complete_display_by_index(&mut session, &data, 0);
+    assert_eq!(session.available_tool_credits(&data), 1);
+
+    let result = session.purchase_tool(&data, "toy_scanner");
+    assert!(matches!(
+        result,
+        ToolPurchaseResult::Purchased {
+            ref tool_name,
+            remaining_credits: 0,
+        } if tool_name == "Toy Scanner"
+    ));
+    assert!(session.scanner_enabled());
+    assert_eq!(session.carry_limit(&data.config), 3);
+
+    complete_display_by_index(&mut session, &data, 1);
+    assert_eq!(session.available_tool_credits(&data), 1);
+
+    let result = session.purchase_tool(&data, "small_trolley");
+    assert!(matches!(
+        result,
+        ToolPurchaseResult::Purchased {
+            ref tool_name,
+            remaining_credits: 0,
+        } if tool_name == "Small Trolley"
+    ));
+    assert_eq!(session.carry_limit(&data.config), 5);
+}
+
+#[test]
 fn placement_uses_target_slot() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
@@ -386,4 +426,25 @@ fn look_yaw_is_not_clamped_to_one_turn() {
     session.update_player_look(std::f32::consts::TAU * 2.25, 0.0);
 
     assert!(session.player.yaw > std::f32::consts::TAU * 2.0);
+}
+
+fn complete_display_by_index(session: &mut GameSession, data: &GameData, display_index: usize) {
+    let display = &data.displays[display_index];
+    let mut matching_toy_ids: Vec<(usize, String)> = session
+        .toys
+        .iter()
+        .filter(|toy| toy_matches_display(toy, display))
+        .map(|toy| (toy.slot_number, toy.id.clone()))
+        .collect();
+    matching_toy_ids.sort_by_key(|(slot_number, _)| *slot_number);
+
+    for (slot_index, (_, toy_id)) in matching_toy_ids.into_iter().enumerate() {
+        let toy_index = session
+            .toys
+            .iter()
+            .position(|toy| toy.id == toy_id)
+            .unwrap();
+        session.pick_up_toy(toy_index);
+        let _ = session.place_active_toy(display_index, slot_index, data);
+    }
 }

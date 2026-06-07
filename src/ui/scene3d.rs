@@ -1,7 +1,7 @@
 //! Macroquad 3D renderer for the tiny toy shop.
 
 use crate::data::DisplayDef;
-use crate::state::{display_slot_position, ToyState, WorldPoint};
+use crate::state::{display_slot_position, toy_matches_display, ToyState, WorldPoint};
 use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
 use crate::ui::fixtures::{draw_displays, placed_height_for_slot};
@@ -75,7 +75,7 @@ fn draw_wrong_placement_marker(center: Vec3) {
 }
 
 fn draw_placement_preview(ctx: &UiContext<'_>) {
-    let Some(_toy) = ctx.session.active_toy() else {
+    let Some(toy) = ctx.session.active_toy() else {
         return;
     };
     let Some(target) = ctx.session.targeted_empty_display_slot(ctx.data) else {
@@ -83,7 +83,11 @@ fn draw_placement_preview(ctx: &UiContext<'_>) {
     };
     let display = &ctx.data.displays[target.display_index];
 
-    let accent = Color::new(0.98, 0.80, 0.30, 1.0);
+    let accent = if toy_matches_display(toy, display) {
+        Color::new(0.34, 0.95, 0.60, 1.0)
+    } else {
+        Color::new(0.98, 0.24, 0.20, 1.0)
+    };
     let slot = display_slot_position(display, target.slot_index, ctx.data.config.room_width);
     let height = placed_height_for_slot(display, target.slot_index + 1) - 0.24;
     draw_target_brackets(world_point(slot, height), accent);

@@ -1,7 +1,9 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
-use crate::data::GameData;
-use crate::state::{format_elapsed_time, GamePhase, GameSession, InteractionPreview};
+use crate::data::{GameData, UpgradeDef};
+use crate::state::{
+    format_elapsed_time, toy_matches_display, GamePhase, GameSession, InteractionPreview,
+};
 use crate::toys::{toy_color, toy_profile};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -29,6 +31,8 @@ pub enum UiAction {
     Continue,
     Settings,
     BackToTitle,
+    OpenToolShop,
+    CloseToolShop,
     ToggleFullscreen,
     QuitGame,
     Save,
@@ -36,6 +40,7 @@ pub enum UiAction {
     Interact,
     CycleCarry,
     DropActive,
+    BuyTool(String),
 }
 
 pub struct UiContext<'a> {
@@ -51,11 +56,72 @@ pub fn draw_game_ui(ctx: UiContext<'_>) -> Vec<UiAction> {
     let actions = Vec::new();
 
     draw_minimal_hud(&ctx);
+    draw_tool_panel(&ctx);
     draw_context_prompt(&ctx);
     draw_crosshair(&ctx);
 
     if ctx.session.phase == GamePhase::Finished {
         draw_finish_overlay(&ctx);
+    }
+
+    actions
+}
+
+pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
+    draw_shop_scene(&ctx);
+    set_ui_camera();
+
+    draw_rectangle(
+        0.0,
+        0.0,
+        LOGICAL_WIDTH,
+        LOGICAL_HEIGHT,
+        Color::new(0.02, 0.025, 0.03, 0.58),
+    );
+
+    let mut actions = Vec::new();
+    let mouse = logical_mouse_position();
+    let panel = Rect::new(338.0, 132.0, 604.0, 450.0);
+    draw_surface(
+        panel,
+        &SurfaceStyle::new(Color::new(0.060, 0.068, 0.078, 0.98))
+            .with_border(1.0, Color::new(0.55, 0.64, 0.72, 0.70))
+            .with_inner_border(3.0, 1.0, Color::new(0.94, 0.76, 0.42, 0.20)),
+    );
+
+    draw_text_ex(
+        "Shop Tools",
+        panel.x + 24.0,
+        panel.y + 42.0,
+        TextStyle::new(26.0, dark::TEXT_BRIGHT).params(),
+    );
+    draw_text_ex(
+        &format!(
+            "Tool Credits: {}",
+            ctx.session.available_tool_credits(ctx.data)
+        ),
+        panel.x + 24.0,
+        panel.y + 72.0,
+        TextStyle::new(17.0, Color::new(0.78, 0.92, 0.90, 1.0)).params(),
+    );
+
+    if tool_shop_button(
+        Rect::new(panel.right() - 104.0, panel.y + 22.0, 78.0, 32.0),
+        "Back",
+        true,
+        mouse,
+    ) {
+        actions.push(UiAction::CloseToolShop);
+    }
+
+    for (index, upgrade) in ctx.data.upgrades.iter().enumerate() {
+        let row = Rect::new(
+            panel.x + 24.0,
+            panel.y + 104.0 + index as f32 * 104.0,
+            panel.w - 48.0,
+            86.0,
+        );
+        draw_tool_row(row, upgrade, &ctx, mouse, &mut actions);
     }
 
     actions
@@ -151,6 +217,183 @@ fn draw_minimal_hud(ctx: &UiContext<'_>) {
     draw_carried_panel(ctx);
 }
 
+fn draw_tool_panel(ctx: &UiContext<'_>) {
+    let mut lines = Vec::new();
+    let credits = ctx.session.available_tool_credits(ctx.data);
+
+    if let Some(upgrade) = ctx.session.next_available_upgrade(ctx.data) {
+        if credits >= upgrade.cost {
+            lines.push(format!("Tool credit {credits}   T Buy {}", upgrade.name));
+        } else {
+            lines.push(format!(
+                "{} needs {} credit(s). You have {}",
+                upgrade.name, upgrade.cost, credits
+            ));
+        }
+    }
+
+    if ctx.session.scanner_enabled() {
+        if let Some(active_toy) = ctx.session.active_toy() {
+            if let Some(display) = ctx
+                .data
+                .displays
+                .iter()
+                .find(|display| toy_matches_display(active_toy, display))
+            {
+                lines.push(format!("Scanner: {} - {}", display.name, display.theme));
+            }
+        }
+    }
+
+    if lines.is_empty() {
+        return;
+    }
+
+    let height = 30.0 + (lines.len().saturating_sub(1) as f32 * 22.0);
+    let rect = Rect::new(18.0, 72.0, 374.0, height);
+    draw_surface(
+        rect,
+        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.76))
+            .with_border(1.0, Color::new(0.42, 0.62, 0.72, 0.42)),
+    );
+
+    for (index, line) in lines.iter().enumerate() {
+        draw_fitted_text(
+            line,
+            rect.x + 12.0,
+            rect.y + 21.0 + index as f32 * 22.0,
+            rect.w - 24.0,
+            15.0,
+            if line.starts_with("Scanner:") {
+                Color::new(0.56, 0.92, 0.92, 1.0)
+            } else {
+                dark::TEXT
+            },
+        );
+    }
+}
+
+fn draw_tool_row(
+    rect: Rect,
+    upgrade: &UpgradeDef,
+    ctx: &UiContext<'_>,
+    mouse: Vec2,
+    actions: &mut Vec<UiAction>,
+) {
+    draw_surface(
+        rect,
+        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.82))
+            .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.34)),
+    );
+
+    draw_text_ex(
+        &upgrade.name,
+        rect.x + 16.0,
+        rect.y + 26.0,
+        TextStyle::new(19.0, dark::TEXT_BRIGHT).params(),
+    );
+    draw_fitted_text(
+        &upgrade.description,
+        rect.x + 16.0,
+        rect.y + 54.0,
+        rect.w - 156.0,
+        14.0,
+        dark::TEXT,
+    );
+
+    let (status, status_color, can_buy) = tool_status(upgrade, ctx);
+    draw_fitted_text(
+        &status,
+        rect.x + 16.0,
+        rect.y + 76.0,
+        rect.w - 156.0,
+        13.0,
+        status_color,
+    );
+
+    let button = Rect::new(rect.right() - 104.0, rect.y + 28.0, 82.0, 32.0);
+    if tool_shop_button(button, "Buy", can_buy, mouse) {
+        actions.push(UiAction::BuyTool(upgrade.id.clone()));
+    }
+}
+
+fn tool_status(upgrade: &UpgradeDef, ctx: &UiContext<'_>) -> (String, Color, bool) {
+    if ctx.session.has_upgrade(&upgrade.id) {
+        return ("Owned".to_owned(), Color::new(0.60, 0.92, 0.66, 1.0), false);
+    }
+
+    let completed = ctx.session.completed_display_count();
+    if completed < upgrade.unlock_completed_displays {
+        return (
+            format!(
+                "Locked: {}/{} displays restored",
+                completed, upgrade.unlock_completed_displays
+            ),
+            dark::TEXT_DIM,
+            false,
+        );
+    }
+
+    let credits = ctx.session.available_tool_credits(ctx.data);
+    if credits < upgrade.cost {
+        return (
+            format!("Need {} credit(s). You have {}", upgrade.cost, credits),
+            Color::new(0.95, 0.72, 0.36, 1.0),
+            false,
+        );
+    }
+
+    (
+        format!("Available: {} credit(s)", upgrade.cost),
+        Color::new(0.56, 0.92, 0.92, 1.0),
+        true,
+    )
+}
+
+fn tool_shop_button(rect: Rect, label: &str, enabled: bool, mouse: Vec2) -> bool {
+    let hovered = enabled && rect.contains_point(mouse);
+    let pressed = hovered && is_mouse_button_down(MouseButton::Left);
+    let activated = hovered && is_mouse_button_released(MouseButton::Left);
+    let face = if !enabled {
+        Color::new(0.075, 0.080, 0.088, 0.84)
+    } else if pressed {
+        Color::new(0.075, 0.130, 0.150, 0.96)
+    } else if hovered {
+        Color::new(0.120, 0.190, 0.215, 0.98)
+    } else {
+        Color::new(0.090, 0.130, 0.150, 0.94)
+    };
+    draw_surface(
+        rect,
+        &SurfaceStyle::new(face).with_border(
+            1.0,
+            if enabled {
+                Color::new(0.58, 0.78, 0.82, 0.72)
+            } else {
+                Color::new(0.26, 0.30, 0.34, 0.62)
+            },
+        ),
+    );
+    draw_text_centered_in_box(
+        label,
+        rect.x + 8.0,
+        rect.y,
+        rect.w - 16.0,
+        rect.h,
+        14.0,
+        if enabled { dark::TEXT } else { dark::TEXT_DIM },
+    );
+    activated
+}
+
+fn logical_mouse_position() -> Vec2 {
+    let (screen_x, screen_y) = mouse_position();
+    vec2(
+        screen_x * LOGICAL_WIDTH / screen_width().max(1.0),
+        screen_y * LOGICAL_HEIGHT / screen_height().max(1.0),
+    )
+}
+
 fn draw_carried_panel(ctx: &UiContext<'_>) {
     let rect = carried_panel_rect();
     draw_surface(
@@ -224,9 +467,8 @@ fn draw_carried_panel(ctx: &UiContext<'_>) {
 
 fn draw_context_prompt(ctx: &UiContext<'_>) {
     let text = match ctx.session.interaction_preview(ctx.data) {
-        InteractionPreview::PlaceMatch | InteractionPreview::PlaceMismatch => {
-            "E Place held toy".to_owned()
-        }
+        InteractionPreview::PlaceMatch => "E Place held toy".to_owned(),
+        InteractionPreview::PlaceMismatch => "Wrong display".to_owned(),
         InteractionPreview::Pickup { toy_name } => format!("E Pick up {toy_name}"),
         InteractionPreview::InventoryFull => "Carry full".to_owned(),
         InteractionPreview::ShelfFull => "Shelf full".to_owned(),

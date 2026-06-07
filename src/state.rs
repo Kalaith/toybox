@@ -100,7 +100,7 @@ pub enum InteractionResult {
         toy_name: String,
         display_name: String,
         completed_display: Option<String>,
-        unlocked_upgrades: Vec<String>,
+        available_tools: Vec<String>,
         finished: bool,
     },
     InventoryFull,
@@ -121,11 +121,38 @@ pub enum InteractionPreview {
     Finished,
 }
 
+#[derive(Debug, Clone)]
+pub enum ToolPurchaseResult {
+    Purchased {
+        tool_name: String,
+        remaining_credits: usize,
+    },
+    AlreadyOwned {
+        tool_name: String,
+    },
+    Locked {
+        tool_name: String,
+        required_displays: usize,
+        completed_displays: usize,
+    },
+    NeedMoreCredits {
+        tool_name: String,
+        cost: usize,
+        available_credits: usize,
+    },
+    NoToolsAvailable,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DisplaySlotTarget {
     pub display_index: usize,
     pub slot_index: usize,
 }
+
+const TOY_SCANNER_ID: &str = "toy_scanner";
+const LEGACY_TAG_LANTERN_ID: &str = "tag_lantern";
+const SMALL_TROLLEY_ID: &str = "small_trolley";
+const SMALL_TROLLEY_CARRY_LIMIT: usize = 5;
 
 impl GameSession {
     pub const MAX_LOOK_PITCH: f32 = 1.18;
@@ -228,13 +255,82 @@ impl GameSession {
     }
 
     pub fn carry_limit(&self, config: &GameConfig) -> usize {
-        config.starting_carry_limit
+        if self.has_upgrade(SMALL_TROLLEY_ID) {
+            config.starting_carry_limit.max(SMALL_TROLLEY_CARRY_LIMIT)
+        } else {
+            config.starting_carry_limit
+        }
     }
 
     pub fn has_upgrade(&self, upgrade_id: &str) -> bool {
-        self.unlocked_upgrade_ids
+        let has_exact_match = self
+            .unlocked_upgrade_ids
             .iter()
-            .any(|existing_id| existing_id == upgrade_id)
+            .any(|existing_id| existing_id == upgrade_id);
+        has_exact_match
+            || upgrade_id == TOY_SCANNER_ID
+                && self
+                    .unlocked_upgrade_ids
+                    .iter()
+                    .any(|existing_id| existing_id == LEGACY_TAG_LANTERN_ID)
+    }
+
+    pub fn scanner_enabled(&self) -> bool {
+        self.has_upgrade(TOY_SCANNER_ID)
+    }
+
+    pub fn available_tool_credits(&self, data: &GameData) -> usize {
+        self.completed_display_count()
+            .saturating_sub(self.spent_tool_credits(data))
+    }
+
+    pub fn next_available_upgrade<'a>(
+        &self,
+        data: &'a GameData,
+    ) -> Option<&'a crate::data::UpgradeDef> {
+        let completed_count = self.completed_display_count();
+        data.upgrades.iter().find(|upgrade| {
+            completed_count >= upgrade.unlock_completed_displays && !self.has_upgrade(&upgrade.id)
+        })
+    }
+
+    pub fn purchase_tool(&mut self, data: &GameData, upgrade_id: &str) -> ToolPurchaseResult {
+        let Some(upgrade) = data
+            .upgrades
+            .iter()
+            .find(|upgrade| upgrade.id == upgrade_id)
+        else {
+            return ToolPurchaseResult::NoToolsAvailable;
+        };
+        if self.has_upgrade(&upgrade.id) {
+            return ToolPurchaseResult::AlreadyOwned {
+                tool_name: upgrade.name.clone(),
+            };
+        }
+
+        let completed_displays = self.completed_display_count();
+        if completed_displays < upgrade.unlock_completed_displays {
+            return ToolPurchaseResult::Locked {
+                tool_name: upgrade.name.clone(),
+                required_displays: upgrade.unlock_completed_displays,
+                completed_displays,
+            };
+        }
+
+        let available_credits = self.available_tool_credits(data);
+        if available_credits < upgrade.cost {
+            return ToolPurchaseResult::NeedMoreCredits {
+                tool_name: upgrade.name.clone(),
+                cost: upgrade.cost,
+                available_credits,
+            };
+        }
+
+        self.unlocked_upgrade_ids.push(upgrade.id.clone());
+        ToolPurchaseResult::Purchased {
+            tool_name: upgrade.name.clone(),
+            remaining_credits: self.available_tool_credits(data),
+        }
     }
 
     pub fn active_toy(&self) -> Option<&ToyState> {
@@ -318,7 +414,6 @@ impl GameSession {
         self.normalize_active_carry();
         self.repair_player_view();
         self.refresh_display_completion(data);
-        self.unlock_available_upgrades(data);
     }
 
     fn refresh_display_completion(&mut self, data: &GameData) {
@@ -347,20 +442,42 @@ impl GameSession {
         }
     }
 
-    fn unlock_available_upgrades(&mut self, data: &GameData) -> Vec<String> {
+    fn newly_available_upgrades(
+        &self,
+        data: &GameData,
+        previous_completed_count: usize,
+    ) -> Vec<String> {
         let completed_count = self.completed_display_count();
-        let mut newly_unlocked = Vec::new();
+        data.upgrades
+            .iter()
+            .filter(|upgrade| {
+                previous_completed_count < upgrade.unlock_completed_displays
+                    && completed_count >= upgrade.unlock_completed_displays
+                    && !self.has_upgrade(&upgrade.id)
+            })
+            .map(|upgrade| upgrade.name.clone())
+            .collect()
+    }
 
-        for upgrade in &data.upgrades {
-            let should_unlock = completed_count >= upgrade.unlock_completed_displays;
-            let already_unlocked = self.has_upgrade(&upgrade.id);
-            if should_unlock && !already_unlocked {
-                self.unlocked_upgrade_ids.push(upgrade.id.clone());
-                newly_unlocked.push(upgrade.name.clone());
-            }
-        }
-
-        newly_unlocked
+    fn spent_tool_credits(&self, data: &GameData) -> usize {
+        self.unlocked_upgrade_ids
+            .iter()
+            .filter_map(|upgrade_id| {
+                data.upgrades
+                    .iter()
+                    .find(|upgrade| &upgrade.id == upgrade_id)
+                    .or_else(|| {
+                        if upgrade_id == LEGACY_TAG_LANTERN_ID {
+                            data.upgrades
+                                .iter()
+                                .find(|upgrade| upgrade.id == TOY_SCANNER_ID)
+                        } else {
+                            None
+                        }
+                    })
+            })
+            .map(|upgrade| upgrade.cost)
+            .sum()
     }
 
     fn normalize_active_carry(&mut self) {

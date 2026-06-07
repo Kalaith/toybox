@@ -1,8 +1,16 @@
 [
   {
-    "id": "tag_lantern",
-    "name": "Tag Lantern",
-    "description": "After one display is restored, the matching display glows for the carried toy and its tag shows the exact destination.",
-    "unlock_completed_displays": 1
+    "id": "toy_scanner",
+    "name": "Toy Scanner",
+    "description": "Shows the correct display for the held toy and highlights that display in the shop.",
+    "unlock_completed_displays": 1,
+    "cost": 1
+  },
+  {
+    "id": "small_trolley",
+    "name": "Small Trolley",
+    "description": "Raises the carry limit from 3 toys to 5 toys.",
+    "unlock_completed_displays": 2,
+    "cost": 1
   }
 ]
