@@ -1,5 +1,5 @@
 use crate::data::DisplayDef;
-use crate::state::toy_matches_display;
+use crate::state::{repair_bench_position, toy_matches_display};
 use crate::ui::signs::draw_stock_sign;
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube};
 use crate::ui::UiContext;
@@ -31,6 +31,59 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
         {
             draw_scanner_guidance(display);
         }
+    }
+}
+
+pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
+    let position = repair_bench_position();
+    let center = vec3(position.x, 0.54, position.y);
+    draw_wood_cube(center, vec3(2.2, 0.24, 1.1), 70);
+    draw_cube(
+        center + vec3(0.0, 0.15, 0.0),
+        vec3(1.90, 0.045, 0.82),
+        None,
+        Color::new(0.18, 0.23, 0.25, 1.0),
+    );
+    for x in [-0.42, 0.42] {
+        for z in [-0.34, 0.34] {
+            draw_wood_cube(
+                center + vec3(2.2 * x, -0.42, 1.1 * z),
+                vec3(0.18, 0.82, 0.18),
+                71,
+            );
+        }
+    }
+
+    draw_cube(
+        center + vec3(-0.46, 0.32, -0.18),
+        vec3(0.42, 0.12, 0.18),
+        None,
+        Color::new(0.72, 0.20, 0.18, 1.0),
+    );
+    draw_cube(
+        center + vec3(0.18, 0.32, 0.12),
+        vec3(0.58, 0.10, 0.16),
+        None,
+        Color::new(0.34, 0.54, 0.72, 1.0),
+    );
+    draw_sphere(
+        center + vec3(0.64, 0.35, -0.18),
+        0.09,
+        None,
+        Color::new(0.90, 0.78, 0.32, 1.0),
+    );
+
+    if ctx
+        .session
+        .active_toy()
+        .is_some_and(|toy| toy.is_repair_part())
+    {
+        let color = if ctx.session.is_near_repair_bench() {
+            Color::new(0.34, 0.95, 0.60, 0.94)
+        } else {
+            Color::new(0.42, 0.95, 0.96, 0.72)
+        };
+        draw_cube_wires(center + vec3(0.0, 0.25, 0.0), vec3(2.44, 1.05, 1.34), color);
     }
 }
 

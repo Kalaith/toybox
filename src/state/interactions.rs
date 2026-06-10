@@ -16,7 +16,18 @@ impl GameSession {
             return InteractionResult::NothingNearby;
         }
 
-        if self.active_toy().is_some() {
+        if let Some(active_toy) = self.active_toy() {
+            if active_toy.is_repair_part() {
+                if self.is_near_repair_bench() {
+                    return self.repair_active_toy();
+                }
+                if self.targeted_display_slot(data).is_some() || self.is_near_display(data) {
+                    return InteractionResult::NeedsRepair {
+                        toy_name: active_toy.name.clone(),
+                    };
+                }
+                return InteractionResult::NothingNearby;
+            }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 return self.place_active_toy(target.display_index, target.slot_index, data);
             }
@@ -61,6 +72,22 @@ impl GameSession {
         }
 
         if let Some(active_toy) = self.active_toy() {
+            if active_toy.is_repair_part() {
+                if self.is_near_repair_bench() {
+                    if self.carried_repair_part_count_for_active() >= 2 {
+                        return InteractionPreview::RepairReady {
+                            toy_name: active_toy.name.clone(),
+                        };
+                    }
+                    return InteractionPreview::RepairNeedsParts {
+                        toy_name: active_toy.name.clone(),
+                    };
+                }
+                if self.targeted_display_slot(data).is_some() || self.is_near_display(data) {
+                    return InteractionPreview::NeedsRepair;
+                }
+                return InteractionPreview::NothingNearby;
+            }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 let display = &data.displays[target.display_index];
                 if toy_matches_display(active_toy, display) {
@@ -228,6 +255,9 @@ impl GameSession {
             None => return InteractionResult::NothingNearby,
         };
         let toy_name = self.toys[toy_index].name.clone();
+        if self.toys[toy_index].is_repair_part() {
+            return InteractionResult::NeedsRepair { toy_name };
+        }
         let previous_completed_count = self.completed_display_count();
 
         let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
@@ -370,7 +400,9 @@ impl GameSession {
         self.toys
             .iter()
             .enumerate()
-            .filter(|(_, toy)| !toy.is_held && toy.placed_display_id.is_none())
+            .filter(|(_, toy)| {
+                !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part()
+            })
             .filter_map(|(index, toy)| {
                 let horizontal_distance = toy.position.to_vec2().distance(player_2d);
                 if horizontal_distance > config.interaction_radius {

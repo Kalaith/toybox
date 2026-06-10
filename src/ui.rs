@@ -223,7 +223,10 @@ fn draw_tool_panel(ctx: &UiContext<'_>) {
 
     if let Some(upgrade) = ctx.session.next_available_upgrade(ctx.data) {
         if credits >= upgrade.cost {
-            lines.push(format!("Tool credit {credits}   T Buy {}", upgrade.name));
+            lines.push(format!(
+                "Tool credit {credits}   T Open tools: {}",
+                upgrade.name
+            ));
         } else {
             lines.push(format!(
                 "{} needs {} credit(s). You have {}",
@@ -234,7 +237,9 @@ fn draw_tool_panel(ctx: &UiContext<'_>) {
 
     if ctx.session.scanner_enabled() {
         if let Some(active_toy) = ctx.session.active_toy() {
-            if let Some(display) = ctx
+            if active_toy.is_repair_part() {
+                lines.push("Scanner: Repair Bench".to_owned());
+            } else if let Some(display) = ctx
                 .data
                 .displays
                 .iter()
@@ -469,6 +474,11 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
     let text = match ctx.session.interaction_preview(ctx.data) {
         InteractionPreview::PlaceMatch => "E Place held toy".to_owned(),
         InteractionPreview::PlaceMismatch => "Wrong display".to_owned(),
+        InteractionPreview::RepairReady { toy_name } => format!("E Repair {toy_name}"),
+        InteractionPreview::RepairNeedsParts { toy_name } => {
+            format!("Find matching part for {toy_name}")
+        }
+        InteractionPreview::NeedsRepair => "Repair at the bench first".to_owned(),
         InteractionPreview::Pickup { toy_name } => format!("E Pick up {toy_name}"),
         InteractionPreview::InventoryFull => "Carry full".to_owned(),
         InteractionPreview::ShelfFull => "Shelf full".to_owned(),

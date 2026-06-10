@@ -4,7 +4,7 @@ use crate::data::DisplayDef;
 use crate::state::{display_slot_position, toy_matches_display, ToyState, WorldPoint};
 use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
-use crate::ui::fixtures::{draw_displays, placed_height_for_slot};
+use crate::ui::fixtures::{draw_displays, draw_repair_bench, placed_height_for_slot};
 use crate::ui::UiContext;
 use macroquad::prelude::*;
 
@@ -24,6 +24,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) {
     set_camera(&camera);
     draw_shop_environment(&ctx.data.config);
     draw_displays(ctx);
+    draw_repair_bench(ctx);
     draw_loose_toys(ctx);
     draw_placed_toys(ctx);
     draw_placement_preview(ctx);
@@ -32,7 +33,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) {
 
 fn draw_loose_toys(ctx: &UiContext<'_>) {
     for (index, toy) in ctx.session.toys.iter().enumerate() {
-        if !toy.is_held && toy.placed_display_id.is_none() {
+        if !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part() {
             let layer = (index % 7) as f32;
             let height = 0.20 + layer * 0.020 + toy.spawn_pose.floor_lift;
             let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;

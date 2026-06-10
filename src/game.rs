@@ -7,6 +7,7 @@ use crate::state::{
 use crate::ui::{self, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
 use macroquad::prelude::*;
+use macroquad_toolkit::assets::{load_texture_from_pack_or_file, AssetPack};
 use macroquad_toolkit::events::EventBus;
 use macroquad_toolkit::notifications::{
     NotificationAnchor, NotificationManager, NotificationRenderConfig,
@@ -17,6 +18,7 @@ use macroquad_toolkit::persistence::{
 use macroquad_toolkit::prelude::dark;
 
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
+const ASSET_PACK_PATH: &str = "assets.zip";
 
 pub struct Game {
     data: GameData,
@@ -45,13 +47,17 @@ impl Game {
         });
         let _loaded_assets = data.texture_manifest.len();
 
-        let title_texture = match load_texture(TITLE_TEXTURE_PATH).await {
-            Ok(texture) => {
-                texture.set_filter(FilterMode::Linear);
-                Some(texture)
-            }
+        let asset_pack = AssetPack::load(ASSET_PACK_PATH).await.ok();
+        let title_texture = match load_texture_from_pack_or_file(
+            asset_pack.as_ref(),
+            TITLE_TEXTURE_PATH,
+            FilterMode::Linear,
+        )
+        .await
+        {
+            Ok(texture) => Some(texture),
             Err(err) => {
-                eprintln!("Failed to load title texture '{TITLE_TEXTURE_PATH}': {err:?}");
+                eprintln!("Failed to load title texture '{TITLE_TEXTURE_PATH}': {err}");
                 None
             }
         };
@@ -260,6 +266,18 @@ impl Game {
                 if finished {
                     self.notifications.success("Store restored before opening");
                 }
+            }
+            InteractionResult::Repaired { toy_name } => {
+                self.notifications
+                    .success(format!("Repaired {}. Ready for display", toy_name));
+            }
+            InteractionResult::NeedsRepair { toy_name } => {
+                self.notifications
+                    .warning(format!("Repair {} before shelving it", toy_name));
+            }
+            InteractionResult::NeedsRepairParts { toy_name } => {
+                self.notifications
+                    .warning(format!("Find the matching part for {}", toy_name));
             }
             InteractionResult::InventoryFull => self.notifications.warning("Sorting cart is full"),
             InteractionResult::ShelfFull => self.notifications.warning("That shelf is full"),

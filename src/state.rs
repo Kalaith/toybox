@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 mod interactions;
+mod repair;
+
+pub use repair::repair_bench_position;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -57,6 +60,35 @@ pub struct ToyState {
     pub placed_slot_index: Option<usize>,
     #[serde(default)]
     pub wrong_marker_seconds: f32,
+    #[serde(default)]
+    pub repair_state: RepairState,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum RepairState {
+    Whole,
+    BrokenPart {
+        repair_id: String,
+        part: RepairPartKind,
+        repaired_name: String,
+    },
+    ConsumedPart {
+        repair_id: String,
+    },
+}
+
+impl Default for RepairState {
+    fn default() -> Self {
+        Self::Whole
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepairPartKind {
+    Head,
+    Body,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +135,15 @@ pub enum InteractionResult {
         available_tools: Vec<String>,
         finished: bool,
     },
+    Repaired {
+        toy_name: String,
+    },
+    NeedsRepair {
+        toy_name: String,
+    },
+    NeedsRepairParts {
+        toy_name: String,
+    },
     InventoryFull,
     ShelfFull,
     ShelfSlotUnavailable,
@@ -113,6 +154,9 @@ pub enum InteractionResult {
 pub enum InteractionPreview {
     PlaceMatch,
     PlaceMismatch,
+    RepairReady { toy_name: String },
+    RepairNeedsParts { toy_name: String },
+    NeedsRepair,
     Pickup { toy_name: String },
     InventoryFull,
     ShelfFull,
@@ -398,9 +442,11 @@ impl GameSession {
             }
         }
 
-        self.player
-            .carried_toy_ids
-            .retain(|toy_id| self.toys.iter().any(|toy| &toy.id == toy_id));
+        self.player.carried_toy_ids.retain(|toy_id| {
+            self.toys
+                .iter()
+                .any(|toy| &toy.id == toy_id && !toy.is_consumed_repair_part())
+        });
         for (toy_index, toy) in self.toys.iter_mut().enumerate() {
             if toy.spawn_pose.is_uninitialized() {
                 toy.spawn_pose = spawn_pose_for_toy(
@@ -503,7 +549,9 @@ impl GameSession {
 }
 
 pub fn toy_matches_display(toy: &ToyState, display: &DisplayDef) -> bool {
-    toy.category == display.category && toy.theme == display.theme
+    matches!(toy.repair_state, RepairState::Whole)
+        && toy.category == display.category
+        && toy.theme == display.theme
 }
 
 pub fn format_elapsed_time(seconds: f32) -> String {
@@ -533,7 +581,7 @@ pub fn migrate_save_value(
 }
 
 fn build_toys(data: &GameData) -> Vec<ToyState> {
-    let mut toys = Vec::with_capacity(data.config.toy_count);
+    let mut toys = Vec::with_capacity(data.config.toy_count + 1);
 
     for (display_index, display) in data.displays.iter().enumerate() {
         for slot_index in 0..display.capacity {
@@ -556,9 +604,12 @@ fn build_toys(data: &GameData) -> Vec<ToyState> {
                 placed_display_id: None,
                 placed_slot_index: None,
                 wrong_marker_seconds: 0.0,
+                repair_state: RepairState::Whole,
             });
         }
     }
+
+    repair::split_initial_broken_toys(&mut toys, data);
 
     toys
 }

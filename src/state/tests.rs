@@ -6,10 +6,50 @@ use std::collections::HashSet;
 fn new_session_generates_requested_toys() {
     let data = GameData::load().unwrap();
     let session = GameSession::new(&data);
+    let final_toy_count = session
+        .toys
+        .iter()
+        .filter(|toy| {
+            !matches!(
+                toy.repair_state,
+                RepairState::BrokenPart {
+                    part: RepairPartKind::Head,
+                    ..
+                } | RepairState::ConsumedPart { .. }
+            )
+        })
+        .count();
 
-    assert_eq!(session.toys.len(), data.config.toy_count);
+    assert_eq!(final_toy_count, data.config.toy_count);
+    assert_eq!(session.toys.len(), data.config.toy_count + 1);
     assert_eq!(session.displays.len(), data.displays.len());
     assert_eq!(session.completed_display_count(), 0);
+}
+
+#[test]
+fn new_session_starts_with_one_split_robot() {
+    let data = GameData::load().unwrap();
+    let session = GameSession::new(&data);
+
+    let broken_parts: Vec<&ToyState> = session
+        .toys
+        .iter()
+        .filter(|toy| toy.is_repair_part())
+        .collect();
+
+    assert_eq!(broken_parts.len(), 2);
+    assert!(broken_parts
+        .iter()
+        .any(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head)));
+    assert!(broken_parts
+        .iter()
+        .any(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body)));
+    for part in broken_parts {
+        assert!(!data
+            .displays
+            .iter()
+            .any(|display| toy_matches_display(part, display)));
+    }
 }
 
 #[test]
@@ -167,6 +207,79 @@ fn correct_placement_completes_a_display() {
 
     assert!(session.is_display_complete(&display.id));
     assert_eq!(session.completed_display_count(), 1);
+}
+
+#[test]
+fn broken_part_must_be_repaired_before_display() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let robot_display_index = data
+        .displays
+        .iter()
+        .position(|display| display.category == ToyCategory::ActionFigures)
+        .unwrap();
+    let body_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+        .unwrap();
+
+    session.pick_up_toy(body_index);
+    let result = session.place_active_toy(robot_display_index, 0, &data);
+
+    assert!(matches!(result, InteractionResult::NeedsRepair { .. }));
+    assert!(session.active_toy().unwrap().is_repair_part());
+    assert_eq!(session.total_placed_toys(), 0);
+}
+
+#[test]
+fn repair_bench_combines_carried_broken_parts() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let robot_display = data
+        .displays
+        .iter()
+        .find(|display| display.category == ToyCategory::ActionFigures)
+        .unwrap();
+    let body_id = session
+        .toys
+        .iter()
+        .find(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+        .unwrap()
+        .id
+        .clone();
+    let head_id = session
+        .toys
+        .iter()
+        .find(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+        .unwrap()
+        .id
+        .clone();
+
+    for toy_id in [&body_id, &head_id] {
+        let toy_index = session
+            .toys
+            .iter()
+            .position(|toy| &toy.id == toy_id)
+            .unwrap();
+        session.pick_up_toy(toy_index);
+    }
+    session.player.position = repair_bench_position();
+
+    let result = session.interact(&data);
+
+    assert!(matches!(result, InteractionResult::Repaired { .. }));
+    assert_eq!(session.player.carried_toy_ids.len(), 1);
+    let active_toy = session.active_toy().unwrap();
+    assert_eq!(active_toy.id, body_id);
+    assert!(!active_toy.is_repair_part());
+    assert!(toy_matches_display(active_toy, robot_display));
+    assert!(session
+        .toys
+        .iter()
+        .find(|toy| toy.id == head_id)
+        .unwrap()
+        .is_consumed_repair_part());
 }
 
 #[test]
