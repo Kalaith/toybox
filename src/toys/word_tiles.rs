@@ -18,4 +18,12 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             );
         }
     }
+    for column in 0..3 {
+        draw_cube(
+            center + vec3(-0.15 + column as f32 * 0.15, 0.166, -0.13) * scale,
+            vec3(0.035, 0.010, 0.010) * scale,
+            None,
+            Color::new(0.30, 0.20, 0.10, 1.0),
+        );
+    }
 }

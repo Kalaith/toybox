@@ -21,4 +21,16 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         None,
         Color::new(0.08, 0.10, 0.10, 1.0),
     );
+    draw_cube(
+        center + vec3(0.03, 0.171, -0.05) * scale,
+        vec3(0.16, 0.014, 0.018) * scale,
+        None,
+        Color::new(0.52, 0.34, 0.18, 1.0),
+    );
+    draw_cube(
+        center + vec3(0.02, 0.173, 0.04) * scale,
+        vec3(0.045, 0.014, 0.045) * scale,
+        None,
+        Color::new(0.92, 0.64, 0.18, 1.0),
+    );
 }

@@ -11,4 +11,10 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             darken(color, 0.05),
         );
     }
+    draw_sphere(
+        center + vec3(0.0, -0.02, 0.82) * scale,
+        0.040 * scale,
+        None,
+        Color::new(0.96, 0.84, 0.36, 1.0),
+    );
 }

@@ -4,6 +4,12 @@ use macroquad::prelude::*;
 pub fn draw(center: Vec3, color: Color, scale: f32) {
     draw_sphere(center, 0.24 * scale, None, color);
     draw_sphere(
+        center + vec3(0.0, -0.02, -0.15) * scale,
+        0.11 * scale,
+        None,
+        brighten(color, 0.08),
+    );
+    draw_sphere(
         center + vec3(0.0, 0.22, -0.16) * scale,
         0.16 * scale,
         None,
@@ -22,6 +28,18 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         color,
     );
     draw_cube(
+        center + vec3(-0.12, 0.40, -0.20) * scale,
+        vec3(0.045, 0.070, 0.020) * scale,
+        None,
+        Color::new(0.96, 0.66, 0.74, 1.0),
+    );
+    draw_cube(
+        center + vec3(0.12, 0.40, -0.20) * scale,
+        vec3(0.045, 0.070, 0.020) * scale,
+        None,
+        Color::new(0.96, 0.66, 0.74, 1.0),
+    );
+    draw_cube(
         center + vec3(0.24, 0.10, 0.18) * scale,
         vec3(0.08, 0.28, 0.08) * scale,
         None,
@@ -33,5 +51,19 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         None,
         Color::new(0.06, 0.04, 0.04, 1.0),
     );
+    for y in [0.18_f32, 0.22] {
+        draw_cube(
+            center + vec3(-0.12, y, -0.34) * scale,
+            vec3(0.11, 0.010, 0.010) * scale,
+            None,
+            Color::new(0.93, 0.88, 0.74, 1.0),
+        );
+        draw_cube(
+            center + vec3(0.12, y, -0.34) * scale,
+            vec3(0.11, 0.010, 0.010) * scale,
+            None,
+            Color::new(0.93, 0.88, 0.74, 1.0),
+        );
+    }
     draw_face(center, 0.25, -0.31, 0.07, scale);
 }

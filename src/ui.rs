@@ -1,16 +1,15 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
 use crate::data::{GameData, UpgradeDef};
-use crate::state::{
-    format_elapsed_time, toy_matches_display, GamePhase, GameSession, InteractionPreview,
-};
-use crate::toys::{toy_color, toy_profile};
+use crate::state::{format_elapsed_time, GamePhase, GameSession};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text_ex, measure_ui_text};
+use macroquad_toolkit::ui::draw_ui_text_ex;
 
 mod environment;
 mod fixtures;
+mod hud;
+mod hud_icons;
 mod scene3d;
 mod signs;
 mod space;
@@ -18,6 +17,7 @@ mod title;
 mod widgets;
 mod wood;
 
+use hud::{draw_game_hud, pointer_blocking_rects};
 use scene3d::draw_shop_scene;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
 pub(crate) use title::{draw_settings_screen, draw_title_screen};
@@ -56,10 +56,7 @@ pub fn draw_game_ui(ctx: UiContext<'_>) -> Vec<UiAction> {
 
     let actions = Vec::new();
 
-    draw_minimal_hud(&ctx);
-    draw_tool_panel(&ctx);
-    draw_context_prompt(&ctx);
-    draw_crosshair(&ctx);
+    draw_game_hud(&ctx);
 
     if ctx.session.phase == GamePhase::Finished {
         draw_finish_overlay(&ctx);
@@ -186,97 +183,9 @@ pub fn should_lock_mouse_from_screen_position(screen_position: Vec2) -> bool {
         screen_position.x * LOGICAL_WIDTH / screen_width().max(1.0),
         screen_position.y * LOGICAL_HEIGHT / screen_height().max(1.0),
     );
-    let header = Rect::new(18.0, 16.0, 314.0, 48.0);
-    let carried = carried_panel_rect();
-
-    !header.contains_point(logical) && !carried.contains_point(logical)
-}
-
-fn draw_minimal_hud(ctx: &UiContext<'_>) {
-    let rect = Rect::new(18.0, 16.0, 314.0, 48.0);
-    let style = SurfaceStyle::new(Color::new(0.045, 0.050, 0.060, 0.86))
-        .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.54));
-    draw_surface(rect, &style);
-
-    let placed = ctx.session.total_placed_toys();
-    let toy_count = ctx.data.config.toy_count.max(1);
-    let carry_limit = ctx.session.carry_limit(&ctx.data.config);
-    draw_ui_text_ex(
-        &format!(
-            "{}   {}/{} put away   Carry {}/{}",
-            format_elapsed_time(ctx.session.player.elapsed_seconds),
-            placed,
-            toy_count,
-            ctx.session.player.carried_toy_ids.len(),
-            carry_limit
-        ),
-        rect.x + 14.0,
-        rect.y + 30.0,
-        TextStyle::new(18.0, dark::TEXT_BRIGHT).params(),
-    );
-
-    draw_carried_panel(ctx);
-}
-
-fn draw_tool_panel(ctx: &UiContext<'_>) {
-    let mut lines = Vec::new();
-    let credits = ctx.session.available_tool_credits(ctx.data);
-
-    if let Some(upgrade) = ctx.session.next_available_upgrade(ctx.data) {
-        if credits >= upgrade.cost {
-            lines.push(format!(
-                "Tool credit {credits}   T Open tools: {}",
-                upgrade.name
-            ));
-        } else {
-            lines.push(format!(
-                "{} needs {} credit(s). You have {}",
-                upgrade.name, upgrade.cost, credits
-            ));
-        }
-    }
-
-    if ctx.session.scanner_enabled() {
-        if let Some(active_toy) = ctx.session.active_toy() {
-            if active_toy.is_repair_part() {
-                lines.push("Scanner: Repair Bench".to_owned());
-            } else if let Some(display) = ctx
-                .data
-                .displays
-                .iter()
-                .find(|display| toy_matches_display(active_toy, display))
-            {
-                lines.push(format!("Scanner: {} - {}", display.name, display.theme));
-            }
-        }
-    }
-
-    if lines.is_empty() {
-        return;
-    }
-
-    let height = 30.0 + (lines.len().saturating_sub(1) as f32 * 22.0);
-    let rect = Rect::new(18.0, 72.0, 374.0, height);
-    draw_surface(
-        rect,
-        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.76))
-            .with_border(1.0, Color::new(0.42, 0.62, 0.72, 0.42)),
-    );
-
-    for (index, line) in lines.iter().enumerate() {
-        draw_fitted_text(
-            line,
-            rect.x + 12.0,
-            rect.y + 21.0 + index as f32 * 22.0,
-            rect.w - 24.0,
-            15.0,
-            if line.starts_with("Scanner:") {
-                Color::new(0.56, 0.92, 0.92, 1.0)
-            } else {
-                dark::TEXT
-            },
-        );
-    }
+    !pointer_blocking_rects()
+        .iter()
+        .any(|rect| rect.contains_point(logical))
 }
 
 fn draw_tool_row(
@@ -398,203 +307,6 @@ fn logical_mouse_position() -> Vec2 {
         screen_x * LOGICAL_WIDTH / screen_width().max(1.0),
         screen_y * LOGICAL_HEIGHT / screen_height().max(1.0),
     )
-}
-
-fn draw_carried_panel(ctx: &UiContext<'_>) {
-    let rect = carried_panel_rect();
-    draw_surface(
-        rect,
-        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.78))
-            .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.36)),
-    );
-
-    if ctx.session.player.carried_toy_ids.is_empty() {
-        draw_text_centered_in_box(
-            "Hands empty",
-            rect.x,
-            rect.y,
-            rect.w,
-            rect.h,
-            16.0,
-            dark::TEXT_DIM,
-        );
-        return;
-    }
-
-    let Some(active_toy) = ctx.session.active_toy() else {
-        return;
-    };
-
-    draw_identity_token(
-        Rect::new(rect.x + 12.0, rect.y + 13.0, 20.0, 20.0),
-        active_toy,
-    );
-    draw_ui_text_ex(
-        "Holding   G drop",
-        rect.x + 42.0,
-        rect.y + 17.0,
-        TextStyle::new(12.0, dark::TEXT_DIM).params(),
-    );
-
-    draw_fitted_text(
-        &active_toy.name,
-        rect.x + 42.0,
-        rect.y + 36.0,
-        272.0,
-        15.0,
-        dark::TEXT,
-    );
-
-    let mut x = rect.x + 328.0;
-    for (index, toy_id) in ctx.session.player.carried_toy_ids.iter().enumerate() {
-        let Some(toy) = ctx
-            .session
-            .toys
-            .iter()
-            .find(|candidate| &candidate.id == toy_id)
-        else {
-            continue;
-        };
-        let pip = Rect::new(x, rect.y + 15.0, 16.0, 16.0);
-        draw_identity_token(pip, toy);
-        if index == ctx.session.player.active_carry_index {
-            draw_rectangle_lines(
-                pip.x - 3.0,
-                pip.y - 3.0,
-                pip.w + 6.0,
-                pip.h + 6.0,
-                1.5,
-                Color::new(0.96, 0.76, 0.38, 0.92),
-            );
-        }
-        x += 24.0;
-    }
-}
-
-fn draw_context_prompt(ctx: &UiContext<'_>) {
-    let text = match ctx.session.interaction_preview(ctx.data) {
-        InteractionPreview::PlaceMatch => "E Place held toy".to_owned(),
-        InteractionPreview::PlaceMismatch => "Wrong display".to_owned(),
-        InteractionPreview::RepairReady { toy_name } => format!("E Repair {toy_name}"),
-        InteractionPreview::RepairNeedsParts { toy_name } => {
-            format!("Find matching part for {toy_name}")
-        }
-        InteractionPreview::NeedsRepair => "Repair at the bench first".to_owned(),
-        InteractionPreview::PutDown => "E Place on floor".to_owned(),
-        InteractionPreview::Pickup { toy_name } => format!("E Pick up {toy_name}"),
-        InteractionPreview::InventoryFull => "Carry full".to_owned(),
-        InteractionPreview::ShelfFull => "Shelf full".to_owned(),
-        InteractionPreview::LookAtEmptySlot => "Aim at an empty shelf spot".to_owned(),
-        InteractionPreview::NothingNearby => {
-            if ctx.mouse_locked {
-                String::new()
-            } else {
-                "Click to look".to_owned()
-            }
-        }
-        InteractionPreview::Finished => "Shop restored".to_owned(),
-    };
-
-    if text.is_empty() {
-        return;
-    }
-
-    let rect = Rect::new(440.0, LOGICAL_HEIGHT - 78.0, 400.0, 40.0);
-    draw_surface(
-        rect,
-        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.70))
-            .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.28)),
-    );
-    draw_text_centered_in_box(
-        &text,
-        rect.x + 12.0,
-        rect.y,
-        rect.w - 24.0,
-        rect.h,
-        15.0,
-        dark::TEXT,
-    );
-}
-
-fn draw_identity_token(rect: Rect, toy: &crate::state::ToyState) {
-    let color = toy_color(toy);
-    let profile = toy_profile(toy.category, toy.slot_number);
-    draw_rectangle(rect.x, rect.y, rect.w, rect.h, color);
-    draw_rectangle_lines(
-        rect.x,
-        rect.y,
-        rect.w,
-        rect.h,
-        1.0,
-        Color::new(0.02, 0.02, 0.02, 0.8),
-    );
-    let text_size = (rect.h * 0.54).clamp(8.0, 11.0);
-    let text_color = readable_token_text(color);
-    let measured = measure_ui_text(profile.short_code, None, text_size as u16, 1.0);
-    draw_ui_text_ex(
-        profile.short_code,
-        rect.x + (rect.w - measured.width) * 0.5,
-        rect.y + (rect.h + measured.height) * 0.5 - 1.0,
-        TextStyle::new(text_size, text_color).params(),
-    );
-}
-
-fn readable_token_text(color: Color) -> Color {
-    let luminance = color.r * 0.299 + color.g * 0.587 + color.b * 0.114;
-    if luminance > 0.54 {
-        Color::new(0.035, 0.040, 0.048, 1.0)
-    } else {
-        Color::new(0.96, 0.96, 0.92, 1.0)
-    }
-}
-
-fn carried_panel_rect() -> Rect {
-    Rect::new(18.0, LOGICAL_HEIGHT - 64.0, 428.0, 46.0)
-}
-
-fn draw_crosshair(ctx: &UiContext<'_>) {
-    if ctx.session.phase != GamePhase::Playing {
-        return;
-    }
-
-    let center = vec2(LOGICAL_WIDTH * 0.5, LOGICAL_HEIGHT * 0.5);
-    let color = if ctx.mouse_locked {
-        Color::new(0.96, 0.76, 0.38, 0.86)
-    } else {
-        Color::new(0.78, 0.82, 0.88, 0.38)
-    };
-    draw_line(
-        center.x - 8.0,
-        center.y,
-        center.x - 2.0,
-        center.y,
-        1.4,
-        color,
-    );
-    draw_line(
-        center.x + 2.0,
-        center.y,
-        center.x + 8.0,
-        center.y,
-        1.4,
-        color,
-    );
-    draw_line(
-        center.x,
-        center.y - 8.0,
-        center.x,
-        center.y - 2.0,
-        1.4,
-        color,
-    );
-    draw_line(
-        center.x,
-        center.y + 2.0,
-        center.x,
-        center.y + 8.0,
-        1.4,
-        color,
-    );
 }
 
 fn draw_finish_overlay(ctx: &UiContext<'_>) {

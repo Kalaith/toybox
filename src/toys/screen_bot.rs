@@ -11,6 +11,12 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
     );
     let glow = Color::new(0.46, 0.95, 0.92, 1.0);
     draw_cube(
+        center + vec3(0.0, 0.40, -0.19) * scale,
+        vec3(0.13, 0.020, 0.014) * scale,
+        None,
+        Color::new(0.18, 0.42, 0.46, 1.0),
+    );
+    draw_cube(
         center + vec3(-0.05, 0.40, -0.18) * scale,
         vec3(0.04, 0.035, 0.025) * scale,
         None,

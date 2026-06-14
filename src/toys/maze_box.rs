@@ -18,4 +18,10 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             ink,
         );
     }
+    draw_sphere(
+        center + vec3(0.16, 0.155, 0.08) * scale,
+        0.035 * scale,
+        None,
+        Color::new(0.94, 0.72, 0.24, 1.0),
+    );
 }
