@@ -7,6 +7,7 @@ use crate::state::{
 use crate::toys::{toy_color, toy_profile};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
+use macroquad_toolkit::ui::{draw_ui_text_ex, measure_ui_text};
 
 mod environment;
 mod fixtures;
@@ -89,13 +90,13 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
             .with_inner_border(3.0, 1.0, Color::new(0.94, 0.76, 0.42, 0.20)),
     );
 
-    draw_text_ex(
+    draw_ui_text_ex(
         "Shop Tools",
         panel.x + 24.0,
         panel.y + 42.0,
         TextStyle::new(26.0, dark::TEXT_BRIGHT).params(),
     );
-    draw_text_ex(
+    draw_ui_text_ex(
         &format!(
             "Tool Credits: {}",
             ctx.session.available_tool_credits(ctx.data)
@@ -200,7 +201,7 @@ fn draw_minimal_hud(ctx: &UiContext<'_>) {
     let placed = ctx.session.total_placed_toys();
     let toy_count = ctx.data.config.toy_count.max(1);
     let carry_limit = ctx.session.carry_limit(&ctx.data.config);
-    draw_text_ex(
+    draw_ui_text_ex(
         &format!(
             "{}   {}/{} put away   Carry {}/{}",
             format_elapsed_time(ctx.session.player.elapsed_seconds),
@@ -291,7 +292,7 @@ fn draw_tool_row(
             .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.34)),
     );
 
-    draw_text_ex(
+    draw_ui_text_ex(
         &upgrade.name,
         rect.x + 16.0,
         rect.y + 26.0,
@@ -428,8 +429,8 @@ fn draw_carried_panel(ctx: &UiContext<'_>) {
         Rect::new(rect.x + 12.0, rect.y + 13.0, 20.0, 20.0),
         active_toy,
     );
-    draw_text_ex(
-        "Holding",
+    draw_ui_text_ex(
+        "Holding   G drop",
         rect.x + 42.0,
         rect.y + 17.0,
         TextStyle::new(12.0, dark::TEXT_DIM).params(),
@@ -479,6 +480,7 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
             format!("Find matching part for {toy_name}")
         }
         InteractionPreview::NeedsRepair => "Repair at the bench first".to_owned(),
+        InteractionPreview::PutDown => "E Place on floor".to_owned(),
         InteractionPreview::Pickup { toy_name } => format!("E Pick up {toy_name}"),
         InteractionPreview::InventoryFull => "Carry full".to_owned(),
         InteractionPreview::ShelfFull => "Shelf full".to_owned(),
@@ -528,8 +530,8 @@ fn draw_identity_token(rect: Rect, toy: &crate::state::ToyState) {
     );
     let text_size = (rect.h * 0.54).clamp(8.0, 11.0);
     let text_color = readable_token_text(color);
-    let measured = measure_text(profile.short_code, None, text_size as u16, 1.0);
-    draw_text_ex(
+    let measured = measure_ui_text(profile.short_code, None, text_size as u16, 1.0);
+    draw_ui_text_ex(
         profile.short_code,
         rect.x + (rect.w - measured.width) * 0.5,
         rect.y + (rect.h + measured.height) * 0.5 - 1.0,

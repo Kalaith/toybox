@@ -22,9 +22,9 @@ action figure, and board game to its matching display before opening.
 - `WASD`: move relative to the first-person view
 - Mouse or arrow keys: look around, including up and down
 - Click the shop view to lock mouse look; `Tab` or `Esc` releases it
-- `E` or `Space`: pick up or place the active toy
+- `E` or `Space`: pick up, shelf, or place the active toy on the floor
 - `Q`: cycle carried toys
-- `G`: drop the active toy
+- `G`: quick-drop the active toy
 - `T`: open or close the shop tools screen
 - `Ctrl+S` / `Ctrl+L`: save / load
 - `R`: restart

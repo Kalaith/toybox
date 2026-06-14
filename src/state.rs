@@ -128,6 +128,9 @@ pub enum InteractionResult {
     PickedUp {
         toy_name: String,
     },
+    Dropped {
+        toy_name: String,
+    },
     Placed {
         toy_name: String,
         display_name: String,
@@ -157,6 +160,7 @@ pub enum InteractionPreview {
     RepairReady { toy_name: String },
     RepairNeedsParts { toy_name: String },
     NeedsRepair,
+    PutDown,
     Pickup { toy_name: String },
     InventoryFull,
     ShelfFull,
@@ -394,19 +398,42 @@ impl GameSession {
         }
     }
 
-    pub fn drop_active(&mut self) -> Option<String> {
+    pub fn drop_active(&mut self, data: &GameData) -> Option<String> {
         let toy_id = self.active_toy()?.id.clone();
         let toy_index = self.toys.iter().position(|toy| toy.id == toy_id)?;
         let toy_name = self.toys[toy_index].name.clone();
+        let drop_position = self.floor_drop_position(data);
 
         self.toys[toy_index].is_held = false;
         self.toys[toy_index].placed_display_id = None;
         self.toys[toy_index].placed_slot_index = None;
-        self.toys[toy_index].position = self.player.position;
+        self.toys[toy_index].wrong_marker_seconds = 0.0;
+        self.toys[toy_index].position = drop_position;
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
         self.normalize_active_carry();
 
         Some(toy_name)
+    }
+
+    fn floor_drop_position(&self, data: &GameData) -> WorldPoint {
+        let config = &data.config;
+        let forward = vec2(self.player.yaw.cos(), self.player.yaw.sin()).normalize_or_zero();
+        let offset = if forward.length_squared() > f32::EPSILON {
+            forward * 0.82
+        } else {
+            Vec2::ZERO
+        };
+        let position = self.player.position.to_vec2() + offset;
+        let clamped = vec2(
+            position.x.clamp(0.65, config.room_width - 0.65),
+            position.y.clamp(0.65, config.room_height - 0.65),
+        );
+        let off_displays = keep_off_displays(clamped, data);
+
+        WorldPoint {
+            x: off_displays.x.clamp(0.65, config.room_width - 0.65),
+            y: off_displays.y.clamp(0.65, config.room_height - 0.65),
+        }
     }
 
     pub fn completed_display_count(&self) -> usize {

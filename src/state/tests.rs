@@ -179,6 +179,30 @@ fn pickup_uses_crosshair_target_instead_of_closest_toy() {
 }
 
 #[test]
+fn interact_places_held_toy_on_floor_when_no_target_is_active() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let toy_id = session.toys[0].id.clone();
+
+    session.pick_up_toy(0);
+    session.player.position = WorldPoint { x: 9.0, y: 10.8 };
+    session.player.yaw = 0.0;
+    session.player.pitch = 0.0;
+
+    let result = session.interact(&data);
+
+    assert!(matches!(result, InteractionResult::Dropped { .. }));
+    assert!(session.player.carried_toy_ids.is_empty());
+
+    let dropped = session.toys.iter().find(|toy| toy.id == toy_id).unwrap();
+    assert!(!dropped.is_held);
+    assert!(dropped.placed_display_id.is_none());
+    assert!(dropped.placed_slot_index.is_none());
+    assert!(dropped.position.x > session.player.position.x + 0.7);
+    assert!((dropped.position.y - session.player.position.y).abs() < 0.01);
+}
+
+#[test]
 fn correct_placement_completes_a_display() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);

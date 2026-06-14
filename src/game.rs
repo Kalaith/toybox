@@ -234,8 +234,9 @@ impl Game {
             UiAction::Interact => self.handle_interaction(),
             UiAction::CycleCarry => self.session.cycle_carried(),
             UiAction::DropActive => {
-                if let Some(toy_name) = self.session.drop_active() {
-                    self.notifications.info(format!("Dropped {}", toy_name));
+                if let Some(toy_name) = self.session.drop_active(&self.data) {
+                    self.notifications
+                        .info(format!("Placed {} on the floor", toy_name));
                 }
             }
             UiAction::BuyTool(tool_id) => self.handle_tool_purchase(&tool_id),
@@ -246,6 +247,10 @@ impl Game {
         match self.session.interact(&self.data) {
             InteractionResult::PickedUp { toy_name } => {
                 self.notifications.info(format!("Picked up {}", toy_name));
+            }
+            InteractionResult::Dropped { toy_name } => {
+                self.notifications
+                    .info(format!("Placed {} on the floor", toy_name));
             }
             InteractionResult::Placed {
                 toy_name,

@@ -26,7 +26,7 @@ impl GameSession {
                         toy_name: active_toy.name.clone(),
                     };
                 }
-                return InteractionResult::NothingNearby;
+                return self.drop_active_as_interaction(data);
             }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 return self.place_active_toy(target.display_index, target.slot_index, data);
@@ -41,7 +41,7 @@ impl GameSession {
             if self.is_near_display(data) {
                 return InteractionResult::ShelfSlotUnavailable;
             }
-            return InteractionResult::NothingNearby;
+            return self.drop_active_as_interaction(data);
         }
 
         if let Some(target) = self.targeted_display_slot(data) {
@@ -86,7 +86,7 @@ impl GameSession {
                 if self.targeted_display_slot(data).is_some() || self.is_near_display(data) {
                     return InteractionPreview::NeedsRepair;
                 }
-                return InteractionPreview::NothingNearby;
+                return InteractionPreview::PutDown;
             }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 let display = &data.displays[target.display_index];
@@ -105,7 +105,7 @@ impl GameSession {
             if self.is_near_display(data) {
                 return InteractionPreview::LookAtEmptySlot;
             }
-            return InteractionPreview::NothingNearby;
+            return InteractionPreview::PutDown;
         }
 
         if let Some(target) = self.targeted_display_slot(data) {
@@ -142,6 +142,13 @@ impl GameSession {
                 .as_deref()
                 .is_some_and(|placed_id| placed_id == display_id)
         })
+    }
+
+    fn drop_active_as_interaction(&mut self, data: &GameData) -> InteractionResult {
+        match self.drop_active(data) {
+            Some(toy_name) => InteractionResult::Dropped { toy_name },
+            None => InteractionResult::NothingNearby,
+        }
     }
 
     pub fn targeted_empty_display_slot(&self, data: &GameData) -> Option<DisplaySlotTarget> {
