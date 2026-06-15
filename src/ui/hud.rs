@@ -1,8 +1,7 @@
 //! Gameplay HUD panels inspired by the warm toy-store reference.
 
 use super::hud_icons::{
-    brighten_color, category_icon, category_label, draw_icon, draw_open_box_icon,
-    draw_stopwatch_icon, IconKind,
+    brighten_color, category_icon, draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind,
 };
 use crate::state::{
     format_elapsed_time, toy_matches_display, GamePhase, InteractionPreview, ToyState,
@@ -198,21 +197,10 @@ fn draw_carried_card(ctx: &UiContext<'_>) {
     draw_fitted_text(
         &active_toy.name,
         rect.x + 88.0,
-        rect.y + 30.0,
+        rect.y + 42.0,
         rect.w - 122.0,
         20.0,
         dark::TEXT_BRIGHT,
-    );
-
-    let category = if active_toy.is_repair_part() {
-        "Repair Part".to_owned()
-    } else {
-        category_label(active_toy.category).to_owned()
-    };
-    draw_category_chip(
-        Rect::new(rect.x + 88.0, rect.y + 42.0, 112.0, 24.0),
-        active_toy,
-        &category,
     );
 
     draw_keycap(
@@ -256,29 +244,6 @@ fn draw_empty_hands_card(rect: Rect) {
         rect.x + 88.0,
         rect.y + 58.0,
         TextStyle::new(13.0, dark::TEXT_DIM).params(),
-    );
-}
-
-fn draw_category_chip(rect: Rect, toy: &ToyState, label: &str) {
-    let color = toy_color(toy);
-    draw_surface(
-        rect,
-        &SurfaceStyle::new(Color::new(color.r, color.g, color.b, 0.22))
-            .with_border(1.0, Color::new(color.r, color.g, color.b, 0.54)),
-    );
-    draw_icon(
-        category_icon(toy.category),
-        vec2(rect.x + 13.0, rect.y + 12.0),
-        9.0,
-        brighten_color(color, 0.20),
-    );
-    draw_fitted_text(
-        label,
-        rect.x + 28.0,
-        rect.y + 16.0,
-        rect.w - 35.0,
-        12.0,
-        Color::new(0.91, 0.88, 0.84, 1.0),
     );
 }
 
@@ -359,14 +324,13 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
 
 fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
     let prompt = match ctx.session.interaction_preview(ctx.data) {
-        InteractionPreview::PlaceMatch => PromptVisual::action("E", "Place on shelf"),
-        InteractionPreview::PlaceMismatch => PromptVisual::danger("Wrong display"),
+        InteractionPreview::PlaceOnShelf => PromptVisual::action("E", "Place on shelf"),
+        InteractionPreview::PlaceOnRepairBench => PromptVisual::action("E", "Place on bench"),
         InteractionPreview::RepairReady { toy_name } => {
             PromptVisual::action("E", format!("Repair {toy_name}"))
         }
-        InteractionPreview::RepairNeedsParts { toy_name } => {
-            PromptVisual::warning(format!("Find matching part for {toy_name}"))
-        }
+        InteractionPreview::RepairBenchFull => PromptVisual::warning("Bench full"),
+        InteractionPreview::RepairMismatch => PromptVisual::warning("Parts do not match"),
         InteractionPreview::NeedsRepair => PromptVisual::warning("Repair at the bench first"),
         InteractionPreview::PutDown => PromptVisual::action("E", "Place on floor"),
         InteractionPreview::Pickup { toy_name } => {
@@ -585,7 +549,7 @@ fn draw_notice_dot(center: Vec2, color: Color) {
 fn draw_prompt_status_icon(center: Vec2, tone: PromptTone) {
     let color = tone.border();
     match tone {
-        PromptTone::Danger | PromptTone::Warning => {
+        PromptTone::Warning => {
             draw_triangle(
                 vec2(center.x, center.y - 11.0),
                 vec2(center.x - 11.0, center.y + 10.0),
@@ -720,14 +684,6 @@ impl PromptVisual {
         }
     }
 
-    fn danger(message: impl Into<String>) -> Self {
-        Self {
-            key: None,
-            message: message.into(),
-            tone: PromptTone::Danger,
-        }
-    }
-
     fn warning(message: impl Into<String>) -> Self {
         Self {
             key: None,
@@ -758,7 +714,6 @@ enum PromptTone {
     Action,
     Good,
     Warning,
-    Danger,
     Neutral,
 }
 
@@ -768,7 +723,6 @@ impl PromptTone {
             PromptTone::Action => Color::new(0.92, 0.72, 0.34, 0.72),
             PromptTone::Good => Color::new(0.42, 0.92, 0.56, 0.72),
             PromptTone::Warning => Color::new(0.98, 0.62, 0.26, 0.76),
-            PromptTone::Danger => Color::new(1.0, 0.30, 0.26, 0.80),
             PromptTone::Neutral => Color::new(0.58, 0.62, 0.68, 0.48),
         }
     }
@@ -777,7 +731,6 @@ impl PromptTone {
         match self {
             PromptTone::Action | PromptTone::Good => dark::TEXT_BRIGHT,
             PromptTone::Warning => Color::new(1.0, 0.76, 0.42, 1.0),
-            PromptTone::Danger => Color::new(1.0, 0.54, 0.50, 1.0),
             PromptTone::Neutral => dark::TEXT,
         }
     }

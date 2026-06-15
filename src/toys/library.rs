@@ -388,27 +388,6 @@ pub fn draw_wheel(center: Vec3, radius: f32, width: f32, color: Color) {
     );
 }
 
-pub fn draw_tag(center: Vec3, scale: f32) {
-    let tag_center = center + vec3(0.25, 0.08, -0.19) * scale;
-    draw_cube_with_edges(
-        tag_center,
-        vec3(0.17, 0.045, 0.11) * scale,
-        Color::new(0.95, 0.88, 0.64, 1.0),
-    );
-    draw_cube(
-        tag_center + vec3(-0.055, 0.026, -0.035) * scale,
-        vec3(0.030, 0.010, 0.030) * scale,
-        None,
-        Color::new(0.40, 0.25, 0.12, 1.0),
-    );
-    draw_cube(
-        tag_center + vec3(0.030, 0.027, 0.018) * scale,
-        vec3(0.064, 0.009, 0.012) * scale,
-        None,
-        Color::new(0.56, 0.36, 0.18, 1.0),
-    );
-}
-
 pub fn draw_face(center: Vec3, y: f32, z: f32, dx: f32, scale: f32) {
     draw_eye_pair(center, y, z, dx, scale);
     draw_face_mark(

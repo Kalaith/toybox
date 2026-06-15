@@ -59,6 +59,8 @@ pub struct ToyState {
     #[serde(default)]
     pub placed_slot_index: Option<usize>,
     #[serde(default)]
+    pub bench_slot_index: Option<usize>,
+    #[serde(default)]
     pub wrong_marker_seconds: f32,
     #[serde(default)]
     pub repair_state: RepairState,
@@ -134,9 +136,13 @@ pub enum InteractionResult {
     Placed {
         toy_name: String,
         display_name: String,
+        was_wrong: bool,
         completed_display: Option<String>,
         available_tools: Vec<String>,
         finished: bool,
+    },
+    PlacedOnRepairBench {
+        toy_name: String,
     },
     Repaired {
         toy_name: String,
@@ -148,6 +154,8 @@ pub enum InteractionResult {
         toy_name: String,
     },
     InventoryFull,
+    RepairBenchFull,
+    RepairMismatch,
     ShelfFull,
     ShelfSlotUnavailable,
     NothingNearby,
@@ -155,10 +163,11 @@ pub enum InteractionResult {
 
 #[derive(Debug, Clone)]
 pub enum InteractionPreview {
-    PlaceMatch,
-    PlaceMismatch,
+    PlaceOnShelf,
+    PlaceOnRepairBench,
     RepairReady { toy_name: String },
-    RepairNeedsParts { toy_name: String },
+    RepairBenchFull,
+    RepairMismatch,
     NeedsRepair,
     PutDown,
     Pickup { toy_name: String },
@@ -199,8 +208,7 @@ pub struct DisplaySlotTarget {
 
 const TOY_SCANNER_ID: &str = "toy_scanner";
 const LEGACY_TAG_LANTERN_ID: &str = "tag_lantern";
-const SMALL_TROLLEY_ID: &str = "small_trolley";
-const SMALL_TROLLEY_CARRY_LIMIT: usize = 5;
+const SINGLE_CARRY_LIMIT: usize = 1;
 
 impl GameSession {
     pub const MAX_LOOK_PITCH: f32 = 1.18;
@@ -302,12 +310,8 @@ impl GameSession {
         self.player.position = WorldPoint::from_vec2(clamped);
     }
 
-    pub fn carry_limit(&self, config: &GameConfig) -> usize {
-        if self.has_upgrade(SMALL_TROLLEY_ID) {
-            config.starting_carry_limit.max(SMALL_TROLLEY_CARRY_LIMIT)
-        } else {
-            config.starting_carry_limit
-        }
+    pub fn carry_limit(&self, _config: &GameConfig) -> usize {
+        SINGLE_CARRY_LIMIT
     }
 
     pub fn has_upgrade(&self, upgrade_id: &str) -> bool {
@@ -407,6 +411,7 @@ impl GameSession {
         self.toys[toy_index].is_held = false;
         self.toys[toy_index].placed_display_id = None;
         self.toys[toy_index].placed_slot_index = None;
+        self.toys[toy_index].bench_slot_index = None;
         self.toys[toy_index].wrong_marker_seconds = 0.0;
         self.toys[toy_index].position = drop_position;
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
@@ -484,6 +489,7 @@ impl GameSession {
             }
         }
         self.repair_display_slots(data);
+        self.repair_bench_slots();
         self.normalize_active_carry();
         self.repair_player_view();
         self.refresh_display_completion(data);
@@ -554,6 +560,30 @@ impl GameSession {
     }
 
     fn normalize_active_carry(&mut self) {
+        if self.player.carried_toy_ids.len() > SINGLE_CARRY_LIMIT {
+            let kept_id = self
+                .player
+                .carried_toy_ids
+                .get(self.player.active_carry_index)
+                .cloned()
+                .or_else(|| self.player.carried_toy_ids.first().cloned());
+            self.player.carried_toy_ids.retain(|toy_id| {
+                kept_id
+                    .as_ref()
+                    .is_some_and(|kept_toy_id| toy_id == kept_toy_id)
+            });
+            for toy in &mut self.toys {
+                if toy.is_held && Some(&toy.id) != kept_id.as_ref() {
+                    toy.is_held = false;
+                    toy.placed_display_id = None;
+                    toy.placed_slot_index = None;
+                    toy.bench_slot_index = None;
+                    toy.wrong_marker_seconds = 0.0;
+                    toy.position = self.player.position;
+                }
+            }
+        }
+
         if self.player.carried_toy_ids.is_empty() {
             self.player.active_carry_index = 0;
         } else if self.player.active_carry_index >= self.player.carried_toy_ids.len() {
@@ -630,6 +660,7 @@ fn build_toys(data: &GameData) -> Vec<ToyState> {
                 is_held: false,
                 placed_display_id: None,
                 placed_slot_index: None,
+                bench_slot_index: None,
                 wrong_marker_seconds: 0.0,
                 repair_state: RepairState::Whole,
             });

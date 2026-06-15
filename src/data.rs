@@ -102,7 +102,7 @@ mod tests {
 
         assert_eq!(data.config.game_name, "toybox_after_hours");
         assert_eq!(data.displays.len(), 5);
-        assert_eq!(data.upgrades.len(), 2);
+        assert_eq!(data.upgrades.len(), 1);
         assert_eq!(total_capacity, data.config.toy_count);
     }
 }

@@ -86,16 +86,6 @@ pub(in crate::ui) fn draw_stopwatch_icon(center: Vec2, radius: f32, color: Color
     );
 }
 
-pub(in crate::ui) fn category_label(category: ToyCategory) -> &'static str {
-    match category {
-        ToyCategory::Plushies => "Plushies",
-        ToyCategory::TinyDragons => "Tiny Dragons",
-        ToyCategory::BuildingBlocks => "Blocks",
-        ToyCategory::ActionFigures => "Robots",
-        ToyCategory::BoardGames => "Board Games",
-    }
-}
-
 pub(in crate::ui) fn category_icon(category: ToyCategory) -> IconKind {
     match category {
         ToyCategory::Plushies => IconKind::Plush,

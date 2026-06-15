@@ -1,7 +1,7 @@
 //! Macroquad 3D renderer for the tiny toy shop.
 
 use crate::data::DisplayDef;
-use crate::state::{display_slot_position, toy_matches_display, ToyState, WorldPoint};
+use crate::state::{display_slot_position, ToyState, WorldPoint};
 use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
 use crate::ui::fixtures::{draw_displays, draw_repair_bench, placed_height_for_slot};
@@ -35,7 +35,11 @@ fn draw_loose_toys(ctx: &UiContext<'_>) {
     for (index, toy) in ctx.session.toys.iter().enumerate() {
         if !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part() {
             let layer = (index % 7) as f32;
-            let height = 0.20 + layer * 0.020 + toy.spawn_pose.floor_lift;
+            let height = if toy.bench_slot_index.is_some() {
+                0.88
+            } else {
+                0.20 + layer * 0.020 + toy.spawn_pose.floor_lift
+            };
             let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
             draw_loose_toy_3d(
                 toy,
@@ -79,16 +83,15 @@ fn draw_placement_preview(ctx: &UiContext<'_>) {
     let Some(toy) = ctx.session.active_toy() else {
         return;
     };
+    if toy.is_repair_part() {
+        return;
+    }
     let Some(target) = ctx.session.targeted_empty_display_slot(ctx.data) else {
         return;
     };
     let display = &ctx.data.displays[target.display_index];
 
-    let accent = if toy_matches_display(toy, display) {
-        Color::new(0.34, 0.95, 0.60, 1.0)
-    } else {
-        Color::new(0.98, 0.24, 0.20, 1.0)
-    };
+    let accent = Color::new(0.92, 0.72, 0.34, 1.0);
     let slot = display_slot_position(display, target.slot_index, ctx.data.config.room_width);
     let height = placed_height_for_slot(display, target.slot_index + 1) - 0.24;
     draw_target_brackets(world_point(slot, height), accent);

@@ -52,7 +52,6 @@ pub fn draw_loose_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32)
 pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
     if let Some(part) = toy.repair_part_kind() {
         draw_repair_part_3d(part, center, color, scale);
-        library::draw_tag(center, scale);
         return;
     }
 
@@ -84,7 +83,6 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::CastleBlocks => castle_blocks::draw(center, color, scale),
         ToyIdentity::TrainBlocks => train_blocks::draw(center, color, scale),
     }
-    library::draw_tag(center, scale);
 }
 
 fn draw_repair_part_3d(part: RepairPartKind, center: Vec3, color: Color, scale: f32) {

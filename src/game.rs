@@ -255,12 +255,18 @@ impl Game {
             InteractionResult::Placed {
                 toy_name,
                 display_name,
+                was_wrong,
                 completed_display,
                 available_tools,
                 finished,
             } => {
-                self.notifications
-                    .success(format!("Placed {} in {}", toy_name, display_name));
+                if was_wrong {
+                    self.notifications
+                        .warning(format!("{} does not belong in {}", toy_name, display_name));
+                } else {
+                    self.notifications
+                        .success(format!("Placed {} in {}", toy_name, display_name));
+                }
                 if let Some(name) = completed_display {
                     self.notifications.success(format!("Completed {}", name));
                 }
@@ -271,6 +277,10 @@ impl Game {
                 if finished {
                     self.notifications.success("Store restored before opening");
                 }
+            }
+            InteractionResult::PlacedOnRepairBench { toy_name } => {
+                self.notifications
+                    .info(format!("Placed {} on the repair bench", toy_name));
             }
             InteractionResult::Repaired { toy_name } => {
                 self.notifications
@@ -285,6 +295,12 @@ impl Game {
                     .warning(format!("Find the matching part for {}", toy_name));
             }
             InteractionResult::InventoryFull => self.notifications.warning("Sorting cart is full"),
+            InteractionResult::RepairBenchFull => {
+                self.notifications.warning("Repair bench is full")
+            }
+            InteractionResult::RepairMismatch => self
+                .notifications
+                .warning("Those repair parts do not match"),
             InteractionResult::ShelfFull => self.notifications.warning("That shelf is full"),
             InteractionResult::ShelfSlotUnavailable => {
                 self.notifications.warning("Look at an empty shelf spot")

@@ -179,6 +179,21 @@ fn pickup_uses_crosshair_target_instead_of_closest_toy() {
 }
 
 #[test]
+fn cannot_pick_up_second_toy_while_holding_one() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    let first_result = session.pick_up_toy(0);
+    let second_result = session.pick_up_toy(1);
+
+    assert!(matches!(first_result, InteractionResult::PickedUp { .. }));
+    assert!(matches!(second_result, InteractionResult::InventoryFull));
+    assert_eq!(session.player.carried_toy_ids.len(), 1);
+    assert!(session.toys[0].is_held);
+    assert!(!session.toys[1].is_held);
+}
+
+#[test]
 fn interact_places_held_toy_on_floor_when_no_target_is_active() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
@@ -257,7 +272,7 @@ fn broken_part_must_be_repaired_before_display() {
 }
 
 #[test]
-fn repair_bench_combines_carried_broken_parts() {
+fn repair_bench_repairs_matching_benched_parts() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
     let robot_display = data
@@ -280,15 +295,44 @@ fn repair_bench_combines_carried_broken_parts() {
         .id
         .clone();
 
-    for toy_id in [&body_id, &head_id] {
-        let toy_index = session
+    session.player.position = repair_bench_position();
+
+    let body_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.id == body_id)
+        .unwrap();
+    session.pick_up_toy(body_index);
+    let result = session.interact(&data);
+
+    assert!(matches!(
+        result,
+        InteractionResult::PlacedOnRepairBench { .. }
+    ));
+    assert!(session.player.carried_toy_ids.is_empty());
+    assert_eq!(
+        session
             .toys
             .iter()
-            .position(|toy| &toy.id == toy_id)
-            .unwrap();
-        session.pick_up_toy(toy_index);
-    }
-    session.player.position = repair_bench_position();
+            .find(|toy| toy.id == body_id)
+            .unwrap()
+            .bench_slot_index,
+        Some(0)
+    );
+
+    let head_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.id == head_id)
+        .unwrap();
+    session.pick_up_toy(head_index);
+    let result = session.interact(&data);
+
+    assert!(matches!(
+        result,
+        InteractionResult::PlacedOnRepairBench { .. }
+    ));
+    assert!(session.player.carried_toy_ids.is_empty());
 
     let result = session.interact(&data);
 
@@ -297,6 +341,7 @@ fn repair_bench_combines_carried_broken_parts() {
     let active_toy = session.active_toy().unwrap();
     assert_eq!(active_toy.id, body_id);
     assert!(!active_toy.is_repair_part());
+    assert!(active_toy.bench_slot_index.is_none());
     assert!(toy_matches_display(active_toy, robot_display));
     assert!(session
         .toys
@@ -311,7 +356,7 @@ fn tool_purchases_use_completed_display_credits() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
 
-    assert_eq!(session.carry_limit(&data.config), 3);
+    assert_eq!(session.carry_limit(&data.config), 1);
     assert!(!session.scanner_enabled());
     assert!(matches!(
         session.purchase_tool(&data, "toy_scanner"),
@@ -330,20 +375,15 @@ fn tool_purchases_use_completed_display_credits() {
         } if tool_name == "Toy Scanner"
     ));
     assert!(session.scanner_enabled());
-    assert_eq!(session.carry_limit(&data.config), 3);
+    assert_eq!(session.carry_limit(&data.config), 1);
 
     complete_display_by_index(&mut session, &data, 1);
     assert_eq!(session.available_tool_credits(&data), 1);
-
-    let result = session.purchase_tool(&data, "small_trolley");
     assert!(matches!(
-        result,
-        ToolPurchaseResult::Purchased {
-            ref tool_name,
-            remaining_credits: 0,
-        } if tool_name == "Small Trolley"
+        session.purchase_tool(&data, "small_trolley"),
+        ToolPurchaseResult::NoToolsAvailable
     ));
-    assert_eq!(session.carry_limit(&data.config), 5);
+    assert_eq!(session.carry_limit(&data.config), 1);
 }
 
 #[test]
