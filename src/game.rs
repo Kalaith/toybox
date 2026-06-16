@@ -112,10 +112,8 @@ impl Game {
         let movement = ui::movement_from_keys();
         self.session.move_player(movement, &self.data.config, dt);
 
-        if is_key_pressed(KeyCode::Escape) {
-            if self.mouse_locked {
-                self.set_mouse_locked(false);
-            }
+        if is_key_pressed(KeyCode::Escape) && self.mouse_locked {
+            self.set_mouse_locked(false);
         }
         if is_key_pressed(KeyCode::R) {
             self.events.push(UiAction::NewGame);

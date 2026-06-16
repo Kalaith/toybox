@@ -68,7 +68,9 @@ pub struct ToyState {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RepairState {
+    #[default]
     Whole,
     BrokenPart {
         repair_id: String,
@@ -78,12 +80,6 @@ pub enum RepairState {
     ConsumedPart {
         repair_id: String,
     },
-}
-
-impl Default for RepairState {
-    fn default() -> Self {
-        Self::Whole
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -682,7 +678,11 @@ fn scattered_position(
     let (anchor, radius) = mess_pile_anchor(toy_index, display_index, slot_index);
     let angle = toy_index as f32 * 2.399 + display_index as f32 * 0.77 + slot_index as f32 * 0.19;
     let ring_seed = ((toy_index * 37 + display_index * 11 + slot_index * 17) % 100) as f32 / 100.0;
-    let spill = if toy_index % 11 == 0 { 1.38 } else { 1.0 };
+    let spill = if toy_index.is_multiple_of(11) {
+        1.38
+    } else {
+        1.0
+    };
     let squash = 0.56 + ((toy_index * 7 + slot_index * 5) % 30) as f32 / 100.0;
     let offset = vec2(
         angle.cos() * radius * ring_seed * spill,
@@ -755,11 +755,11 @@ pub fn display_slot_position(
     placed_index: usize,
     room_width: f32,
 ) -> WorldPoint {
-    let columns = display.capacity.min(5).max(1);
+    let columns = display.capacity.clamp(1, 5);
     let row = placed_index / columns;
     let column = placed_index % columns;
     let spacing_x = display.w / (columns as f32 + 1.0);
-    let row_count = ((display.capacity + columns - 1) / columns).max(1);
+    let row_count = display.capacity.div_ceil(columns).max(1);
     let spacing_y = display.h / (row_count as f32 + 1.0);
     let x = display.x + spacing_x * (column as f32 + 1.0);
     let y = display.y + spacing_y * (row as f32 + 1.0);
