@@ -1,4 +1,7 @@
-use super::library::{draw_studded_block, draw_wheel, shift_block_color};
+use super::library::{
+    brighten, darken, draw_cube_with_edges, draw_studded_block, draw_toy_sphere, draw_wheel,
+    shift_block_color,
+};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {
@@ -35,5 +38,48 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         center + vec3(-0.09, 0.33, 0.0) * scale,
         vec3(0.10, 0.09, 0.12) * scale,
         shift_block_color(color, 3),
+    );
+
+    // Striped ball riding in the spare corner of the bed.
+    draw_toy_sphere(
+        center + vec3(0.12, 0.30, 0.0) * scale,
+        0.052 * scale,
+        None,
+        brighten(color, 0.22),
+    );
+    draw_cube(
+        center + vec3(0.12, 0.30, 0.0) * scale,
+        vec3(0.108, 0.018, 0.108) * scale,
+        None,
+        Color::new(0.92, 0.86, 0.70, 1.0),
+    );
+
+    // Low stake rails around the bed.
+    for z in [-0.12_f32, 0.12] {
+        draw_cube_with_edges(
+            center + vec3(0.0, 0.175, z) * scale,
+            vec3(0.40, 0.055, 0.020) * scale,
+            darken(color, 0.10),
+        );
+    }
+    for x in [-0.20_f32, 0.20] {
+        draw_cube_with_edges(
+            center + vec3(x, 0.175, 0.0) * scale,
+            vec3(0.020, 0.055, 0.24) * scale,
+            darken(color, 0.10),
+        );
+    }
+
+    // Pull handle with a T-grip out front.
+    let handle = Color::new(0.42, 0.30, 0.22, 1.0);
+    draw_cube_with_edges(
+        center + vec3(-0.285, 0.085, 0.0) * scale,
+        vec3(0.15, 0.024, 0.024) * scale,
+        handle,
+    );
+    draw_cube_with_edges(
+        center + vec3(-0.365, 0.085, 0.0) * scale,
+        vec3(0.024, 0.024, 0.11) * scale,
+        handle,
     );
 }
