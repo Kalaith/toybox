@@ -1,8 +1,8 @@
 //! Procedural toy library and per-identity renderers.
 
 use crate::data::ToyCategory;
-use crate::state::{RepairPartKind, ToyState};
-use library::{draw_toy_sphere, ToyIdentity};
+use crate::state::ToyState;
+use library::ToyIdentity;
 use macroquad::prelude::*;
 
 mod antenna_bot;
@@ -41,6 +41,7 @@ mod puzzle_cube;
 mod pyramid_blocks;
 mod rabbit;
 mod rainbow_blocks;
+mod repair_parts;
 mod rocket_bot;
 mod roller_bot;
 mod screen_bot;
@@ -99,7 +100,7 @@ pub fn draw_toy_lod_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
 
 pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
     if let Some(part) = toy.repair_part_kind() {
-        draw_repair_part_3d(part, center, color, scale);
+        repair_parts::draw(toy.category, part, center, color, scale);
         return;
     }
 
@@ -155,56 +156,5 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::HouseBlocks => house_blocks::draw(center, color, scale),
         ToyIdentity::SpiralBlocks => spiral_blocks::draw(center, color, scale),
         ToyIdentity::CartBlocks => cart_blocks::draw(center, color, scale),
-    }
-}
-
-fn draw_repair_part_3d(part: RepairPartKind, center: Vec3, color: Color, scale: f32) {
-    match part {
-        RepairPartKind::Head => {
-            draw_cube(
-                center + vec3(0.0, 0.18, 0.0) * scale,
-                vec3(0.36, 0.28, 0.32) * scale,
-                None,
-                library::brighten(color, 0.08),
-            );
-            library::draw_eye_pair(center, 0.23, -0.18, 0.08, scale);
-            draw_cube(
-                center + vec3(0.0, 0.36, 0.0) * scale,
-                vec3(0.055, 0.18, 0.055) * scale,
-                None,
-                library::darken(color, 0.18),
-            );
-            draw_toy_sphere(
-                center + vec3(0.0, 0.48, 0.0) * scale,
-                0.055 * scale,
-                None,
-                Color::new(0.94, 0.76, 0.28, 1.0),
-            );
-        }
-        RepairPartKind::Body => {
-            draw_cube(
-                center + vec3(0.0, 0.12, 0.0) * scale,
-                vec3(0.42, 0.36, 0.30) * scale,
-                None,
-                color,
-            );
-            draw_cube(
-                center + vec3(-0.32, 0.12, 0.0) * scale,
-                vec3(0.12, 0.28, 0.12) * scale,
-                None,
-                library::darken(color, 0.12),
-            );
-            draw_cube(
-                center + vec3(0.32, 0.12, 0.0) * scale,
-                vec3(0.12, 0.28, 0.12) * scale,
-                None,
-                library::darken(color, 0.12),
-            );
-            draw_cube_wires(
-                center + vec3(0.0, 0.42, 0.0) * scale,
-                vec3(0.28, 0.12, 0.22) * scale,
-                Color::new(0.98, 0.78, 0.34, 0.92),
-            );
-        }
     }
 }
