@@ -10,6 +10,46 @@ thread_local! {
     static SIGN_TEXTURES: RefCell<HashMap<String, Texture2D>> = RefCell::new(HashMap::new());
 }
 
+/// Which side a textured cube face is read from. macroquad's `draw_cube`
+/// reuses the front-face UVs on every face, so the back face mirrors
+/// horizontally and the ±x faces flip vertically; each view needs its own
+/// baked orientation for text to read correctly.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FaceView {
+    FromPosZ,
+    FromNegZ,
+    FromPosX,
+    FromNegX,
+}
+
+impl FaceView {
+    fn tag(self) -> &'static str {
+        match self {
+            FaceView::FromPosZ => "pz",
+            FaceView::FromNegZ => "nz",
+            FaceView::FromPosX => "px",
+            FaceView::FromNegX => "nx",
+        }
+    }
+}
+
+/// Orient an authored image (row 0 = visual top) for the given view and
+/// upload it.
+fn finalize_texture(mut image: Image, view: FaceView) -> Texture2D {
+    match view {
+        FaceView::FromPosZ => flip_image_vertical(&mut image),
+        FaceView::FromNegZ => {
+            flip_image_vertical(&mut image);
+            flip_image_horizontal(&mut image);
+        }
+        FaceView::FromPosX => flip_image_horizontal(&mut image),
+        FaceView::FromNegX => {}
+    }
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Nearest);
+    texture
+}
+
 #[derive(Debug, Clone, Copy)]
 struct SignLayout {
     panel_center: Vec3,
@@ -30,28 +70,27 @@ pub fn draw_stock_sign(display: &DisplayDef, accent: Color) {
             None,
             Color::new(0.10, 0.075, 0.055, 1.0),
         );
-        draw_textured_face(
-            display,
-            accent,
-            layout.panel_center + vec3(0.0, 0.0, -0.048),
-            vec3(
-                layout.panel_size.x * 0.90,
-                layout.panel_size.y * 0.64,
-                0.030,
-            ),
-        );
-        draw_textured_face(
-            display,
-            accent,
-            layout.panel_center + vec3(0.0, 0.0, 0.048),
-            vec3(
-                0.030,
-                layout.panel_size.y * 0.64,
-                layout.panel_size.z * 0.90,
-            ),
-        );
+        // Readable panel on both approaches.
+        for (offset, view) in [(-0.048, FaceView::FromNegZ), (0.048, FaceView::FromPosZ)] {
+            draw_textured_face(
+                display,
+                accent,
+                layout.panel_center + vec3(0.0, 0.0, offset),
+                vec3(
+                    layout.panel_size.x * 0.90,
+                    layout.panel_size.y * 0.64,
+                    0.030,
+                ),
+                view,
+            );
+        }
     } else {
         draw_cube(layout.panel_center, layout.panel_size, None, board);
+        let view = if layout.face_z_sign > 0.0 {
+            FaceView::FromPosZ
+        } else {
+            FaceView::FromNegZ
+        };
         draw_textured_face(
             display,
             accent,
@@ -61,6 +100,7 @@ pub fn draw_stock_sign(display: &DisplayDef, accent: Color) {
                 layout.panel_size.y * 0.66,
                 0.030,
             ),
+            view,
         );
         draw_cube_wires(layout.panel_center, layout.panel_size, accent);
         draw_cube(
@@ -109,12 +149,13 @@ pub fn draw_zone_sign(zone: &ZoneDef) {
         Color::new(accent.r, accent.g, accent.b, 0.55),
     );
 
-    for z_sign in [-1.0_f32, 1.0] {
+    for (z_sign, view) in [(-1.0_f32, FaceView::FromNegZ), (1.0, FaceView::FromPosZ)] {
         draw_zone_face(
             zone,
             accent,
             center + vec3(0.0, 0.0, z_sign * 0.085),
             vec3(panel_size.x * 0.92, panel_size.y * 0.72, 0.030),
+            view,
         );
     }
 }
@@ -128,31 +169,35 @@ pub fn draw_wall_posters(data: &GameData) {
 
     for poster in &data.layout.posters {
         let height = poster.width * 0.42;
-        // (center, frame size, face size, face inset direction)
-        let (center, frame_size, face_size, face_push) = match poster.wall.as_str() {
+        // (center, frame size, face size, face inset direction, reading side)
+        let (center, frame_size, face_size, face_push, view) = match poster.wall.as_str() {
             "front" => (
                 vec3(poster.offset, poster.center_y, 0.05),
                 vec3(poster.width + 0.10, height + 0.10, 0.03),
                 vec3(poster.width, height, 0.03),
                 vec3(0.0, 0.0, 0.02),
+                FaceView::FromPosZ,
             ),
             "back" => (
                 vec3(poster.offset, poster.center_y, room_h - 0.05),
                 vec3(poster.width + 0.10, height + 0.10, 0.03),
                 vec3(poster.width, height, 0.03),
                 vec3(0.0, 0.0, -0.02),
+                FaceView::FromNegZ,
             ),
             "west" => (
                 vec3(0.05, poster.center_y, poster.offset),
                 vec3(0.03, height + 0.10, poster.width + 0.10),
                 vec3(0.03, height, poster.width),
                 vec3(0.02, 0.0, 0.0),
+                FaceView::FromPosX,
             ),
             _ => (
                 vec3(room_w - 0.05, poster.center_y, poster.offset),
                 vec3(0.03, height + 0.10, poster.width + 0.10),
                 vec3(0.03, height, poster.width),
                 vec3(-0.02, 0.0, 0.0),
+                FaceView::FromNegX,
             ),
         };
 
@@ -166,14 +211,14 @@ pub fn draw_wall_posters(data: &GameData) {
         SIGN_TEXTURES.with(|textures| {
             let mut textures = textures.borrow_mut();
             let texture = textures
-                .entry(format!("poster:{}", poster.text))
-                .or_insert_with(|| build_poster_texture(poster, accent));
+                .entry(format!("poster:{}:{}", poster.text, view.tag()))
+                .or_insert_with(|| finalize_texture(build_poster_image(poster, accent), view));
             draw_cube(center + face_push, face_size, Some(texture), WHITE);
         });
     }
 }
 
-fn build_poster_texture(poster: &PosterDef, accent: Color) -> Texture2D {
+fn build_poster_image(poster: &PosterDef, accent: Color) -> Image {
     let paper = Color::new(0.91, 0.87, 0.78, 1.0);
     let mut image = Image::gen_image_color(160, 64, paper);
 
@@ -199,23 +244,20 @@ fn build_poster_texture(poster: &PosterDef, accent: Color) -> Texture2D {
         Color::new(0.16, 0.13, 0.10, 1.0),
     );
 
-    flip_image_vertical(&mut image);
-    let texture = Texture2D::from_image(&image);
-    texture.set_filter(FilterMode::Nearest);
-    texture
+    image
 }
 
-fn draw_zone_face(zone: &ZoneDef, accent: Color, center: Vec3, size: Vec3) {
+fn draw_zone_face(zone: &ZoneDef, accent: Color, center: Vec3, size: Vec3, view: FaceView) {
     SIGN_TEXTURES.with(|textures| {
         let mut textures = textures.borrow_mut();
         let texture = textures
-            .entry(format!("zone:{}", zone.name))
-            .or_insert_with(|| build_zone_sign_texture(zone, accent));
+            .entry(format!("zone:{}:{}", zone.name, view.tag()))
+            .or_insert_with(|| finalize_texture(build_zone_sign_image(zone, accent), view));
         draw_cube(center, size, Some(texture), WHITE);
     });
 }
 
-fn build_zone_sign_texture(zone: &ZoneDef, accent: Color) -> Texture2D {
+fn build_zone_sign_image(zone: &ZoneDef, accent: Color) -> Image {
     let face = Color::new(
         (accent.r * 0.42).clamp(0.0, 1.0),
         (accent.g * 0.42).clamp(0.0, 1.0),
@@ -240,23 +282,26 @@ fn build_zone_sign_texture(zone: &ZoneDef, accent: Color) -> Texture2D {
         Color::new(0.98, 0.94, 0.76, 1.0),
     );
 
-    flip_image_vertical(&mut image);
-    let texture = Texture2D::from_image(&image);
-    texture.set_filter(FilterMode::Nearest);
-    texture
+    image
 }
 
-fn draw_textured_face(display: &DisplayDef, accent: Color, center: Vec3, size: Vec3) {
+fn draw_textured_face(
+    display: &DisplayDef,
+    accent: Color,
+    center: Vec3,
+    size: Vec3,
+    view: FaceView,
+) {
     SIGN_TEXTURES.with(|textures| {
         let mut textures = textures.borrow_mut();
         let texture = textures
-            .entry(display.id.clone())
-            .or_insert_with(|| build_sign_texture(display, accent));
+            .entry(format!("{}:{}", display.id, view.tag()))
+            .or_insert_with(|| finalize_texture(build_sign_image(display, accent), view));
         draw_cube(center, size, Some(texture), WHITE);
     });
 }
 
-fn build_sign_texture(display: &DisplayDef, accent: Color) -> Texture2D {
+fn build_sign_image(display: &DisplayDef, accent: Color) -> Image {
     let face = Color::new(
         (accent.r * 0.58).clamp(0.0, 1.0),
         (accent.g * 0.58).clamp(0.0, 1.0),
@@ -290,10 +335,21 @@ fn build_sign_texture(display: &DisplayDef, accent: Color) -> Texture2D {
         Color::new(0.05, 0.045, 0.038, 1.0),
     );
 
-    flip_image_vertical(&mut image);
-    let texture = Texture2D::from_image(&image);
-    texture.set_filter(FilterMode::Nearest);
-    texture
+    image
+}
+
+fn flip_image_horizontal(image: &mut Image) {
+    let width = image.width() as u32;
+    let height = image.height() as u32;
+    for y in 0..height {
+        for x in 0..width / 2 {
+            let opposite_x = width - 1 - x;
+            let left = image.get_pixel(x, y);
+            let right = image.get_pixel(opposite_x, y);
+            image.set_pixel(x, y, right);
+            image.set_pixel(opposite_x, y, left);
+        }
+    }
 }
 
 fn flip_image_vertical(image: &mut Image) {
