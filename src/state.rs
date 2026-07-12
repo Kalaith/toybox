@@ -10,7 +10,6 @@ mod interactions;
 mod repair;
 mod spatial;
 
-pub use repair::repair_bench_position;
 pub use spatial::ToySpatialGrid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -506,7 +505,7 @@ impl GameSession {
             }
         }
         self.repair_display_slots(data);
-        self.repair_bench_slots();
+        self.repair_bench_slots(data);
         self.normalize_active_carry();
         self.repair_player_view();
         self.refresh_display_completion(data);
@@ -698,7 +697,7 @@ fn scattered_position(
     data: &GameData,
 ) -> WorldPoint {
     let config = &data.config;
-    let (anchor, radius) = mess_pile_anchor(toy_index, display_index, slot_index);
+    let (anchor, radius) = mess_pile_anchor(toy_index, display_index, slot_index, data);
     let angle = toy_index as f32 * 2.399 + display_index as f32 * 0.77 + slot_index as f32 * 0.19;
     let ring_seed = ((toy_index * 37 + display_index * 11 + slot_index * 17) % 100) as f32 / 100.0;
     let spill = if toy_index.is_multiple_of(11) {
@@ -723,21 +722,25 @@ fn scattered_position(
     }
 }
 
-fn mess_pile_anchor(toy_index: usize, display_index: usize, slot_index: usize) -> (Vec2, f32) {
-    let pile_slot = (toy_index * 7 + display_index * 3 + slot_index) % 32;
-    match pile_slot {
-        0..=6 => (vec2(6.25, 5.72), 1.18),
-        7..=12 => (vec2(11.55, 5.68), 1.14),
-        13..=16 => (vec2(8.95, 3.82), 1.26),
-        17..=19 => (vec2(9.12, 8.15), 1.30),
-        20..=22 => (vec2(3.78, 3.25), 1.05),
-        23..=24 => (vec2(14.10, 3.22), 1.04),
-        25..=26 => (vec2(3.52, 7.45), 1.00),
-        27..=28 => (vec2(14.35, 7.62), 1.02),
-        29 => (vec2(5.35, 9.35), 0.82),
-        30 => (vec2(12.65, 9.28), 0.84),
-        _ => (vec2(9.05, 10.08), 0.94),
+fn mess_pile_anchor(
+    toy_index: usize,
+    display_index: usize,
+    slot_index: usize,
+    data: &GameData,
+) -> (Vec2, f32) {
+    let piles = &data.layout.scatter_piles;
+    let total_weight: usize = piles.iter().map(|pile| pile.weight).sum();
+    let pile_slot = (toy_index * 7 + display_index * 3 + slot_index) % total_weight.max(1);
+
+    let mut cursor = 0;
+    for pile in piles {
+        cursor += pile.weight;
+        if pile_slot < cursor {
+            return (vec2(pile.x, pile.y), pile.radius);
+        }
     }
+    let last = piles.last().expect("layout load validates scatter piles");
+    (vec2(last.x, last.y), last.radius)
 }
 
 fn keep_off_displays(mut position: Vec2, data: &GameData) -> Vec2 {

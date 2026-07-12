@@ -21,8 +21,8 @@ impl GameSession {
 
         if let Some(active_toy) = self.active_toy() {
             if active_toy.is_repair_part() {
-                if self.is_near_repair_bench() {
-                    return self.place_active_on_repair_bench();
+                if self.is_near_repair_bench(data) {
+                    return self.place_active_on_repair_bench(data);
                 }
                 if self.targeted_display_slot(data).is_some() || self.is_near_display(data) {
                     return InteractionResult::NeedsRepair {
@@ -47,8 +47,8 @@ impl GameSession {
             return self.drop_active_as_interaction(data);
         }
 
-        if self.is_near_repair_bench() && self.benched_repair_name().is_some() {
-            return self.repair_benched_toys();
+        if self.is_near_repair_bench(data) && self.benched_repair_name(data).is_some() {
+            return self.repair_benched_toys(data);
         }
 
         if let Some(target) = self.targeted_display_slot(data) {
@@ -71,7 +71,7 @@ impl GameSession {
             return self.pick_up_toy(toy_index);
         }
 
-        if self.is_near_repair_bench() && self.repair_bench_is_full() {
+        if self.is_near_repair_bench(data) && self.repair_bench_is_full(data) {
             return InteractionResult::RepairMismatch;
         }
 
@@ -85,8 +85,8 @@ impl GameSession {
 
         if let Some(active_toy) = self.active_toy() {
             if active_toy.is_repair_part() {
-                if self.is_near_repair_bench() {
-                    if self.repair_bench_has_room() {
+                if self.is_near_repair_bench(data) {
+                    if self.repair_bench_has_room(data) {
                         return InteractionPreview::PlaceOnRepairBench;
                     }
                     return InteractionPreview::RepairBenchFull;
@@ -113,8 +113,8 @@ impl GameSession {
             return InteractionPreview::PutDown;
         }
 
-        if self.is_near_repair_bench() {
-            if let Some(toy_name) = self.benched_repair_name() {
+        if self.is_near_repair_bench(data) {
+            if let Some(toy_name) = self.benched_repair_name(data) {
                 return InteractionPreview::RepairReady { toy_name };
             }
         }
@@ -143,7 +143,7 @@ impl GameSession {
             };
         }
 
-        if self.is_near_repair_bench() && self.repair_bench_is_full() {
+        if self.is_near_repair_bench(data) && self.repair_bench_is_full(data) {
             return InteractionPreview::RepairMismatch;
         }
 

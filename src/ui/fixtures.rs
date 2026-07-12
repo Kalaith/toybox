@@ -1,5 +1,5 @@
 use crate::data::DisplayDef;
-use crate::state::{repair_bench_position, toy_matches_display};
+use crate::state::toy_matches_display;
 use crate::ui::signs::draw_stock_sign;
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube};
 use crate::ui::UiContext;
@@ -35,8 +35,8 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
 }
 
 pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
-    let position = repair_bench_position();
-    let center = vec3(position.x, 0.54, position.y);
+    let bench = ctx.data.primary_bench();
+    let center = vec3(bench.x, 0.54, bench.y);
     draw_wood_cube(center, vec3(2.2, 0.24, 1.1), 70);
     draw_cube(
         center + vec3(0.0, 0.15, 0.0),
@@ -78,7 +78,7 @@ pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
         .active_toy()
         .is_some_and(|toy| toy.is_repair_part())
     {
-        let color = if ctx.session.is_near_repair_bench() {
+        let color = if ctx.session.is_near_repair_bench(ctx.data) {
             Color::new(0.34, 0.95, 0.60, 0.94)
         } else {
             Color::new(0.42, 0.95, 0.96, 0.72)

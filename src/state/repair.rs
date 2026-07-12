@@ -1,12 +1,7 @@
 use super::{GameSession, InteractionResult, RepairPartKind, RepairState, ToyState, WorldPoint};
-use crate::data::{GameData, ToyCategory};
+use crate::data::{BenchDef, GameData, ToyCategory};
 
 const FIRST_REPAIR_ID: &str = "robot_antenna_001";
-const REPAIR_BENCH_POSITION: WorldPoint = WorldPoint { x: 8.8, y: 10.7 };
-const REPAIR_BENCH_RADIUS: f32 = 1.45;
-const REPAIR_BENCH_CAPACITY: usize = 2;
-// Bench slots sit within 0.4 of the bench center; covers grid quantization.
-const BENCH_QUERY_RADIUS: f32 = 1.0;
 
 impl ToyState {
     pub fn is_repair_part(&self) -> bool {
@@ -41,25 +36,26 @@ impl ToyState {
 }
 
 impl GameSession {
-    pub fn is_near_repair_bench(&self) -> bool {
+    pub fn is_near_repair_bench(&self, data: &GameData) -> bool {
+        let bench = data.primary_bench();
         self.player
             .position
             .to_vec2()
-            .distance_squared(REPAIR_BENCH_POSITION.to_vec2())
-            <= REPAIR_BENCH_RADIUS * REPAIR_BENCH_RADIUS
+            .distance_squared(bench_point(bench).to_vec2())
+            <= bench.radius * bench.radius
     }
 
-    pub(super) fn repair_bench_has_room(&self) -> bool {
-        self.next_repair_bench_slot().is_some()
+    pub(super) fn repair_bench_has_room(&self, data: &GameData) -> bool {
+        self.next_repair_bench_slot(data).is_some()
     }
 
-    pub(super) fn repair_bench_is_full(&self) -> bool {
-        self.benched_toy_indices().len() >= REPAIR_BENCH_CAPACITY
+    pub(super) fn repair_bench_is_full(&self, data: &GameData) -> bool {
+        self.benched_toy_indices(data).len() >= data.primary_bench().capacity
     }
 
-    pub(super) fn benched_repair_name(&self) -> Option<String> {
-        let part_indices = self.benched_repair_part_indices();
-        if part_indices.len() != REPAIR_BENCH_CAPACITY {
+    pub(super) fn benched_repair_name(&self, data: &GameData) -> Option<String> {
+        let part_indices = self.benched_repair_part_indices(data);
+        if part_indices.len() != data.primary_bench().capacity {
             return None;
         }
 
@@ -77,7 +73,7 @@ impl GameSession {
         })
     }
 
-    pub(super) fn place_active_on_repair_bench(&mut self) -> InteractionResult {
+    pub(super) fn place_active_on_repair_bench(&mut self, data: &GameData) -> InteractionResult {
         let Some(active_toy) = self.active_toy() else {
             return InteractionResult::NothingNearby;
         };
@@ -86,7 +82,7 @@ impl GameSession {
         if !active_toy.is_repair_part() {
             return InteractionResult::NothingNearby;
         };
-        let Some(slot_index) = self.next_repair_bench_slot() else {
+        let Some(slot_index) = self.next_repair_bench_slot(data) else {
             return InteractionResult::RepairBenchFull;
         };
         let Some(active_index) = self.toys.iter().position(|toy| toy.id == active_id) else {
@@ -98,7 +94,8 @@ impl GameSession {
         self.toys[active_index].placed_slot_index = None;
         self.toys[active_index].bench_slot_index = Some(slot_index);
         self.toys[active_index].wrong_marker_seconds = 0.0;
-        self.toys[active_index].position = repair_bench_slot_position(slot_index);
+        self.toys[active_index].position =
+            repair_bench_slot_position(data.primary_bench(), slot_index);
         self.spatial
             .sync_toy(active_index, &self.toys[active_index]);
 
@@ -112,14 +109,14 @@ impl GameSession {
         }
     }
 
-    pub(super) fn repair_benched_toys(&mut self) -> InteractionResult {
-        let part_indices = self.benched_repair_part_indices();
-        if part_indices.len() != REPAIR_BENCH_CAPACITY {
+    pub(super) fn repair_benched_toys(&mut self, data: &GameData) -> InteractionResult {
+        let part_indices = self.benched_repair_part_indices(data);
+        if part_indices.len() != data.primary_bench().capacity {
             return InteractionResult::NeedsRepairParts {
                 toy_name: "repair".to_owned(),
             };
         }
-        let Some(repaired_name) = self.benched_repair_name() else {
+        let Some(repaired_name) = self.benched_repair_name(data) else {
             return InteractionResult::RepairMismatch;
         };
         let survivor_index = part_indices
@@ -142,7 +139,7 @@ impl GameSession {
             self.toys[index].placed_slot_index = None;
             self.toys[index].bench_slot_index = None;
             self.toys[index].wrong_marker_seconds = 0.0;
-            self.toys[index].position = repair_bench_slot_position(1);
+            self.toys[index].position = repair_bench_slot_position(data.primary_bench(), 1);
             self.toys[index].repair_state = RepairState::ConsumedPart {
                 repair_id: repair_id.clone(),
             };
@@ -171,8 +168,9 @@ impl GameSession {
         }
     }
 
-    pub(super) fn repair_bench_slots(&mut self) {
-        let mut used_slots = [false; REPAIR_BENCH_CAPACITY];
+    pub(super) fn repair_bench_slots(&mut self, data: &GameData) {
+        let bench = data.primary_bench();
+        let mut used_slots = vec![false; bench.capacity];
         for toy in &mut self.toys {
             let Some(slot_index) = toy.bench_slot_index else {
                 continue;
@@ -180,7 +178,7 @@ impl GameSession {
 
             if toy.is_held
                 || !toy.is_repair_part()
-                || slot_index >= REPAIR_BENCH_CAPACITY
+                || slot_index >= bench.capacity
                 || used_slots[slot_index]
             {
                 toy.bench_slot_index = None;
@@ -190,30 +188,31 @@ impl GameSession {
             used_slots[slot_index] = true;
             toy.placed_display_id = None;
             toy.placed_slot_index = None;
-            toy.position = repair_bench_slot_position(slot_index);
+            toy.position = repair_bench_slot_position(bench, slot_index);
         }
     }
 
-    fn next_repair_bench_slot(&self) -> Option<usize> {
-        let benched = self.benched_toy_indices();
-        (0..REPAIR_BENCH_CAPACITY).find(|slot_index| {
+    fn next_repair_bench_slot(&self, data: &GameData) -> Option<usize> {
+        let benched = self.benched_toy_indices(data);
+        (0..data.primary_bench().capacity).find(|slot_index| {
             !benched
                 .iter()
                 .any(|&toy_index| self.toys[toy_index].bench_slot_index == Some(*slot_index))
         })
     }
 
-    fn benched_toy_indices(&self) -> Vec<usize> {
+    fn benched_toy_indices(&self, data: &GameData) -> Vec<usize> {
+        let bench = data.primary_bench();
         self.spatial
-            .indices_near(REPAIR_BENCH_POSITION.to_vec2(), BENCH_QUERY_RADIUS)
+            .indices_near(bench_point(bench).to_vec2(), bench.radius)
             .into_iter()
             .filter(|&toy_index| self.toys[toy_index].bench_slot_index.is_some())
             .collect()
     }
 
-    fn benched_repair_part_indices(&self) -> Vec<usize> {
+    fn benched_repair_part_indices(&self, data: &GameData) -> Vec<usize> {
         let mut parts: Vec<(usize, usize)> = self
-            .benched_toy_indices()
+            .benched_toy_indices(data)
             .into_iter()
             .filter(|&toy_index| self.toys[toy_index].is_repair_part())
             .filter_map(|toy_index| {
@@ -227,15 +226,18 @@ impl GameSession {
     }
 }
 
-pub fn repair_bench_position() -> WorldPoint {
-    REPAIR_BENCH_POSITION
+fn bench_point(bench: &BenchDef) -> WorldPoint {
+    WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    }
 }
 
-fn repair_bench_slot_position(slot_index: usize) -> WorldPoint {
+fn repair_bench_slot_position(bench: &BenchDef, slot_index: usize) -> WorldPoint {
     let x_offset = if slot_index == 0 { -0.38 } else { 0.38 };
     WorldPoint {
-        x: REPAIR_BENCH_POSITION.x + x_offset,
-        y: REPAIR_BENCH_POSITION.y - 0.08,
+        x: bench.x + x_offset,
+        y: bench.y - 0.08,
     }
 }
 

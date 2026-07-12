@@ -296,7 +296,11 @@ fn repair_bench_repairs_matching_benched_parts() {
         .id
         .clone();
 
-    session.player.position = repair_bench_position();
+    let bench = data.primary_bench();
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
 
     let body_index = session
         .toys

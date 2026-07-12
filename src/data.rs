@@ -8,6 +8,7 @@ const GAME_CONFIG_JSON: &str = include_str!("../assets/data/game_config.json");
 const DISPLAYS_JSON: &str = include_str!("../assets/data/displays.json");
 const UPGRADES_JSON: &str = include_str!("../assets/data/upgrades.json");
 const TEXTURE_MANIFEST_JSON: &str = include_str!("../assets/data/texture_manifest.json");
+const LAYOUT_JSON: &str = include_str!("../assets/data/layout.json");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameConfig {
@@ -70,12 +71,36 @@ fn default_upgrade_cost() -> usize {
     1
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BenchDef {
+    pub id: String,
+    pub x: f32,
+    pub y: f32,
+    pub radius: f32,
+    pub capacity: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScatterPileDef {
+    pub x: f32,
+    pub y: f32,
+    pub radius: f32,
+    pub weight: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayoutData {
+    pub benches: Vec<BenchDef>,
+    pub scatter_piles: Vec<ScatterPileDef>,
+}
+
 #[derive(Debug, Clone)]
 pub struct GameData {
     pub config: GameConfig,
     pub displays: Vec<DisplayDef>,
     pub upgrades: Vec<UpgradeDef>,
     pub texture_manifest: Vec<TextureConfig>,
+    pub layout: LayoutData,
 }
 
 impl GameData {
@@ -84,17 +109,40 @@ impl GameData {
         let displays = load_embedded_json_labeled("displays", DISPLAYS_JSON)?;
         let upgrades = load_embedded_json_labeled("upgrades", UPGRADES_JSON)?;
         let texture_manifest = load_embedded_json(TEXTURE_MANIFEST_JSON)?;
+        let layout: LayoutData = load_embedded_json_labeled("layout", LAYOUT_JSON)?;
+
+        if layout.benches.is_empty() {
+            return Err("layout.json must define at least one bench".to_owned());
+        }
+        if layout.benches.iter().any(|bench| bench.capacity == 0) {
+            return Err("layout.json bench capacity must be at least 1".to_owned());
+        }
+        if layout
+            .scatter_piles
+            .iter()
+            .map(|pile| pile.weight)
+            .sum::<usize>()
+            == 0
+        {
+            return Err("layout.json scatter piles need a non-zero total weight".to_owned());
+        }
 
         Ok(Self {
             config,
             displays,
             upgrades,
             texture_manifest,
+            layout,
         })
     }
 
     pub fn display_by_id(&self, id: &str) -> Option<&DisplayDef> {
         self.displays.iter().find(|display| display.id == id)
+    }
+
+    /// The bench used by all single-bench logic until multi-bench lands.
+    pub fn primary_bench(&self) -> &BenchDef {
+        &self.layout.benches[0]
     }
 }
 
