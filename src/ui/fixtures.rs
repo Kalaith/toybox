@@ -89,24 +89,7 @@ pub(crate) fn draw_repair_benches(ctx: &UiContext<'_>) {
             }
         }
 
-        draw_cube(
-            center + vec3(-0.46, 0.32, -0.18),
-            vec3(0.42, 0.12, 0.18),
-            None,
-            Color::new(0.72, 0.20, 0.18, 1.0),
-        );
-        draw_cube(
-            center + vec3(0.18, 0.32, 0.12),
-            vec3(0.58, 0.10, 0.16),
-            None,
-            Color::new(0.34, 0.54, 0.72, 1.0),
-        );
-        draw_sphere(
-            center + vec3(0.64, 0.35, -0.18),
-            0.09,
-            None,
-            Color::new(0.90, 0.78, 0.32, 1.0),
-        );
+        draw_bench_worktop(center, bench);
 
         if carrying_part {
             let near =
@@ -123,6 +106,95 @@ pub(crate) fn draw_repair_benches(ctx: &UiContext<'_>) {
             );
         }
     }
+}
+
+/// Worktop dressing along the back strip of a repair bench — the front half
+/// stays clear for the two part slots. Desk lamp, screwdriver, screw
+/// scatter, and a toolbox sell "repairs happen here" from a distance.
+fn draw_bench_worktop(center: Vec3, bench: &crate::data::BenchDef) {
+    let top = 0.175;
+    let back = bench.h * 0.30;
+    let metal = Color::new(0.62, 0.65, 0.66, 1.0);
+
+    // Desk lamp: base, stepped arm, warm shade with a glow pool under it.
+    let lamp_x = -bench.w * 0.32;
+    draw_cube(
+        center + vec3(lamp_x, top + 0.02, back),
+        vec3(0.14, 0.04, 0.12),
+        None,
+        Color::new(0.20, 0.23, 0.24, 1.0),
+    );
+    draw_cube(
+        center + vec3(lamp_x, top + 0.14, back),
+        vec3(0.03, 0.22, 0.03),
+        None,
+        metal,
+    );
+    draw_cube(
+        center + vec3(lamp_x + 0.07, top + 0.24, back - 0.05),
+        vec3(0.14, 0.03, 0.03),
+        None,
+        metal,
+    );
+    draw_cube(
+        center + vec3(lamp_x + 0.15, top + 0.21, back - 0.09),
+        vec3(0.12, 0.08, 0.12),
+        None,
+        Color::new(0.24, 0.42, 0.38, 1.0),
+    );
+    draw_cube(
+        center + vec3(lamp_x + 0.15, top + 0.16, back - 0.09),
+        vec3(0.06, 0.03, 0.06),
+        None,
+        Color::new(0.97, 0.88, 0.60, 1.0),
+    );
+    draw_cube(
+        center + vec3(lamp_x + 0.15, top + 0.005, back - 0.09),
+        vec3(0.34, 0.006, 0.30),
+        None,
+        Color::new(0.96, 0.85, 0.55, 0.16),
+    );
+
+    // Screwdriver: amber handle, steel shaft, plus a scatter of screws.
+    draw_cube(
+        center + vec3(0.06, top + 0.025, back + 0.02),
+        vec3(0.10, 0.035, 0.04),
+        None,
+        Color::new(0.86, 0.56, 0.22, 1.0),
+    );
+    draw_cube(
+        center + vec3(0.17, top + 0.02, back + 0.02),
+        vec3(0.13, 0.018, 0.018),
+        None,
+        metal,
+    );
+    for (offset_x, offset_z) in [
+        (0.30_f32, -0.04_f32),
+        (0.34, 0.05),
+        (0.27, 0.08),
+        (0.38, 0.0),
+    ] {
+        draw_cube(
+            center + vec3(offset_x, top + 0.012, back + offset_z),
+            vec3(0.022, 0.022, 0.022),
+            None,
+            metal,
+        );
+    }
+
+    // Red toolbox anchoring the right end.
+    draw_cube(
+        center + vec3(bench.w * 0.33, top + 0.07, back - 0.02),
+        vec3(0.34, 0.13, 0.16),
+        None,
+        Color::new(0.72, 0.20, 0.18, 1.0),
+    );
+    draw_cube(
+        center + vec3(bench.w * 0.33, top + 0.145, back - 0.02),
+        vec3(0.12, 0.025, 0.05),
+        None,
+        Color::new(0.30, 0.30, 0.30, 1.0),
+    );
 }
 
 pub(crate) fn draw_aisle_shelving(ctx: &UiContext<'_>) {
