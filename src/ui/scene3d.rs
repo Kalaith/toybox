@@ -27,7 +27,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
     };
 
     set_camera(&camera);
-    draw_shop_environment(&ctx.data.config);
+    draw_shop_environment(ctx.data);
     draw_displays(ctx);
     draw_repair_bench(ctx);
     let drawn_toys = draw_loose_toys(ctx) + draw_placed_toys(ctx);

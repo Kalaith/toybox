@@ -1,32 +1,32 @@
-use crate::data::GameConfig;
+use crate::data::GameData;
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube, wood_tone};
 use macroquad::prelude::*;
 
-pub(crate) fn draw_shop_environment(config: &GameConfig) {
-    draw_sky_glow(config);
-    draw_floor(config);
-    draw_walls(config);
-    draw_ceiling(config);
-    draw_front_window(config);
+pub(crate) fn draw_shop_environment(data: &GameData) {
+    draw_sky_glow(data);
+    draw_floor(data);
+    draw_walls(data);
+    draw_ceiling(data);
+    draw_front_window(data);
 }
 
-fn draw_sky_glow(config: &GameConfig) {
-    let width = config.room_width;
+fn draw_sky_glow(data: &GameData) {
+    let window = &data.layout.window;
     draw_cube(
-        vec3(width - 3.1, 1.36, -0.24),
-        vec3(3.0, 1.38, 0.08),
+        vec3(window.x, window.center_y + 0.02, -0.24),
+        vec3(window.width + 0.18, window.height + 0.04, 0.08),
         None,
         Color::new(0.035, 0.060, 0.115, 1.0),
     );
     draw_sphere(
-        vec3(width - 2.22, 1.70, -0.31),
+        vec3(window.x + 0.88, window.center_y + 0.36, -0.31),
         0.13,
         None,
         Color::new(0.95, 0.87, 0.58, 1.0),
     );
 
     for index in 0..13 {
-        let x = width - 4.18 + (index % 5) as f32 * 0.55 + (index / 5) as f32 * 0.07;
+        let x = window.x - 1.08 + (index % 5) as f32 * 0.55 + (index / 5) as f32 * 0.07;
         let y = 0.86 + ((index * 7) % 9) as f32 * 0.105;
         let size = 0.030 + (index % 3) as f32 * 0.008;
         draw_cube(
@@ -38,9 +38,9 @@ fn draw_sky_glow(config: &GameConfig) {
     }
 }
 
-fn draw_floor(config: &GameConfig) {
-    let width = config.room_width;
-    let depth = config.room_height;
+fn draw_floor(data: &GameData) {
+    let width = data.config.room_width;
+    let depth = data.config.room_height;
     draw_plane(
         vec3(width * 0.5, -0.012, depth * 0.5),
         vec2(width, depth),
@@ -91,44 +91,48 @@ fn draw_floor(config: &GameConfig) {
     }
 }
 
-fn draw_walls(config: &GameConfig) {
-    let width = config.room_width;
-    let depth = config.room_height;
+fn draw_walls(data: &GameData) {
+    let width = data.config.room_width;
+    let depth = data.config.room_height;
+    let wall_spec = &data.layout.wall;
+    let center_y = wall_spec.height * 0.5;
+    let inset = wall_spec.thickness * 0.5 + 0.01;
     let wall = Color::new(0.24, 0.29, 0.28, 1.0);
     let side_wall = Color::new(0.20, 0.25, 0.25, 1.0);
 
     draw_cube(
-        vec3(width * 0.5, 1.18, -0.18),
-        vec3(width, 2.36, 0.34),
+        vec3(width * 0.5, center_y, -inset),
+        vec3(width, wall_spec.height, wall_spec.thickness),
         None,
         wall,
     );
     draw_cube(
-        vec3(width * 0.5, 1.18, depth + 0.18),
-        vec3(width, 2.36, 0.34),
+        vec3(width * 0.5, center_y, depth + inset),
+        vec3(width, wall_spec.height, wall_spec.thickness),
         None,
         Color::new(0.18, 0.22, 0.22, 1.0),
     );
     draw_cube(
-        vec3(-0.18, 1.18, depth * 0.5),
-        vec3(0.34, 2.36, depth),
+        vec3(-inset, center_y, depth * 0.5),
+        vec3(wall_spec.thickness, wall_spec.height, depth),
         None,
         side_wall,
     );
     draw_cube(
-        vec3(width + 0.18, 1.18, depth * 0.5),
-        vec3(0.34, 2.36, depth),
+        vec3(width + inset, center_y, depth * 0.5),
+        vec3(wall_spec.thickness, wall_spec.height, depth),
         None,
         Color::new(0.22, 0.27, 0.26, 1.0),
     );
 
-    draw_wall_trim(config);
-    draw_wall_panels(config);
+    draw_wall_trim(data);
+    draw_wall_panels(data);
 }
 
-fn draw_wall_trim(config: &GameConfig) {
-    let width = config.room_width;
-    let depth = config.room_height;
+fn draw_wall_trim(data: &GameData) {
+    let width = data.config.room_width;
+    let depth = data.config.room_height;
+    let top_y = data.layout.wall.height - 0.04;
     draw_dark_trim(vec3(width * 0.5, 0.20, -0.01), vec3(width, 0.20, 0.12));
     draw_dark_trim(
         vec3(width * 0.5, 0.20, depth + 0.01),
@@ -139,16 +143,16 @@ fn draw_wall_trim(config: &GameConfig) {
         vec3(width + 0.01, 0.20, depth * 0.5),
         vec3(0.12, 0.20, depth),
     );
-    draw_dark_trim(vec3(width * 0.5, 2.32, -0.01), vec3(width, 0.12, 0.12));
+    draw_dark_trim(vec3(width * 0.5, top_y, -0.01), vec3(width, 0.12, 0.12));
     draw_dark_trim(
-        vec3(width * 0.5, 2.32, depth + 0.01),
+        vec3(width * 0.5, top_y, depth + 0.01),
         vec3(width, 0.12, 0.12),
     );
 }
 
-fn draw_wall_panels(config: &GameConfig) {
-    let width = config.room_width;
-    let depth = config.room_height;
+fn draw_wall_panels(data: &GameData) {
+    let width = data.config.room_width;
+    let depth = data.config.room_height;
     for index in 0..7 {
         let x = 1.0 + index as f32 * (width - 2.0) / 6.0;
         draw_wood_cube(vec3(x, 0.86, -0.02), vec3(0.08, 0.86, 0.12), index);
@@ -170,11 +174,12 @@ fn draw_wall_panels(config: &GameConfig) {
     }
 }
 
-fn draw_ceiling(config: &GameConfig) {
-    let width = config.room_width;
-    let depth = config.room_height;
+fn draw_ceiling(data: &GameData) {
+    let width = data.config.room_width;
+    let depth = data.config.room_height;
+    let ceiling_y = data.layout.wall.height + 0.12;
     draw_cube(
-        vec3(width * 0.5, 2.48, depth * 0.5),
+        vec3(width * 0.5, ceiling_y, depth * 0.5),
         vec3(width, 0.12, depth),
         None,
         Color::new(0.13, 0.12, 0.105, 1.0),
@@ -182,28 +187,34 @@ fn draw_ceiling(config: &GameConfig) {
     for index in 0..5 {
         let z = 0.9 + index as f32 * (depth - 1.8) / 4.0;
         draw_wood_cube(
-            vec3(width * 0.5, 2.39, z),
+            vec3(width * 0.5, ceiling_y - 0.09, z),
             vec3(width, 0.12, 0.12),
             index + 14,
         );
     }
 }
 
-fn draw_front_window(config: &GameConfig) {
-    let width = config.room_width;
-    let center = vec3(width - 3.1, 1.34, 0.02);
-    draw_dark_trim(center, vec3(2.82, 1.34, 0.10));
+fn draw_front_window(data: &GameData) {
+    let window = &data.layout.window;
+    let center = vec3(window.x, window.center_y, 0.02);
+    draw_dark_trim(center, vec3(window.width, window.height, 0.10));
     draw_cube(
         center + vec3(0.0, 0.0, -0.045),
-        vec3(2.52, 1.06, 0.04),
+        vec3(window.width - 0.30, window.height - 0.28, 0.04),
         None,
         Color::new(0.07, 0.11, 0.19, 0.92),
     );
-    draw_dark_trim(center + vec3(0.0, 0.0, -0.07), vec3(0.08, 1.18, 0.06));
-    draw_dark_trim(center + vec3(0.0, 0.0, -0.07), vec3(2.62, 0.08, 0.06));
+    draw_dark_trim(
+        center + vec3(0.0, 0.0, -0.07),
+        vec3(0.08, window.height - 0.16, 0.06),
+    );
+    draw_dark_trim(
+        center + vec3(0.0, 0.0, -0.07),
+        vec3(window.width - 0.20, 0.08, 0.06),
+    );
     draw_cube_wires(
         center + vec3(0.0, 0.0, -0.075),
-        vec3(2.64, 1.18, 0.07),
+        vec3(window.width - 0.18, window.height - 0.16, 0.07),
         Color::new(0.82, 0.90, 1.0, 0.64),
     );
 }

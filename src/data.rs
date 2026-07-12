@@ -89,7 +89,23 @@ pub struct ScatterPileDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WallSpec {
+    pub height: f32,
+    pub thickness: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WindowSpec {
+    pub x: f32,
+    pub center_y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayoutData {
+    pub wall: WallSpec,
+    pub window: WindowSpec,
     pub benches: Vec<BenchDef>,
     pub scatter_piles: Vec<ScatterPileDef>,
 }
