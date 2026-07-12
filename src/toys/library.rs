@@ -52,6 +52,11 @@ pub enum ToyIdentity {
     BridgeBlocks,
     CastleBlocks,
     TrainBlocks,
+    PyramidBlocks,
+    RainbowBlocks,
+    HouseBlocks,
+    SpiralBlocks,
+    CartBlocks,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -311,7 +316,7 @@ const BOARD_GAME_IDENTITIES: [IdentityDef; 10] = [
     },
 ];
 
-const BLOCK_IDENTITIES: [IdentityDef; 5] = [
+const BLOCK_IDENTITIES: [IdentityDef; 10] = [
     IdentityDef {
         identity: ToyIdentity::TowerBlocks,
         label: "Tower Blocks",
@@ -336,6 +341,31 @@ const BLOCK_IDENTITIES: [IdentityDef; 5] = [
         identity: ToyIdentity::TrainBlocks,
         label: "Train Blocks",
         short_code: "TN",
+    },
+    IdentityDef {
+        identity: ToyIdentity::PyramidBlocks,
+        label: "Pyramid Blocks",
+        short_code: "PY",
+    },
+    IdentityDef {
+        identity: ToyIdentity::RainbowBlocks,
+        label: "Rainbow Blocks",
+        short_code: "RW",
+    },
+    IdentityDef {
+        identity: ToyIdentity::HouseBlocks,
+        label: "House Blocks",
+        short_code: "HS",
+    },
+    IdentityDef {
+        identity: ToyIdentity::SpiralBlocks,
+        label: "Spiral Blocks",
+        short_code: "SL",
+    },
+    IdentityDef {
+        identity: ToyIdentity::CartBlocks,
+        label: "Cart Blocks",
+        short_code: "KT",
     },
 ];
 

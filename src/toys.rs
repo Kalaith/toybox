@@ -10,6 +10,7 @@ mod bear;
 mod boxy_bot;
 mod bridge_blocks;
 mod card_deck;
+mod cart_blocks;
 mod castle_blocks;
 mod castle_quest;
 mod cat;
@@ -25,6 +26,7 @@ mod elephant;
 mod fin_dragon;
 mod hatchling_dragon;
 mod horned_dragon;
+mod house_blocks;
 pub mod library;
 mod longtail_dragon;
 mod maze_box;
@@ -35,12 +37,15 @@ mod planet_race;
 mod pudgy_dragon;
 mod puppy;
 mod puzzle_cube;
+mod pyramid_blocks;
 mod rabbit;
+mod rainbow_blocks;
 mod rocket_bot;
 mod roller_bot;
 mod screen_bot;
 mod spike_dragon;
 mod spinner_game;
+mod spiral_blocks;
 mod tower_blocks;
 mod train_blocks;
 mod tread_bot;
@@ -133,6 +138,11 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::BridgeBlocks => bridge_blocks::draw(center, color, scale),
         ToyIdentity::CastleBlocks => castle_blocks::draw(center, color, scale),
         ToyIdentity::TrainBlocks => train_blocks::draw(center, color, scale),
+        ToyIdentity::PyramidBlocks => pyramid_blocks::draw(center, color, scale),
+        ToyIdentity::RainbowBlocks => rainbow_blocks::draw(center, color, scale),
+        ToyIdentity::HouseBlocks => house_blocks::draw(center, color, scale),
+        ToyIdentity::SpiralBlocks => spiral_blocks::draw(center, color, scale),
+        ToyIdentity::CartBlocks => cart_blocks::draw(center, color, scale),
     }
 }
 

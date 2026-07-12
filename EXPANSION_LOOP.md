@@ -66,12 +66,12 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 
 ### Phase 2 — More toys, more displays, real scale
 
-- [ ] **More toy identities**: grow toward ~10 identities per category (currently 5 each). Each is a new module in `src/toys/` + `ToyIdentity` variant + dispatch arm + `library.rs` roster entry. Batch 2–4 identities per iteration; keep silhouettes distinct so shelving-by-sight still works.
+- [x] **More toy identities**: grow toward ~10 identities per category (currently 5 each). Each is a new module in `src/toys/` + `ToyIdentity` variant + dispatch arm + `library.rs` roster entry. Batch 2–4 identities per iteration; keep silhouettes distinct so shelving-by-sight still works.
   - [x] Plushies → 10 (Elephant, Owl, Turtle, Penguin, Octopus)
   - [x] Tiny Dragons → 10 (Wyrm, Pudgy, Twin, Hatchling, Curled)
   - [x] Action Figures (robots) → 10 (Dome, Boxy, Roller, Crab, Rocket)
   - [x] Board Games → 10 (Dice Tower, Card Deck, Spinner, Chess Set, Puzzle Cube)
-  - [ ] Building Blocks → 10
+  - [x] Building Blocks → 10 (Pyramid, Rainbow, House, Spiral, Cart)
 - [ ] **(Optional) one or two new categories** (e.g. `Vehicles`, `Puzzles`): new `ToyCategory` variant, displays, identities, HUD icon. Skip if the five categories already fill the store well.
 - [ ] **Displays at scale**: many more display definitions across zones in `displays.json` (multiple displays per category, per zone). Capacity math stays exact against `toy_count`.
 - [ ] **Perf gate B: `toy_count` → 1500.** 60 FPS native confirmed; scatter logic distributes toys across all zones (deterministic clusters/piles, not uniform noise). Log FPS.
@@ -121,3 +121,4 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 - 2026-07-12 — Toy identities batch 2: Tiny Dragons → 10 — wyrm (S-curve serpent, no wings), pudgy (ball + tiny wings), twin (two heads), hatchling (cracked egg shell), curled (sleeping spiral). Bench 500 toys: 260.0 FPS. Robots next.
 - 2026-07-12 — Toy identities batch 3: Robots → 10 — dome (squat drum + glass dome), boxy (oversized cube + square eyes), roller (slim torso on ball wheel), crab (wide low + pincers + eye stalks), rocket (tall finned rocket + thruster glow). Bench 500 toys: 254.4 FPS. Board games next.
 - 2026-07-12 — Toy identities batch 4: Board Games → 10 — dice tower (tall chute + spilled dice), card deck (fanned cards on lid), spinner (color wedges + arrow), chess set (checker inlay + standing pieces), puzzle cube (big scrambled 3×3 facets). Bench 500 toys: 253.6 FPS. Blocks last.
+- 2026-07-12 — Toy identities batch 5: Building Blocks → 10 — pyramid (stepped tiers), rainbow (arch of columns + bridge), house (cottage w/ chimney + door), spiral (helix tower), cart (chassis on wheels + cargo). ALL 50 identities done (10 per category). Bench 500 toys: 221.7 FPS (cart wheels add spheres; ample headroom). Next: skip-or-do decision on optional new categories, then displays at scale.
