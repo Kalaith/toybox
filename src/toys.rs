@@ -49,6 +49,17 @@ pub fn draw_loose_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32)
     }
 }
 
+/// Distant stand-in: a single cube in the toy's color. Full per-identity
+/// detail (and spawn-pose tumble) only returns near the player.
+pub fn draw_toy_lod_3d(center: Vec3, color: Color, scale: f32) {
+    draw_cube(
+        center + vec3(0.0, 0.16, 0.0) * scale,
+        vec3(0.40, 0.34, 0.36) * scale,
+        None,
+        color,
+    );
+}
+
 pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
     if let Some(part) = toy.repair_part_kind() {
         draw_repair_part_3d(part, center, color, scale);

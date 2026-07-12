@@ -2,7 +2,7 @@
 
 use crate::data::DisplayDef;
 use crate::state::{display_slot_position, ToyState, WorldPoint};
-use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, toy_color};
+use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, draw_toy_lod_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
 use crate::ui::fixtures::{draw_displays, draw_repair_bench, placed_height_for_slot};
 use crate::ui::UiContext;
@@ -50,7 +50,9 @@ fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
         if toy.is_held || toy.placed_display_id.is_some() || toy.is_consumed_repair_part() {
             continue;
         }
-        if !loose_toy_is_visible(toy.position.to_vec2(), player, forward, config) {
+        let to_toy = toy.position.to_vec2() - player;
+        let distance = to_toy.length();
+        if !loose_toy_is_visible(to_toy, distance, forward, config) {
             continue;
         }
         let layer = (index % 7) as f32;
@@ -60,25 +62,23 @@ fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
             0.20 + layer * 0.020 + toy.spawn_pose.floor_lift
         };
         let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
-        draw_loose_toy_3d(
-            toy,
-            world_point(toy.position, height),
-            toy_color(toy),
-            scale,
-        );
+        let center = world_point(toy.position, height);
+        if distance > config.toy_lod_distance {
+            draw_toy_lod_3d(center, toy_color(toy), scale);
+        } else {
+            draw_loose_toy_3d(toy, center, toy_color(toy), scale);
+        }
         drawn += 1;
     }
     drawn
 }
 
 fn loose_toy_is_visible(
-    toy_position: Vec2,
-    player: Vec2,
+    to_toy: Vec2,
+    distance: f32,
     forward: Vec2,
     config: &crate::data::GameConfig,
 ) -> bool {
-    let to_toy = toy_position - player;
-    let distance = to_toy.length();
     if distance > config.toy_render_distance {
         return false;
     }
@@ -90,12 +90,18 @@ fn loose_toy_is_visible(
 }
 
 fn draw_placed_toys(ctx: &UiContext<'_>) -> usize {
+    let player = ctx.session.player.position.to_vec2();
+    let lod_distance = ctx.data.config.toy_lod_distance;
     let mut drawn = 0;
     for display in &ctx.data.displays {
         for toy in ctx.session.placed_toys_for_display(&display.id) {
             let height = placed_height(display, toy);
             let center = world_point(toy.position, height);
-            draw_toy_3d(toy, center, toy_color(toy), 0.92);
+            if toy.position.to_vec2().distance(player) > lod_distance {
+                draw_toy_lod_3d(center, toy_color(toy), 0.92);
+            } else {
+                draw_toy_3d(toy, center, toy_color(toy), 0.92);
+            }
             if toy.wrong_marker_seconds > 0.0 {
                 draw_wrong_placement_marker(center);
             }
