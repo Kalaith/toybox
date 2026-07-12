@@ -1,21 +1,30 @@
 # Toybox After Hours: Closing Shift
 
-A Rust + Macroquad 3D cleanup prototype for Web Hatchery Games.
+A Rust + Macroquad first-person 3D cleanup game for Web Hatchery Games.
 
 You are the night-shift worker in a magical toy store after closing. Pick up
 scattered toys, read their visual clues, and return every plushie, block set,
 action figure, and board game to its matching display before opening.
 
-## Current Prototype
+## The Store
 
-- One small 3D toy store room
-- 5 physical display areas
-- 100 deterministic toys generated from display data
-- Five categories: plushies, tiny dragons, robots, board games, building blocks
-- One broken robot split into head and body pieces; place both matching pieces on the repair bench before shelving it
+- A large multi-zone toy store (34×22 m): Plush Corner, Checkout, Dragon
+  Alcove, Block Pit, Robot Lab, Backroom, and the Board Game Wall, connected
+  by shelving-lined aisles with real player collision
+- **4000 deterministic toys** scattered across the zones in messy piles —
+  identical store every fresh run
+- 50 distinct procedural toy designs (10 per category) built entirely from
+  primitives: no image assets, everything drawn in code
+- 20 themed displays (walls, pegboards, bins, shelves, tables) to shelve
+  toys onto, four per category
+- Hanging zone signs and a live minimap keep the store navigable
+- Two repair benches; broken toys split into head and body pieces that must
+  be rejoined at the same bench before shelving
 - One-toy carry limit, mistakes, timer, and finish screen
 - Tool credits from completed displays, with a Toy Scanner purchase
 - Toolkit save/load slot support
+- Runs at 60+ FPS native at full 4000-toy scale via spatial-grid culling and
+  distance LOD (F3 shows the debug overlay when enabled)
 
 ## Controls
 
