@@ -121,6 +121,7 @@ pub struct LayoutData {
     pub window: WindowSpec,
     pub zones: Vec<ZoneDef>,
     pub shelving: Vec<ShelfDef>,
+    pub counters: Vec<ShelfDef>,
     pub benches: Vec<BenchDef>,
 }
 

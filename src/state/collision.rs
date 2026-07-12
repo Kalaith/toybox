@@ -16,6 +16,7 @@ fn fixture_rects(data: &GameData) -> impl Iterator<Item = Rect> + '_ {
         .layout
         .shelving
         .iter()
+        .chain(data.layout.counters.iter())
         .map(|shelf| Rect::new(shelf.x, shelf.y, shelf.w, shelf.h));
     let benches = data.layout.benches.iter().map(|bench| {
         Rect::new(

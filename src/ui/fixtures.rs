@@ -165,6 +165,110 @@ pub(crate) fn draw_aisle_shelving(ctx: &UiContext<'_>) {
     }
 }
 
+/// Checkout counters: wooden base, dark worktop, and register clutter —
+/// screen, card reader, basket stack, and impulse candy boxes.
+pub(crate) fn draw_checkout_counters(ctx: &UiContext<'_>) {
+    let dark = Color::new(0.16, 0.19, 0.20, 1.0);
+    let metal = Color::new(0.55, 0.58, 0.60, 1.0);
+
+    for counter in &ctx.data.layout.counters {
+        let center_x = counter.x + counter.w * 0.5;
+        let center_z = counter.y + counter.h * 0.5;
+        let top_y = 0.98;
+
+        draw_wood_cube(
+            vec3(center_x, 0.48, center_z),
+            vec3(counter.w, 0.96, counter.h),
+            82,
+        );
+        draw_cube(
+            vec3(center_x, top_y, center_z),
+            vec3(counter.w + 0.12, 0.05, counter.h + 0.12),
+            None,
+            dark,
+        );
+
+        // Register: body, standing screen, button strip.
+        let register_x = counter.x + counter.w * 0.24;
+        draw_cube(
+            vec3(register_x, top_y + 0.13, center_z),
+            vec3(0.34, 0.20, 0.30),
+            None,
+            Color::new(0.24, 0.27, 0.29, 1.0),
+        );
+        draw_cube(
+            vec3(register_x, top_y + 0.34, center_z + 0.08),
+            vec3(0.30, 0.22, 0.03),
+            None,
+            dark,
+        );
+        draw_cube(
+            vec3(register_x, top_y + 0.34, center_z + 0.062),
+            vec3(0.24, 0.16, 0.01),
+            None,
+            Color::new(0.46, 0.86, 0.74, 1.0),
+        );
+        draw_cube(
+            vec3(register_x, top_y + 0.24, center_z - 0.10),
+            vec3(0.26, 0.02, 0.10),
+            None,
+            metal,
+        );
+
+        // Card reader on a slim stand.
+        let reader_x = counter.x + counter.w * 0.48;
+        draw_cube(
+            vec3(reader_x, top_y + 0.10, center_z - 0.22),
+            vec3(0.03, 0.16, 0.03),
+            None,
+            metal,
+        );
+        draw_cube(
+            vec3(reader_x, top_y + 0.21, center_z - 0.22),
+            vec3(0.11, 0.13, 0.05),
+            None,
+            dark,
+        );
+
+        // Stack of shopping baskets at the far end.
+        let basket_x = counter.x + counter.w * 0.80;
+        for tier in 0..3 {
+            let tint = if tier % 2 == 0 {
+                Color::new(0.80, 0.34, 0.28, 1.0)
+            } else {
+                Color::new(0.86, 0.44, 0.36, 1.0)
+            };
+            draw_cube(
+                vec3(basket_x, top_y + 0.07 + tier as f32 * 0.075, center_z),
+                vec3(0.42, 0.06, 0.30),
+                None,
+                tint,
+            );
+        }
+
+        // Impulse candy boxes along the front edge.
+        for (slot, tint) in [
+            Color::new(0.92, 0.72, 0.30, 1.0),
+            Color::new(0.52, 0.68, 0.88, 1.0),
+            Color::new(0.62, 0.82, 0.52, 1.0),
+        ]
+        .iter()
+        .enumerate()
+        {
+            draw_cube(
+                vec3(
+                    counter.x + counter.w * (0.58 + slot as f32 * 0.09),
+                    top_y + 0.065,
+                    center_z + counter.h * 0.30,
+                ),
+                vec3(0.10, 0.08, 0.10),
+                None,
+                *tint,
+            );
+        }
+    }
+}
+
 const SHELF_STOCK_COLORS: [Color; 6] = [
     Color::new(0.82, 0.42, 0.36, 1.0),
     Color::new(0.90, 0.74, 0.34, 1.0),

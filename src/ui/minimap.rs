@@ -44,7 +44,13 @@ pub(crate) fn draw_minimap(ctx: &UiContext<'_>) {
         );
     }
 
-    for shelf in &ctx.data.layout.shelving {
+    for shelf in ctx
+        .data
+        .layout
+        .shelving
+        .iter()
+        .chain(ctx.data.layout.counters.iter())
+    {
         let origin = to_map(shelf.x, shelf.y);
         draw_rectangle(
             origin.x,
