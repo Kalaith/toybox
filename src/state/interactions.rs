@@ -244,6 +244,7 @@ impl GameSession {
         self.toys[toy_index].placed_display_id = None;
         self.toys[toy_index].placed_slot_index = None;
         self.toys[toy_index].bench_slot_index = None;
+        self.toys[toy_index].bench_id = None;
         self.toys[toy_index].wrong_marker_seconds = 0.0;
         self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         if !self.player.carried_toy_ids.iter().any(|id| id == &toy_id) {
@@ -301,6 +302,7 @@ impl GameSession {
         self.toys[toy_index].placed_display_id = Some(display.id.clone());
         self.toys[toy_index].placed_slot_index = Some(slot_index);
         self.toys[toy_index].bench_slot_index = None;
+        self.toys[toy_index].bench_id = None;
         self.toys[toy_index].wrong_marker_seconds = if is_wrong_display {
             Self::WRONG_MARKER_SECONDS
         } else {
@@ -345,6 +347,7 @@ impl GameSession {
                 toy.placed_display_id = None;
                 toy.placed_slot_index = None;
                 toy.bench_slot_index = None;
+                toy.bench_id = None;
                 continue;
             }
 
@@ -355,6 +358,7 @@ impl GameSession {
                 continue;
             };
             toy.bench_slot_index = None;
+            toy.bench_id = None;
             if data.display_by_id(display_id).is_none() {
                 toy.placed_display_id = None;
                 toy.placed_slot_index = None;
@@ -406,6 +410,7 @@ impl GameSession {
                     toy.placed_display_id = None;
                     toy.placed_slot_index = None;
                     toy.bench_slot_index = None;
+                    toy.bench_id = None;
                     toy.wrong_marker_seconds = 0.0;
                     toy.position = player_position;
                 }

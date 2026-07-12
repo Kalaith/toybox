@@ -5,7 +5,7 @@ use crate::state::{display_slot_position, ToyState, WorldPoint};
 use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, draw_toy_lod_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
 use crate::ui::fixtures::{
-    draw_aisle_shelving, draw_displays, draw_repair_bench, placed_height_for_slot,
+    draw_aisle_shelving, draw_displays, draw_repair_benches, placed_height_for_slot,
 };
 use crate::ui::signs::draw_zone_sign;
 use crate::ui::UiContext;
@@ -36,7 +36,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
     for zone in &ctx.data.layout.zones {
         draw_zone_sign(zone);
     }
-    draw_repair_bench(ctx);
+    draw_repair_benches(ctx);
     let drawn_toys = draw_loose_toys(ctx) + draw_placed_toys(ctx);
     draw_placement_preview(ctx);
     draw_player_presence(ctx);

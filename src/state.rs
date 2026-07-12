@@ -1,14 +1,19 @@
 //! Runtime toy-store state, save data, and save migration helpers.
 
 use crate::data::{DisplayDef, GameConfig, GameData, ToyCategory};
-use crate::toys::{spawn_pose_for_toy, toy_name, ToySpawnPose};
+use crate::toys::{spawn_pose_for_toy, ToySpawnPose};
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+mod collision;
 mod interactions;
 mod repair;
 mod spatial;
+mod spawn;
+
+use collision::{keep_off_fixtures, position_blocked};
+use spawn::build_toys;
 
 pub use spatial::ToySpatialGrid;
 
@@ -61,6 +66,8 @@ pub struct ToyState {
     pub placed_slot_index: Option<usize>,
     #[serde(default)]
     pub bench_slot_index: Option<usize>,
+    #[serde(default)]
+    pub bench_id: Option<String>,
     #[serde(default)]
     pub wrong_marker_seconds: f32,
     #[serde(default)]
@@ -447,6 +454,7 @@ impl GameSession {
         self.toys[toy_index].placed_display_id = None;
         self.toys[toy_index].placed_slot_index = None;
         self.toys[toy_index].bench_slot_index = None;
+        self.toys[toy_index].bench_id = None;
         self.toys[toy_index].wrong_marker_seconds = 0.0;
         self.toys[toy_index].position = drop_position;
         self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
@@ -615,6 +623,7 @@ impl GameSession {
                     toy.placed_display_id = None;
                     toy.placed_slot_index = None;
                     toy.bench_slot_index = None;
+                    toy.bench_id = None;
                     toy.wrong_marker_seconds = 0.0;
                     toy.position = self.player.position;
                 }
@@ -673,157 +682,6 @@ pub fn migrate_save_value(
         detected_version
     );
     Ok(GameSession::new(data).to_save(&data.config.version))
-}
-
-fn build_toys(data: &GameData) -> Vec<ToyState> {
-    let mut toys = Vec::with_capacity(data.config.toy_count + 1);
-
-    for (display_index, display) in data.displays.iter().enumerate() {
-        for slot_index in 0..display.capacity {
-            if toys.len() >= data.config.toy_count {
-                break;
-            }
-
-            let toy_index = toys.len();
-            let slot_number = slot_index + 1;
-            toys.push(ToyState {
-                id: format!("toy_{toy_index:03}"),
-                name: toy_name(display, slot_number),
-                category: display.category,
-                theme: display.theme.clone(),
-                slot_number,
-                color_index: (display_index + slot_index) % 5,
-                position: scattered_position(toy_index, display_index, slot_index, data),
-                spawn_pose: spawn_pose_for_toy(toy_index, display_index, slot_index),
-                is_held: false,
-                placed_display_id: None,
-                placed_slot_index: None,
-                bench_slot_index: None,
-                wrong_marker_seconds: 0.0,
-                repair_state: RepairState::Whole,
-            });
-        }
-    }
-
-    repair::split_initial_broken_toys(&mut toys, data);
-
-    toys
-}
-
-fn scattered_position(
-    toy_index: usize,
-    display_index: usize,
-    slot_index: usize,
-    data: &GameData,
-) -> WorldPoint {
-    let config = &data.config;
-    let (anchor, radius) = mess_pile_anchor(toy_index, display_index, slot_index, data);
-    let angle = toy_index as f32 * 2.399 + display_index as f32 * 0.77 + slot_index as f32 * 0.19;
-    let ring_seed = ((toy_index * 37 + display_index * 11 + slot_index * 17) % 100) as f32 / 100.0;
-    let spill = if toy_index.is_multiple_of(11) {
-        1.38
-    } else {
-        1.0
-    };
-    let squash = 0.56 + ((toy_index * 7 + slot_index * 5) % 30) as f32 / 100.0;
-    let offset = vec2(
-        angle.cos() * radius * ring_seed * spill,
-        angle.sin() * radius * squash,
-    );
-    let jitter = vec2(
-        (((toy_index * 41) % 23) as f32 - 11.0) * 0.018,
-        (((toy_index * 59) % 29) as f32 - 14.0) * 0.016,
-    );
-    let position = keep_off_fixtures(anchor + offset + jitter, data);
-
-    WorldPoint {
-        x: position.x.clamp(0.8, config.room_width - 0.8),
-        y: position.y.clamp(0.8, config.room_height - 0.8),
-    }
-}
-
-fn mess_pile_anchor(
-    toy_index: usize,
-    display_index: usize,
-    slot_index: usize,
-    data: &GameData,
-) -> (Vec2, f32) {
-    let piles = &data.layout.scatter_piles;
-    let total_weight: usize = piles.iter().map(|pile| pile.weight).sum();
-    let pile_slot = (toy_index * 7 + display_index * 3 + slot_index) % total_weight.max(1);
-
-    let mut cursor = 0;
-    for pile in piles {
-        cursor += pile.weight;
-        if pile_slot < cursor {
-            return (vec2(pile.x, pile.y), pile.radius);
-        }
-    }
-    let last = piles.last().expect("layout load validates scatter piles");
-    (vec2(last.x, last.y), last.radius)
-}
-
-const PLAYER_COLLISION_RADIUS: f32 = 0.45;
-
-/// Footprints of everything solid on the floor: displays, aisle shelving,
-/// and repair benches.
-fn fixture_rects(data: &GameData) -> impl Iterator<Item = Rect> + '_ {
-    let displays = data
-        .displays
-        .iter()
-        .map(|display| Rect::new(display.x, display.y, display.w, display.h));
-    let shelving = data
-        .layout
-        .shelving
-        .iter()
-        .map(|shelf| Rect::new(shelf.x, shelf.y, shelf.w, shelf.h));
-    let benches = data.layout.benches.iter().map(|bench| {
-        Rect::new(
-            bench.x - bench.w * 0.5,
-            bench.y - bench.h * 0.5,
-            bench.w,
-            bench.h,
-        )
-    });
-    displays.chain(shelving).chain(benches)
-}
-
-fn position_blocked(position: Vec2, data: &GameData) -> bool {
-    fixture_rects(data).any(|rect| {
-        position.x > rect.x - PLAYER_COLLISION_RADIUS
-            && position.x < rect.right() + PLAYER_COLLISION_RADIUS
-            && position.y > rect.y - PLAYER_COLLISION_RADIUS
-            && position.y < rect.bottom() + PLAYER_COLLISION_RADIUS
-    })
-}
-
-fn keep_off_fixtures(mut position: Vec2, data: &GameData) -> Vec2 {
-    for rect in fixture_rects(data) {
-        let margin = 0.18;
-        let left = rect.x - margin;
-        let right = rect.right() + margin;
-        let top = rect.y - margin;
-        let bottom = rect.bottom() + margin;
-        if position.x < left || position.x > right || position.y < top || position.y > bottom {
-            continue;
-        }
-
-        let distances = [
-            (position.x - left, vec2(left - 0.26, position.y)),
-            (right - position.x, vec2(right + 0.26, position.y)),
-            (position.y - top, vec2(position.x, top - 0.26)),
-            (bottom - position.y, vec2(position.x, bottom + 0.26)),
-        ];
-        position = distances
-            .iter()
-            .min_by(|(left_distance, _), (right_distance, _)| {
-                left_distance.total_cmp(right_distance)
-            })
-            .map(|(_, nudged)| *nudged)
-            .unwrap_or(position);
-    }
-
-    position
 }
 
 fn default_player_yaw() -> f32 {

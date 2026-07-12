@@ -15,7 +15,8 @@
     { "x": 24.0, "y": 10.3, "w": 8.0, "h": 1.5 }
   ],
   "benches": [
-    { "id": "main_bench", "x": 17.0, "y": 18.5, "w": 2.2, "h": 1.1, "radius": 1.7, "capacity": 2 }
+    { "id": "main_bench", "x": 17.0, "y": 18.5, "w": 2.2, "h": 1.1, "radius": 1.7, "capacity": 2 },
+    { "id": "checkout_bench", "x": 17.0, "y": 5.8, "w": 2.2, "h": 1.1, "radius": 1.7, "capacity": 2 }
   ],
   "scatter_piles": [
     { "x": 5.0, "y": 4.5, "radius": 1.3, "weight": 5 },

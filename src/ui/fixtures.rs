@@ -34,56 +34,65 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
     }
 }
 
-pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
-    let bench = ctx.data.primary_bench();
-    let center = vec3(bench.x, 0.54, bench.y);
-    draw_wood_cube(center, vec3(bench.w, 0.24, bench.h), 70);
-    draw_cube(
-        center + vec3(0.0, 0.15, 0.0),
-        vec3(bench.w - 0.30, 0.045, bench.h - 0.28),
-        None,
-        Color::new(0.18, 0.23, 0.25, 1.0),
-    );
-    for x in [-0.42, 0.42] {
-        for z in [-0.34, 0.34] {
-            draw_wood_cube(
-                center + vec3(bench.w * x, -0.42, bench.h * z),
-                vec3(0.18, 0.82, 0.18),
-                71,
-            );
-        }
-    }
-
-    draw_cube(
-        center + vec3(-0.46, 0.32, -0.18),
-        vec3(0.42, 0.12, 0.18),
-        None,
-        Color::new(0.72, 0.20, 0.18, 1.0),
-    );
-    draw_cube(
-        center + vec3(0.18, 0.32, 0.12),
-        vec3(0.58, 0.10, 0.16),
-        None,
-        Color::new(0.34, 0.54, 0.72, 1.0),
-    );
-    draw_sphere(
-        center + vec3(0.64, 0.35, -0.18),
-        0.09,
-        None,
-        Color::new(0.90, 0.78, 0.32, 1.0),
-    );
-
-    if ctx
+pub(crate) fn draw_repair_benches(ctx: &UiContext<'_>) {
+    let carrying_part = ctx
         .session
         .active_toy()
-        .is_some_and(|toy| toy.is_repair_part())
-    {
-        let color = if ctx.session.is_near_repair_bench(ctx.data) {
-            Color::new(0.34, 0.95, 0.60, 0.94)
-        } else {
-            Color::new(0.42, 0.95, 0.96, 0.72)
-        };
-        draw_cube_wires(center + vec3(0.0, 0.25, 0.0), vec3(2.44, 1.05, 1.34), color);
+        .is_some_and(|toy| toy.is_repair_part());
+    let player = ctx.session.player.position.to_vec2();
+
+    for bench in &ctx.data.layout.benches {
+        let center = vec3(bench.x, 0.54, bench.y);
+        draw_wood_cube(center, vec3(bench.w, 0.24, bench.h), 70);
+        draw_cube(
+            center + vec3(0.0, 0.15, 0.0),
+            vec3(bench.w - 0.30, 0.045, bench.h - 0.28),
+            None,
+            Color::new(0.18, 0.23, 0.25, 1.0),
+        );
+        for x in [-0.42, 0.42] {
+            for z in [-0.34, 0.34] {
+                draw_wood_cube(
+                    center + vec3(bench.w * x, -0.42, bench.h * z),
+                    vec3(0.18, 0.82, 0.18),
+                    71,
+                );
+            }
+        }
+
+        draw_cube(
+            center + vec3(-0.46, 0.32, -0.18),
+            vec3(0.42, 0.12, 0.18),
+            None,
+            Color::new(0.72, 0.20, 0.18, 1.0),
+        );
+        draw_cube(
+            center + vec3(0.18, 0.32, 0.12),
+            vec3(0.58, 0.10, 0.16),
+            None,
+            Color::new(0.34, 0.54, 0.72, 1.0),
+        );
+        draw_sphere(
+            center + vec3(0.64, 0.35, -0.18),
+            0.09,
+            None,
+            Color::new(0.90, 0.78, 0.32, 1.0),
+        );
+
+        if carrying_part {
+            let near =
+                player.distance_squared(vec2(bench.x, bench.y)) <= bench.radius * bench.radius;
+            let color = if near {
+                Color::new(0.34, 0.95, 0.60, 0.94)
+            } else {
+                Color::new(0.42, 0.95, 0.96, 0.72)
+            };
+            draw_cube_wires(
+                center + vec3(0.0, 0.25, 0.0),
+                vec3(bench.w + 0.24, 1.05, bench.h + 0.24),
+                color,
+            );
+        }
     }
 }
 

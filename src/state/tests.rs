@@ -694,3 +694,34 @@ fn spatial_grid_tracks_pickup_place_and_drop() {
         .indices_near(dropped, 0.1)
         .contains(&toy_index));
 }
+
+#[test]
+fn parts_bench_at_the_nearest_bench() {
+    let data = GameData::load().unwrap();
+    assert!(data.layout.benches.len() >= 2, "expected multiple benches");
+    let second_bench = &data.layout.benches[1];
+    let mut session = GameSession::new(&data);
+
+    let head_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+        .unwrap();
+    session.pick_up_toy(head_index);
+    session.player.position = WorldPoint {
+        x: second_bench.x,
+        y: second_bench.y,
+    };
+
+    let result = session.interact(&data);
+
+    assert!(matches!(
+        result,
+        InteractionResult::PlacedOnRepairBench { .. }
+    ));
+    assert_eq!(
+        session.toys[head_index].bench_id.as_deref(),
+        Some(second_bench.id.as_str())
+    );
+    assert!(session.toys[head_index].bench_slot_index.is_some());
+}
