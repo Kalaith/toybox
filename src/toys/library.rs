@@ -457,24 +457,36 @@ pub fn spawn_pose_for_toy(
     }
 }
 
+/// Candy-shop palette: saturated but soft toy tones spanning the wheel plus
+/// cream and chocolate neutrals so shelves don't read as pure rainbow.
+const TOY_PALETTE: [Color; 14] = [
+    Color::new(0.82, 0.24, 0.20, 1.0), // cherry
+    Color::new(0.95, 0.56, 0.20, 1.0), // tangerine
+    Color::new(0.96, 0.78, 0.26, 1.0), // sunflower
+    Color::new(0.62, 0.80, 0.30, 1.0), // lime
+    Color::new(0.28, 0.64, 0.42, 1.0), // forest
+    Color::new(0.20, 0.68, 0.68, 1.0), // teal
+    Color::new(0.42, 0.72, 0.92, 1.0), // sky
+    Color::new(0.26, 0.46, 0.86, 1.0), // royal
+    Color::new(0.62, 0.54, 0.88, 1.0), // lavender
+    Color::new(0.56, 0.34, 0.72, 1.0), // plum
+    Color::new(0.86, 0.36, 0.62, 1.0), // magenta
+    Color::new(0.94, 0.62, 0.72, 1.0), // bubblegum
+    Color::new(0.92, 0.86, 0.70, 1.0), // cream
+    Color::new(0.55, 0.38, 0.26, 1.0), // chocolate
+];
+
 pub fn toy_color(toy: &ToyState) -> Color {
     let index = toy.slot_number + toy.color_index * 3;
-    let base = match index % 9 {
-        0 => Color::new(0.78, 0.22, 0.18, 1.0),
-        1 => Color::new(0.96, 0.66, 0.22, 1.0),
-        2 => Color::new(0.30, 0.72, 0.50, 1.0),
-        3 => Color::new(0.22, 0.58, 0.88, 1.0),
-        4 => Color::new(0.68, 0.42, 0.86, 1.0),
-        5 => Color::new(0.88, 0.36, 0.54, 1.0),
-        6 => Color::new(0.18, 0.68, 0.72, 1.0),
-        7 => Color::new(0.90, 0.82, 0.46, 1.0),
-        _ => Color::new(0.72, 0.56, 0.42, 1.0),
-    };
-    let offset = ((toy.slot_number * 7 + toy.color_index * 5) % 7) as f32 * 0.015 - 0.045;
+    let base = TOY_PALETTE[index % TOY_PALETTE.len()];
+    // Two independent warm/cool nudges give same-hue siblings subtle variety
+    // instead of one flat lightness shift.
+    let warm = ((toy.slot_number * 7 + toy.color_index * 5) % 7) as f32 * 0.016 - 0.048;
+    let cool = ((toy.slot_number * 11 + toy.color_index * 3) % 5) as f32 * 0.014 - 0.028;
     Color::new(
-        (base.r + offset).clamp(0.08, 0.98),
-        (base.g + offset).clamp(0.08, 0.98),
-        (base.b + offset).clamp(0.08, 0.98),
+        (base.r + warm).clamp(0.08, 0.98),
+        (base.g + warm * 0.6 + cool * 0.4).clamp(0.08, 0.98),
+        (base.b + cool).clamp(0.08, 0.98),
         1.0,
     )
 }
