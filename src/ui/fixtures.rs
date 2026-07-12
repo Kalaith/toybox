@@ -477,22 +477,59 @@ fn draw_generic_display(display: &DisplayDef, accent: Color) {
     );
 }
 
+/// Animated celebration over a completed display: pulsing glow column,
+/// orbiting sparkles, and a twinkling star core. View-only animation.
 fn draw_completion_lights(display: &DisplayDef, accent: Color) {
-    let center = display_center(display, 1.65);
-    draw_sphere(
-        center,
-        0.22,
+    let gold = Color::new(0.98, 0.86, 0.46, 1.0);
+    let center = display_center(display, 1.55);
+    let time = get_time() as f32;
+
+    // Soft glow column rising from the display, breathing slowly.
+    let pulse = (time * 1.6 + display.x * 0.7).sin() * 0.5 + 0.5;
+    draw_cube(
+        center + vec3(0.0, -0.35, 0.0),
+        vec3(0.52, 1.35, 0.52),
         None,
-        Color::new(accent.r, accent.g, accent.b, 0.78),
+        Color::new(accent.r, accent.g, accent.b, 0.09 + pulse * 0.05),
     );
-    for index in 0..6 {
-        let angle = index as f32 / 6.0 * std::f32::consts::TAU;
-        let offset = vec3(
-            angle.cos() * 0.55,
-            0.10 + index as f32 * 0.035,
-            angle.sin() * 0.55,
+    draw_cube(
+        center + vec3(0.0, -0.33, 0.0),
+        vec3(0.26, 1.45, 0.26),
+        None,
+        Color::new(accent.r, accent.g, accent.b, 0.15 + pulse * 0.08),
+    );
+
+    // Orbiting sparkles, alternating gold and accent, bobbing as they go.
+    for spark in 0..8 {
+        let phase = spark as f32 / 8.0 * std::f32::consts::TAU;
+        let angle = time * 0.9 + phase;
+        let radius = 0.52 + (time * 2.3 + phase * 3.0).sin() * 0.06;
+        let bob = (time * 1.7 + phase * 2.0).sin() * 0.10;
+        let size = 0.045 + (spark % 3) as f32 * 0.014;
+        let tint = if spark % 2 == 0 { gold } else { accent };
+        draw_cube(
+            center + vec3(angle.cos() * radius, 0.10 + bob, angle.sin() * radius),
+            vec3(size, size, size),
+            None,
+            tint,
         );
-        draw_sphere(center + offset, 0.07, None, accent);
+    }
+
+    // Twinkling star core with cross ticks.
+    let twinkle = 0.85 + (time * 3.1 + display.y).sin() * 0.15;
+    draw_cube(
+        center + vec3(0.0, 0.42, 0.0),
+        vec3(0.10, 0.10, 0.10) * twinkle,
+        None,
+        gold,
+    );
+    for (dx, dy) in [(0.11_f32, 0.0_f32), (-0.11, 0.0), (0.0, 0.11), (0.0, -0.11)] {
+        draw_cube(
+            center + vec3(dx * twinkle, 0.42 + dy * twinkle, 0.0),
+            vec3(0.028, 0.028, 0.028),
+            None,
+            gold,
+        );
     }
 }
 
