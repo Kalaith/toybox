@@ -1,7 +1,7 @@
+use super::collision::keep_off_fixtures;
 use super::{GameSession, InteractionResult, RepairPartKind, RepairState, ToyState, WorldPoint};
-use crate::data::{BenchDef, GameData, ToyCategory};
-
-const FIRST_REPAIR_ID: &str = "robot_antenna_001";
+use crate::data::{BenchDef, GameData};
+use macroquad::prelude::*;
 
 impl ToyState {
     pub fn is_repair_part(&self) -> bool {
@@ -282,42 +282,92 @@ fn repair_bench_slot_position(bench: &BenchDef, slot_index: usize) -> WorldPoint
     }
 }
 
+/// Deterministically break a `broken_fraction` share of freshly spawned toys
+/// into a body (kept in place) and a head scattered into a different zone.
 pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameData) {
-    let Some(robot_index) = toys.iter().position(|toy| {
-        toy.category == ToyCategory::ActionFigures
-            && toy.slot_number == 1
-            && toy.theme == "Chrome Bot Wave"
-    }) else {
-        return;
-    };
-    if toys[robot_index].is_repair_part() {
+    let broken_per_mille = (data.config.broken_fraction.clamp(0.0, 0.5) * 1000.0) as usize;
+    if broken_per_mille == 0 {
         return;
     }
 
-    let repaired_name = toys[robot_index].name.clone();
-    let mut head = toys[robot_index].clone();
-    head.id = format!("repair_{}_head", FIRST_REPAIR_ID);
-    head.name = format!("{repaired_name} Head");
-    head.position = safe_part_position(data, 6.35, 9.35);
-    head.repair_state = RepairState::BrokenPart {
-        repair_id: FIRST_REPAIR_ID.to_owned(),
-        part: RepairPartKind::Head,
-        repaired_name: repaired_name.clone(),
-    };
+    let original_count = toys.len();
+    let mut heads = Vec::with_capacity(original_count / 6);
+    for (index, toy) in toys.iter_mut().enumerate() {
+        if (index * 379 + 97) % 1000 >= broken_per_mille {
+            continue;
+        }
+        if toy.is_repair_part() {
+            continue;
+        }
 
-    toys[robot_index].name = format!("{repaired_name} Body");
-    toys[robot_index].repair_state = RepairState::BrokenPart {
-        repair_id: FIRST_REPAIR_ID.to_owned(),
-        part: RepairPartKind::Body,
-        repaired_name,
-    };
+        let repair_id = format!("repair_{index:04}");
+        let repaired_name = toy.name.clone();
+        let mut head = toy.clone();
+        head.id = format!("{}_head", toy.id);
+        head.name = format!("{repaired_name} Head");
+        head.position = head_scatter_position(index, toy.position, data);
+        head.repair_state = RepairState::BrokenPart {
+            repair_id: repair_id.clone(),
+            part: RepairPartKind::Head,
+            repaired_name: repaired_name.clone(),
+        };
 
-    toys.push(head);
+        toy.name = format!("{repaired_name} Body");
+        toy.repair_state = RepairState::BrokenPart {
+            repair_id,
+            part: RepairPartKind::Body,
+            repaired_name,
+        };
+
+        heads.push(head);
+    }
+
+    toys.extend(heads);
 }
 
-fn safe_part_position(data: &GameData, x: f32, y: f32) -> WorldPoint {
-    WorldPoint {
-        x: x.clamp(0.8, data.config.room_width - 0.8),
-        y: y.clamp(0.8, data.config.room_height - 0.8),
+/// Deterministic head placement in a scatter pile whose zone differs from
+/// the body's zone, so finding the counterpart is a real errand.
+fn head_scatter_position(toy_index: usize, body: WorldPoint, data: &GameData) -> WorldPoint {
+    let config = &data.config;
+    let body_zone = data.layout.zone_name_at(body.x, body.y);
+    let other_zone_piles: Vec<usize> = data
+        .layout
+        .scatter_piles
+        .iter()
+        .enumerate()
+        .filter(|(_, pile)| data.layout.zone_name_at(pile.x, pile.y) != body_zone)
+        .map(|(pile_index, _)| pile_index)
+        .collect();
+
+    let place_in_pile = |pile: &crate::data::ScatterPileDef| {
+        let angle = toy_index as f32 * 2.399 + 1.3;
+        let ring = ((toy_index * 29) % 100) as f32 / 100.0;
+        let offset = vec2(
+            angle.cos() * pile.radius * ring,
+            angle.sin() * pile.radius * ring,
+        );
+        let position = keep_off_fixtures(vec2(pile.x, pile.y) + offset, data);
+        WorldPoint {
+            x: position.x.clamp(0.8, config.room_width - 0.8),
+            y: position.y.clamp(0.8, config.room_height - 0.8),
+        }
+    };
+
+    if other_zone_piles.is_empty() {
+        let pile = &data.layout.scatter_piles[(toy_index * 13) % data.layout.scatter_piles.len()];
+        return place_in_pile(pile);
     }
+
+    // Scatter offsets can drift across a zone border, so validate the final
+    // position and walk to the next candidate pile if it slid back home.
+    let mut fallback = None;
+    for attempt in 0..other_zone_piles.len() {
+        let pile_index = other_zone_piles[(toy_index * 13 + 5 + attempt) % other_zone_piles.len()];
+        let position = place_in_pile(&data.layout.scatter_piles[pile_index]);
+        if data.layout.zone_name_at(position.x, position.y) != body_zone {
+            return position;
+        }
+        fallback.get_or_insert(position);
+    }
+    fallback.expect("at least one candidate pile was tried")
 }

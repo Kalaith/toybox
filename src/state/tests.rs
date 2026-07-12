@@ -20,35 +20,60 @@ fn new_session_generates_requested_toys() {
         })
         .count();
 
+    let head_count = session
+        .toys
+        .iter()
+        .filter(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+        .count();
+
     assert_eq!(final_toy_count, data.config.toy_count);
-    assert_eq!(session.toys.len(), data.config.toy_count + 1);
+    assert_eq!(session.toys.len(), data.config.toy_count + head_count);
     assert_eq!(session.displays.len(), data.displays.len());
     assert_eq!(session.completed_display_count(), 0);
 }
 
 #[test]
-fn new_session_starts_with_one_split_robot() {
+fn new_session_breaks_a_deterministic_fraction_into_cross_zone_pairs() {
     let data = GameData::load().unwrap();
     let session = GameSession::new(&data);
 
-    let broken_parts: Vec<&ToyState> = session
-        .toys
-        .iter()
-        .filter(|toy| toy.is_repair_part())
-        .collect();
+    let mut bodies: std::collections::HashMap<&str, &ToyState> = std::collections::HashMap::new();
+    let mut heads: std::collections::HashMap<&str, &ToyState> = std::collections::HashMap::new();
+    for toy in &session.toys {
+        if let RepairState::BrokenPart {
+            repair_id, part, ..
+        } = &toy.repair_state
+        {
+            match part {
+                RepairPartKind::Body => bodies.insert(repair_id.as_str(), toy),
+                RepairPartKind::Head => heads.insert(repair_id.as_str(), toy),
+            };
+            assert!(!data
+                .displays
+                .iter()
+                .any(|display| toy_matches_display(toy, display)));
+        }
+    }
 
-    assert_eq!(broken_parts.len(), 2);
-    assert!(broken_parts
-        .iter()
-        .any(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head)));
-    assert!(broken_parts
-        .iter()
-        .any(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body)));
-    for part in broken_parts {
-        assert!(!data
-            .displays
-            .iter()
-            .any(|display| toy_matches_display(part, display)));
+    // Roughly broken_fraction of the store, every body with exactly one head.
+    let expected = (data.config.toy_count as f32 * data.config.broken_fraction) as usize;
+    assert_eq!(bodies.len(), heads.len());
+    assert!(
+        bodies.len() * 5 >= expected * 4 && bodies.len() * 5 <= expected * 6,
+        "broken count {} far from expected {expected}",
+        bodies.len()
+    );
+
+    for (repair_id, body) in &bodies {
+        let head = heads
+            .get(repair_id)
+            .unwrap_or_else(|| panic!("no head for {repair_id}"));
+        let body_zone = data.layout.zone_name_at(body.position.x, body.position.y);
+        let head_zone = data.layout.zone_name_at(head.position.x, head.position.y);
+        assert_ne!(
+            body_zone, head_zone,
+            "parts of {repair_id} landed in the same zone"
+        );
     }
 }
 
@@ -280,22 +305,31 @@ fn broken_part_must_be_repaired_before_display() {
 fn repair_bench_repairs_matching_benched_parts() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
-    let robot_display = data
-        .displays
-        .iter()
-        .find(|display| display.category == ToyCategory::ActionFigures)
-        .unwrap();
-    let body_id = session
+    let (body_id, pair_repair_id) = session
         .toys
         .iter()
-        .find(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
-        .unwrap()
-        .id
-        .clone();
+        .find_map(|toy| match &toy.repair_state {
+            RepairState::BrokenPart {
+                repair_id,
+                part: RepairPartKind::Body,
+                ..
+            } => Some((toy.id.clone(), repair_id.clone())),
+            _ => None,
+        })
+        .unwrap();
     let head_id = session
         .toys
         .iter()
-        .find(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+        .find(|toy| {
+            matches!(
+                &toy.repair_state,
+                RepairState::BrokenPart {
+                    repair_id,
+                    part: RepairPartKind::Head,
+                    ..
+                } if *repair_id == pair_repair_id
+            )
+        })
         .unwrap()
         .id
         .clone();
@@ -351,7 +385,12 @@ fn repair_bench_repairs_matching_benched_parts() {
     assert_eq!(active_toy.id, body_id);
     assert!(!active_toy.is_repair_part());
     assert!(active_toy.bench_slot_index.is_none());
-    assert!(toy_matches_display(active_toy, robot_display));
+    let home_display = data
+        .displays
+        .iter()
+        .find(|display| display.category == active_toy.category)
+        .unwrap();
+    assert!(toy_matches_display(active_toy, home_display));
     assert!(session
         .toys
         .iter()
@@ -435,7 +474,7 @@ fn wrong_placement_still_places_toy_and_counts_mistake() {
     let toy_index = session
         .toys
         .iter()
-        .position(|toy| !toy_matches_display(toy, display))
+        .position(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
         .unwrap();
     let toy_id = session.toys[toy_index].id.clone();
 
@@ -510,7 +549,7 @@ fn wrong_toys_do_not_complete_display() {
     let wrong_toy_ids: Vec<String> = session
         .toys
         .iter()
-        .filter(|toy| !toy_matches_display(toy, display))
+        .filter(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
         .take(display.capacity)
         .map(|toy| toy.id.clone())
         .collect();
@@ -559,7 +598,7 @@ fn full_shelf_rejects_extra_toy() {
     let extra_toy_index = session
         .toys
         .iter()
-        .position(|toy| !toy_matches_display(toy, display))
+        .position(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
         .unwrap();
     session.pick_up_toy(extra_toy_index);
     let result = session.place_active_toy(0, 0, &data);
@@ -575,7 +614,7 @@ fn can_pick_up_toy_from_display_slot() {
     let toy_index = session
         .toys
         .iter()
-        .position(|toy| !toy_matches_display(toy, display))
+        .position(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
         .unwrap();
     let toy_id = session.toys[toy_index].id.clone();
 

@@ -10,6 +10,7 @@
   "player_speed": 3.4,
   "interaction_radius": 1.35,
   "mistake_penalty_seconds": 8.0,
+  "broken_fraction": 0.12,
   "spatial_cell_size": 1.5,
   "toy_render_distance": 14.0,
   "toy_lod_distance": 6.0,

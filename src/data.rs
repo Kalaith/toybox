@@ -23,6 +23,7 @@ pub struct GameConfig {
     pub player_speed: f32,
     pub interaction_radius: f32,
     pub mistake_penalty_seconds: f32,
+    pub broken_fraction: f32,
     pub spatial_cell_size: f32,
     pub toy_render_distance: f32,
     pub toy_lod_distance: f32,
