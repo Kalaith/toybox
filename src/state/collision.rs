@@ -38,29 +38,43 @@ pub(super) fn position_blocked(position: Vec2, data: &GameData) -> bool {
 }
 
 pub(super) fn keep_off_fixtures(mut position: Vec2, data: &GameData) -> Vec2 {
-    for rect in fixture_rects(data) {
-        let margin = 0.18;
-        let left = rect.x - margin;
-        let right = rect.right() + margin;
-        let top = rect.y - margin;
-        let bottom = rect.bottom() + margin;
-        if position.x < left || position.x > right || position.y < top || position.y > bottom {
-            continue;
-        }
+    // Nudge targets must stay inside the playable band, or the caller's
+    // room clamp would shove a wall-side nudge straight back into the
+    // fixture it escaped.
+    let edge = 0.8;
+    let max_x = data.config.room_width - edge;
+    let max_y = data.config.room_height - edge;
+    let in_band = |nudged: &Vec2| {
+        nudged.x >= edge && nudged.x <= max_x && nudged.y >= edge && nudged.y <= max_y
+    };
 
-        let distances = [
-            (position.x - left, vec2(left - 0.26, position.y)),
-            (right - position.x, vec2(right + 0.26, position.y)),
-            (position.y - top, vec2(position.x, top - 0.26)),
-            (bottom - position.y, vec2(position.x, bottom + 0.26)),
-        ];
-        position = distances
-            .iter()
-            .min_by(|(left_distance, _), (right_distance, _)| {
-                left_distance.total_cmp(right_distance)
-            })
-            .map(|(_, nudged)| *nudged)
-            .unwrap_or(position);
+    // Two passes: escaping one fixture can land inside a neighbor.
+    for _ in 0..2 {
+        for rect in fixture_rects(data) {
+            let margin = 0.18;
+            let left = rect.x - margin;
+            let right = rect.right() + margin;
+            let top = rect.y - margin;
+            let bottom = rect.bottom() + margin;
+            if position.x < left || position.x > right || position.y < top || position.y > bottom {
+                continue;
+            }
+
+            let distances = [
+                (position.x - left, vec2(left - 0.26, position.y)),
+                (right - position.x, vec2(right + 0.26, position.y)),
+                (position.y - top, vec2(position.x, top - 0.26)),
+                (bottom - position.y, vec2(position.x, bottom + 0.26)),
+            ];
+            position = distances
+                .iter()
+                .filter(|(_, nudged)| in_band(nudged))
+                .min_by(|(left_distance, _), (right_distance, _)| {
+                    left_distance.total_cmp(right_distance)
+                })
+                .map(|(_, nudged)| *nudged)
+                .unwrap_or(position);
+        }
     }
 
     position
