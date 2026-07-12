@@ -65,6 +65,10 @@ fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
         let center = world_point(toy.position, height);
         if distance > config.toy_lod_distance {
             draw_toy_lod_3d(center, toy_color(toy), scale);
+        } else if distance > config.toy_pose_distance {
+            // Full detail, but upright: the spawn-pose model matrix forces a
+            // render-batch flush per toy, so it is reserved for close range.
+            draw_toy_3d(toy, center, toy_color(toy), scale);
         } else {
             draw_loose_toy_3d(toy, center, toy_color(toy), scale);
         }

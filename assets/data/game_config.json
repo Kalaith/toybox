@@ -13,6 +13,7 @@
   "spatial_cell_size": 1.5,
   "toy_render_distance": 22.0,
   "toy_lod_distance": 9.0,
+  "toy_pose_distance": 9.0,
   "toy_view_cull_min_dot": 0.15,
   "toy_always_draw_radius": 3.0,
   "debug_overlay_enabled": true
