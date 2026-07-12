@@ -8,8 +8,10 @@ use serde_json::Value;
 
 mod interactions;
 mod repair;
+mod spatial;
 
 pub use repair::repair_bench_position;
+use spatial::ToySpatialGrid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -119,6 +121,7 @@ pub struct GameSession {
     pub displays: Vec<DisplayState>,
     pub unlocked_upgrade_ids: Vec<String>,
     pub phase: GamePhase,
+    spatial: ToySpatialGrid,
 }
 
 #[derive(Debug, Clone)]
@@ -213,6 +216,12 @@ impl GameSession {
     pub fn new(data: &GameData) -> Self {
         let config = &data.config;
         let toys = build_toys(data);
+        let mut spatial = ToySpatialGrid::new(
+            config.room_width,
+            config.room_height,
+            config.spatial_cell_size,
+        );
+        spatial.rebuild(&toys);
         let displays = data
             .displays
             .iter()
@@ -240,16 +249,23 @@ impl GameSession {
             displays,
             unlocked_upgrade_ids: Vec::new(),
             phase: GamePhase::Playing,
+            spatial,
         }
     }
 
     pub fn from_save(save: SaveData, data: &GameData) -> Self {
+        let config = &data.config;
         let mut session = Self {
             player: save.player,
             toys: save.toys,
             displays: save.displays,
             unlocked_upgrade_ids: save.unlocked_upgrade_ids,
             phase: save.phase,
+            spatial: ToySpatialGrid::new(
+                config.room_width,
+                config.room_height,
+                config.spatial_cell_size,
+            ),
         };
         session.repair_after_load(data);
         session
@@ -410,6 +426,7 @@ impl GameSession {
         self.toys[toy_index].bench_slot_index = None;
         self.toys[toy_index].wrong_marker_seconds = 0.0;
         self.toys[toy_index].position = drop_position;
+        self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
         self.normalize_active_carry();
 
@@ -489,6 +506,7 @@ impl GameSession {
         self.normalize_active_carry();
         self.repair_player_view();
         self.refresh_display_completion(data);
+        self.spatial.rebuild(&self.toys);
     }
 
     fn refresh_display_completion(&mut self, data: &GameData) {
@@ -578,6 +596,7 @@ impl GameSession {
                     toy.position = self.player.position;
                 }
             }
+            self.spatial.rebuild(&self.toys);
         }
 
         if self.player.carried_toy_ids.is_empty() {

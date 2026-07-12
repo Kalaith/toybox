@@ -22,6 +22,7 @@ pub struct GameConfig {
     pub player_speed: f32,
     pub interaction_radius: f32,
     pub mistake_penalty_seconds: f32,
+    pub spatial_cell_size: f32,
     pub debug_overlay_enabled: bool,
 }
 

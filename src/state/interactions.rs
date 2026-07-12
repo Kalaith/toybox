@@ -9,6 +9,9 @@ const SLOT_LOOK_MIN_DOT: f32 = 0.42;
 const SLOT_LOOK_MAX_LATERAL: f32 = 1.15;
 const LOOSE_TOY_LOOK_RADIUS: f32 = 0.58;
 const PLAYER_EYE_HEIGHT: f32 = 1.08;
+// Placed toys sit exactly on their slot position, so a small query radius
+// only has to absorb grid-cell quantization.
+const SLOT_OCCUPANCY_RADIUS: f32 = 0.25;
 
 impl GameSession {
     pub fn interact(&mut self, data: &GameData) -> InteractionResult {
@@ -33,7 +36,7 @@ impl GameSession {
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
-                if self.display_is_full(display) {
+                if self.display_is_full(display, data.config.room_width) {
                     return InteractionResult::ShelfFull;
                 }
                 return InteractionResult::ShelfSlotUnavailable;
@@ -50,7 +53,8 @@ impl GameSession {
 
         if let Some(target) = self.targeted_display_slot(data) {
             let display = &data.displays[target.display_index];
-            if let Some(toy_index) = self.toy_index_at_display_slot(&display.id, target.slot_index)
+            if let Some(toy_index) =
+                self.toy_index_at_display_slot(display, target.slot_index, data.config.room_width)
             {
                 if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
                     return InteractionResult::InventoryFull;
@@ -98,7 +102,7 @@ impl GameSession {
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
-                if self.display_is_full(display) {
+                if self.display_is_full(display, data.config.room_width) {
                     return InteractionPreview::ShelfFull;
                 }
                 return InteractionPreview::LookAtEmptySlot;
@@ -117,7 +121,9 @@ impl GameSession {
 
         if let Some(target) = self.targeted_display_slot(data) {
             let display = &data.displays[target.display_index];
-            if let Some(toy) = self.toy_at_display_slot(&display.id, target.slot_index) {
+            if let Some(toy) =
+                self.toy_at_display_slot(display, target.slot_index, data.config.room_width)
+            {
                 if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
                     return InteractionPreview::InventoryFull;
                 }
@@ -165,7 +171,7 @@ impl GameSession {
     pub fn targeted_empty_display_slot(&self, data: &GameData) -> Option<DisplaySlotTarget> {
         let target = self.targeted_display_slot(data)?;
         let display = &data.displays[target.display_index];
-        self.toy_index_at_display_slot(&display.id, target.slot_index)
+        self.toy_index_at_display_slot(display, target.slot_index, data.config.room_width)
             .is_none()
             .then_some(target)
     }
@@ -216,13 +222,14 @@ impl GameSession {
             .map(|(target, _)| target)
     }
 
-    pub fn toy_at_display_slot(&self, display_id: &str, slot_index: usize) -> Option<&ToyState> {
-        self.toys.iter().find(|toy| {
-            toy.placed_display_id
-                .as_deref()
-                .is_some_and(|placed_id| placed_id == display_id)
-                && toy.placed_slot_index == Some(slot_index)
-        })
+    fn toy_at_display_slot(
+        &self,
+        display: &DisplayDef,
+        slot_index: usize,
+        room_width: f32,
+    ) -> Option<&ToyState> {
+        self.toy_index_at_display_slot(display, slot_index, room_width)
+            .map(|toy_index| &self.toys[toy_index])
     }
 
     pub(super) fn pick_up_toy(&mut self, toy_index: usize) -> InteractionResult {
@@ -238,6 +245,7 @@ impl GameSession {
         self.toys[toy_index].placed_slot_index = None;
         self.toys[toy_index].bench_slot_index = None;
         self.toys[toy_index].wrong_marker_seconds = 0.0;
+        self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         if !self.player.carried_toy_ids.iter().any(|id| id == &toy_id) {
             self.player.carried_toy_ids.push(toy_id);
         }
@@ -259,10 +267,10 @@ impl GameSession {
             return InteractionResult::ShelfSlotUnavailable;
         }
         if self
-            .toy_index_at_display_slot(&display.id, slot_index)
+            .toy_index_at_display_slot(display, slot_index, data.config.room_width)
             .is_some()
         {
-            return if self.display_is_full(display) {
+            return if self.display_is_full(display, data.config.room_width) {
                 InteractionResult::ShelfFull
             } else {
                 InteractionResult::ShelfSlotUnavailable
@@ -300,6 +308,7 @@ impl GameSession {
         };
         self.toys[toy_index].position =
             display_slot_position(display, slot_index, data.config.room_width);
+        self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
         self.normalize_active_carry();
 
@@ -410,13 +419,21 @@ impl GameSession {
         result
     }
 
-    fn toy_index_at_display_slot(&self, display_id: &str, slot_index: usize) -> Option<usize> {
-        self.toys.iter().position(|toy| {
-            toy.placed_display_id
-                .as_deref()
-                .is_some_and(|placed_id| placed_id == display_id)
-                && toy.placed_slot_index == Some(slot_index)
-        })
+    fn toy_index_at_display_slot(
+        &self,
+        display: &DisplayDef,
+        slot_index: usize,
+        room_width: f32,
+    ) -> Option<usize> {
+        let slot = display_slot_position(display, slot_index, room_width).to_vec2();
+        self.spatial
+            .indices_near(slot, SLOT_OCCUPANCY_RADIUS)
+            .into_iter()
+            .find(|&toy_index| {
+                let toy = &self.toys[toy_index];
+                toy.placed_display_id.as_deref() == Some(display.id.as_str())
+                    && toy.placed_slot_index == Some(slot_index)
+            })
     }
 
     fn targeted_loose_toy_index(&self, config: &GameConfig) -> Option<usize> {
@@ -427,9 +444,10 @@ impl GameSession {
             return None;
         }
 
-        self.toys
-            .iter()
-            .enumerate()
+        self.spatial
+            .indices_near(player_2d, config.interaction_radius)
+            .into_iter()
+            .map(|index| (index, &self.toys[index]))
             .filter(|(_, toy)| {
                 !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part()
             })
@@ -464,9 +482,9 @@ impl GameSession {
             .any(|display| self.display_is_near_player(display, &data.config))
     }
 
-    fn display_is_full(&self, display: &DisplayDef) -> bool {
+    fn display_is_full(&self, display: &DisplayDef, room_width: f32) -> bool {
         (0..display.capacity).all(|slot_index| {
-            self.toy_index_at_display_slot(&display.id, slot_index)
+            self.toy_index_at_display_slot(display, slot_index, room_width)
                 .is_some()
         })
     }

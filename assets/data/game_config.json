@@ -10,5 +10,6 @@
   "player_speed": 3.4,
   "interaction_radius": 1.35,
   "mistake_penalty_seconds": 8.0,
+  "spatial_cell_size": 1.5,
   "debug_overlay_enabled": true
 }

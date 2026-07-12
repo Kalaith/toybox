@@ -168,6 +168,7 @@ fn pickup_uses_crosshair_target_instead_of_closest_toy() {
 
     session.toys[0].position = WorldPoint { x: 5.45, y: 5.68 };
     session.toys[1].position = WorldPoint { x: 6.30, y: 5.00 };
+    session.spatial.rebuild(&session.toys);
 
     let result = session.interact(&data);
 
@@ -624,4 +625,42 @@ fn complete_display_by_index(session: &mut GameSession, data: &GameData, display
         session.pick_up_toy(toy_index);
         let _ = session.place_active_toy(display_index, slot_index, data);
     }
+}
+
+#[test]
+fn spatial_grid_tracks_pickup_place_and_drop() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    let toy_index = session
+        .toys
+        .iter()
+        .position(|toy| !toy.is_repair_part() && toy.placed_display_id.is_none())
+        .unwrap();
+    let spawn = session.toys[toy_index].position.to_vec2();
+    assert!(session
+        .spatial
+        .indices_near(spawn, 0.1)
+        .contains(&toy_index));
+
+    session.pick_up_toy(toy_index);
+    assert!(!session
+        .spatial
+        .indices_near(spawn, 0.1)
+        .contains(&toy_index));
+
+    let _ = session.place_active_toy(0, 0, &data);
+    let placed = session.toys[toy_index].position.to_vec2();
+    assert!(session
+        .spatial
+        .indices_near(placed, 0.1)
+        .contains(&toy_index));
+
+    session.pick_up_toy(toy_index);
+    session.drop_active(&data).unwrap();
+    let dropped = session.toys[toy_index].position.to_vec2();
+    assert!(session
+        .spatial
+        .indices_near(dropped, 0.1)
+        .contains(&toy_index));
 }
