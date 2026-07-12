@@ -106,6 +106,18 @@ pub struct WindowSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PosterDef {
+    /// Which wall the poster hangs on: "front", "back", "west", or "east".
+    pub wall: String,
+    /// Distance along the wall (x for front/back, y for side walls).
+    pub offset: f32,
+    pub center_y: f32,
+    pub width: f32,
+    pub text: String,
+    pub accent: [f32; 4],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZoneDef {
     pub name: String,
     pub x: f32,
@@ -123,6 +135,7 @@ pub struct LayoutData {
     pub shelving: Vec<ShelfDef>,
     pub counters: Vec<ShelfDef>,
     pub benches: Vec<BenchDef>,
+    pub posters: Vec<PosterDef>,
 }
 
 impl LayoutData {

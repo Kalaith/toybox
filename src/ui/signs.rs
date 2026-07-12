@@ -1,6 +1,6 @@
 //! Static in-world stock signs with procedural sign-face textures.
 
-use crate::data::{DisplayDef, ToyCategory, ZoneDef};
+use crate::data::{DisplayDef, GameData, PosterDef, ToyCategory, ZoneDef};
 use crate::ui::fixtures::{display_style, DisplayStyle};
 use macroquad::prelude::*;
 use std::cell::RefCell;
@@ -117,6 +117,92 @@ pub fn draw_zone_sign(zone: &ZoneDef) {
             vec3(panel_size.x * 0.92, panel_size.y * 0.72, 0.030),
         );
     }
+}
+
+/// Framed pixel-text posters pinned to the perimeter walls, defined in
+/// layout.json (wall + offset + text + accent).
+pub fn draw_wall_posters(data: &GameData) {
+    let frame = Color::new(0.12, 0.09, 0.06, 1.0);
+    let room_w = data.config.room_width;
+    let room_h = data.config.room_height;
+
+    for poster in &data.layout.posters {
+        let height = poster.width * 0.42;
+        // (center, frame size, face size, face inset direction)
+        let (center, frame_size, face_size, face_push) = match poster.wall.as_str() {
+            "front" => (
+                vec3(poster.offset, poster.center_y, 0.05),
+                vec3(poster.width + 0.10, height + 0.10, 0.03),
+                vec3(poster.width, height, 0.03),
+                vec3(0.0, 0.0, 0.02),
+            ),
+            "back" => (
+                vec3(poster.offset, poster.center_y, room_h - 0.05),
+                vec3(poster.width + 0.10, height + 0.10, 0.03),
+                vec3(poster.width, height, 0.03),
+                vec3(0.0, 0.0, -0.02),
+            ),
+            "west" => (
+                vec3(0.05, poster.center_y, poster.offset),
+                vec3(0.03, height + 0.10, poster.width + 0.10),
+                vec3(0.03, height, poster.width),
+                vec3(0.02, 0.0, 0.0),
+            ),
+            _ => (
+                vec3(room_w - 0.05, poster.center_y, poster.offset),
+                vec3(0.03, height + 0.10, poster.width + 0.10),
+                vec3(0.03, height, poster.width),
+                vec3(-0.02, 0.0, 0.0),
+            ),
+        };
+
+        draw_cube(center, frame_size, None, frame);
+        let accent = Color::new(
+            poster.accent[0],
+            poster.accent[1],
+            poster.accent[2],
+            poster.accent[3],
+        );
+        SIGN_TEXTURES.with(|textures| {
+            let mut textures = textures.borrow_mut();
+            let texture = textures
+                .entry(format!("poster:{}", poster.text))
+                .or_insert_with(|| build_poster_texture(poster, accent));
+            draw_cube(center + face_push, face_size, Some(texture), WHITE);
+        });
+    }
+}
+
+fn build_poster_texture(poster: &PosterDef, accent: Color) -> Texture2D {
+    let paper = Color::new(0.91, 0.87, 0.78, 1.0);
+    let mut image = Image::gen_image_color(160, 64, paper);
+
+    // Accent bands top and bottom, plus corner pin dots.
+    fill_rect(&mut image, 0, 0, 160, 7, accent);
+    fill_rect(&mut image, 0, 57, 160, 7, accent);
+    for &(x, y) in &[(6_u32, 12_u32), (150, 12), (6, 48), (150, 48)] {
+        fill_rect(&mut image, x, y, 4, 4, Color::new(0.30, 0.26, 0.22, 1.0));
+    }
+
+    let text = poster.text.to_ascii_uppercase();
+    let scale = if pixel_text_width(&text, 2) <= 146 {
+        2
+    } else {
+        1
+    };
+    let text_y = (64 - 7 * scale) / 2;
+    draw_pixel_text_centered(
+        &mut image,
+        &text,
+        text_y,
+        scale,
+        Color::new(0.16, 0.13, 0.10, 1.0),
+    );
+
+    flip_image_vertical(&mut image);
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Nearest);
+    texture
 }
 
 fn draw_zone_face(zone: &ZoneDef, accent: Color, center: Vec3, size: Vec3) {

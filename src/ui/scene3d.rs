@@ -8,7 +8,7 @@ use crate::ui::fixtures::{
     draw_aisle_shelving, draw_checkout_counters, draw_displays, draw_repair_benches,
     placed_height_for_slot,
 };
-use crate::ui::signs::draw_zone_sign;
+use crate::ui::signs::{draw_wall_posters, draw_zone_sign};
 use crate::ui::UiContext;
 use macroquad::prelude::*;
 
@@ -38,6 +38,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
     for zone in &ctx.data.layout.zones {
         draw_zone_sign(zone);
     }
+    draw_wall_posters(ctx.data);
     draw_repair_benches(ctx);
     let drawn_toys = draw_loose_toys(ctx) + draw_placed_toys(ctx);
     draw_placement_preview(ctx);
