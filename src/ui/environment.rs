@@ -11,6 +11,83 @@ pub(crate) fn draw_shop_environment(data: &GameData) {
     draw_ceiling(data);
     draw_skylights(data);
     draw_front_window(data);
+    draw_backroom_props(data);
+}
+
+/// Stockroom dressing placed relative to the Backroom zone: a wall clock
+/// stuck at 3:00, a pallet flat on the floor, and flattened cardboard
+/// leaning by the back wall. All low or wall-mounted so nothing reads as a
+/// toy to pick up.
+fn draw_backroom_props(data: &GameData) {
+    let Some(zone) = data
+        .layout
+        .zones
+        .iter()
+        .find(|zone| zone.name == "Backroom")
+    else {
+        return;
+    };
+    let wall_z = data.config.room_height - 0.05;
+
+    // Wall clock: rim, face, pin, and axis-aligned hands reading 3:00.
+    let clock = vec3(zone.x + zone.w * 0.30, 1.95, wall_z);
+    draw_cube(
+        clock,
+        vec3(0.36, 0.36, 0.05),
+        None,
+        Color::new(0.16, 0.14, 0.12, 1.0),
+    );
+    draw_cube(
+        clock + vec3(0.0, 0.0, -0.015),
+        vec3(0.29, 0.29, 0.04),
+        None,
+        Color::new(0.92, 0.90, 0.84, 1.0),
+    );
+    draw_cube(
+        clock + vec3(0.0, 0.055, -0.045),
+        vec3(0.025, 0.11, 0.012),
+        None,
+        Color::new(0.15, 0.15, 0.16, 1.0),
+    );
+    draw_cube(
+        clock + vec3(0.045, 0.0, -0.045),
+        vec3(0.09, 0.025, 0.012),
+        None,
+        Color::new(0.15, 0.15, 0.16, 1.0),
+    );
+    draw_cube(
+        clock + vec3(0.0, 0.0, -0.05),
+        vec3(0.03, 0.03, 0.012),
+        None,
+        Color::new(0.72, 0.24, 0.20, 1.0),
+    );
+
+    // Wooden pallet lying flat: three slats over two bearers, walk-over low.
+    let pallet = vec3(zone.x + zone.w * 0.72, 0.0, zone.y + zone.h * 0.45);
+    for bearer in [-0.28_f32, 0.28] {
+        draw_dark_trim(pallet + vec3(0.0, 0.035, bearer), vec3(0.95, 0.06, 0.10));
+    }
+    for (slat, offset) in [-0.32_f32, 0.0, 0.32].iter().enumerate() {
+        draw_wood_cube(
+            pallet + vec3(*offset, 0.075, 0.0),
+            vec3(0.24, 0.03, 0.78),
+            90 + slat,
+        );
+    }
+
+    // Flattened cardboard stack against the back wall.
+    for (layer, tone) in [0.62_f32, 0.56, 0.66, 0.52].iter().enumerate() {
+        draw_cube(
+            vec3(
+                zone.x + zone.w * 0.12 + (layer % 2) as f32 * 0.05,
+                0.46 + (layer % 3) as f32 * 0.04,
+                wall_z - 0.10 - layer as f32 * 0.045,
+            ),
+            vec3(0.70, 0.90 - (layer % 2) as f32 * 0.12, 0.035),
+            None,
+            Color::new(*tone, tone * 0.78, tone * 0.55, 1.0),
+        );
+    }
 }
 
 /// Recessed night-sky skylights: dark glass, star field, moon sliver, and a
