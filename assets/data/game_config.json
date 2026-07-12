@@ -9,5 +9,6 @@
   "starting_carry_limit": 1,
   "player_speed": 3.4,
   "interaction_radius": 1.35,
-  "mistake_penalty_seconds": 8.0
+  "mistake_penalty_seconds": 8.0,
+  "debug_overlay_enabled": true
 }

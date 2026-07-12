@@ -6,6 +6,7 @@ use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
 
+mod debug_overlay;
 mod environment;
 mod fixtures;
 mod hud;
@@ -17,6 +18,7 @@ mod title;
 mod widgets;
 mod wood;
 
+pub use debug_overlay::DebugOverlay;
 use hud::{draw_game_hud, pointer_blocking_rects};
 use scene3d::draw_shop_scene;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
@@ -50,13 +52,14 @@ pub struct UiContext<'a> {
     pub mouse_locked: bool,
 }
 
-pub fn draw_game_ui(ctx: UiContext<'_>) -> Vec<UiAction> {
-    draw_shop_scene(&ctx);
+pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction> {
+    let stats = draw_shop_scene(&ctx);
     set_ui_camera();
 
     let actions = Vec::new();
 
     draw_game_hud(&ctx);
+    overlay.draw(&ctx, &stats);
 
     if ctx.session.phase == GamePhase::Finished {
         draw_finish_overlay(&ctx);

@@ -44,7 +44,7 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 ### Phase 0 — Instrumentation & performance foundation
 *(Nothing scales past 100 toys until this phase is done.)*
 
-- [ ] **FPS/frame-time debug overlay**, toggled with F3: FPS, frame ms, drawn-toy count vs total, player position/zone. Config flag in `game_config.json` to enable the toggle.
+- [x] **FPS/frame-time debug overlay**, toggled with F3: FPS, frame ms, drawn-toy count vs total, player position/zone. Config flag in `game_config.json` to enable the toggle.
 - [ ] **Spatial grid for toys** in `state/`: uniform grid over the room keyed by cell → toy indices, kept in sync on pickup/drop/place. All proximity and look-target queries in `state/interactions.rs` and HUD preview use it — no full-`Vec` linear scans in per-frame paths.
 - [ ] **Render culling for loose toys**: distance cutoff + view-direction (dot-product) culling in `ui/scene3d.rs`, driven by the spatial grid.
 - [ ] **Toy LOD**: beyond a configurable distance, draw a toy as a single cheap primitive in its color; full per-identity detail only near the player. Distances in `game_config.json`.
@@ -90,3 +90,5 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 ## Log
 
 *(One line per completed iteration: date — task — decisions the next iteration needs.)*
+
+- 2026-07-12 — FPS debug overlay (F3, `debug_overlay_enabled` in game_config.json) — new `ui/debug_overlay.rs`; `draw_shop_scene` now returns `SceneStats { drawn_toys }` (loose+placed), extend it when culling lands. Zone readout deferred until Phase 1 zones exist; overlay draws only on the Playing screen, panel sits right of the HUD status panel.

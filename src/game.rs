@@ -4,7 +4,7 @@ use crate::data::GameData;
 use crate::state::{
     migrate_save_value, GameSession, InteractionResult, SaveData, ToolPurchaseResult,
 };
-use crate::ui::{self, UiAction, UiContext};
+use crate::ui::{self, DebugOverlay, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
 use macroquad::prelude::*;
 use macroquad_toolkit::assets::{load_texture_from_pack_or_file, AssetPack};
@@ -30,6 +30,7 @@ pub struct Game {
     has_save_file: bool,
     fullscreen_enabled: bool,
     mouse_locked: bool,
+    debug_overlay: DebugOverlay,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,11 +76,16 @@ impl Game {
             has_save_file,
             fullscreen_enabled: false,
             mouse_locked: false,
+            debug_overlay: DebugOverlay::new(),
         }
     }
 
     pub fn update(&mut self, dt: f32) {
         self.notifications.update(dt);
+        self.debug_overlay.record_frame(dt);
+        if self.data.config.debug_overlay_enabled && is_key_pressed(KeyCode::F3) {
+            self.debug_overlay.toggle();
+        }
 
         if self.screen != GameScreen::Playing {
             if self.screen == GameScreen::Settings && is_key_pressed(KeyCode::Escape) {
@@ -165,7 +171,7 @@ impl Game {
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
                 };
-                ui::draw_game_ui(ctx)
+                ui::draw_game_ui(ctx, &self.debug_overlay)
             }
         };
         ui::end_ui_frame();
