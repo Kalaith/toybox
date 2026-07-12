@@ -1,3 +1,4 @@
+use super::library::draw_toy_sphere;
 use super::library::{darken, draw_cube_with_edges, draw_robot_arms, draw_robot_core};
 use macroquad::prelude::*;
 
@@ -8,7 +9,7 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         vec3(0.04, 0.22, 0.04) * scale,
         Color::new(0.10, 0.12, 0.14, 1.0),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.72, -0.01) * scale,
         0.06 * scale,
         None,

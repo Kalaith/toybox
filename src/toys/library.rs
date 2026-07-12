@@ -355,6 +355,24 @@ pub fn draw_cube_with_edges(center: Vec3, size: Vec3, color: Color) {
     );
 }
 
+/// Drop-in `draw_sphere` replacement at 8x8 tessellation. Macroquad's
+/// default is 16x16 and the mesh is regenerated per call per frame; toy
+/// spheres are small on screen, so the low-poly version reads the same
+/// at a quarter of the vertex cost.
+pub fn draw_toy_sphere(center: Vec3, radius: f32, texture: Option<&Texture2D>, color: Color) {
+    draw_sphere_ex(
+        center,
+        radius,
+        texture,
+        color,
+        DrawSphereParams {
+            rings: 8,
+            slices: 8,
+            ..Default::default()
+        },
+    );
+}
+
 pub fn draw_studded_block(center: Vec3, size: Vec3, color: Color) {
     draw_cube_with_edges(center, size, color);
     let stud_color = brighten(color, 0.10);
@@ -362,7 +380,7 @@ pub fn draw_studded_block(center: Vec3, size: Vec3, color: Color) {
     let y = center.y + size.y * 0.55;
     for x in [-0.24_f32, 0.24] {
         for z in [-0.22_f32, 0.22] {
-            draw_sphere(
+            draw_toy_sphere(
                 vec3(center.x + size.x * x, y, center.z + size.z * z),
                 stud_radius,
                 None,
@@ -373,14 +391,14 @@ pub fn draw_studded_block(center: Vec3, size: Vec3, color: Color) {
 }
 
 pub fn draw_wheel(center: Vec3, radius: f32, width: f32, color: Color) {
-    draw_sphere(center, radius, None, color);
+    draw_toy_sphere(center, radius, None, color);
     draw_cube(
         center,
         vec3(radius * 1.32, width, radius * 1.32),
         None,
         darken(color, 0.06),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center,
         radius * 0.42,
         None,
@@ -428,14 +446,14 @@ fn draw_face_mark(center: Vec3, size: Vec3) {
 }
 
 pub fn draw_dragon_base(center: Vec3, color: Color, scale: f32) {
-    draw_sphere(center, 0.24 * scale, None, color);
-    draw_sphere(
+    draw_toy_sphere(center, 0.24 * scale, None, color);
+    draw_toy_sphere(
         center + vec3(0.0, -0.01, -0.15) * scale,
         0.15 * scale,
         None,
         Color::new(0.90, 0.76, 0.54, 1.0),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.18, -0.30) * scale,
         0.14 * scale,
         None,
@@ -502,7 +520,7 @@ pub fn draw_robot_core(center: Vec3, color: Color, scale: f32) {
         Color::new(0.08, 0.12, 0.14, 1.0),
     );
     for x in [-0.07_f32, 0.07] {
-        draw_sphere(
+        draw_toy_sphere(
             center + vec3(x, 0.11, -0.19) * scale,
             0.020 * scale,
             None,
@@ -524,7 +542,7 @@ pub fn draw_robot_arms(center: Vec3, color: Color, scale: f32) {
         darken(color, 0.12),
     );
     for x in [-0.26_f32, 0.26] {
-        draw_sphere(
+        draw_toy_sphere(
             center + vec3(x, -0.10, -0.01) * scale,
             0.055 * scale,
             None,

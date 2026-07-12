@@ -1,16 +1,17 @@
+use super::library::draw_toy_sphere;
 use super::library::{brighten, darken, draw_face};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {
     let beak = Color::new(0.96, 0.56, 0.18, 1.0);
-    draw_sphere(center, 0.25 * scale, None, color);
-    draw_sphere(
+    draw_toy_sphere(center, 0.25 * scale, None, color);
+    draw_toy_sphere(
         center + vec3(0.0, -0.02, -0.11) * scale,
         0.14 * scale,
         None,
         brighten(color, 0.12),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.19, -0.25) * scale,
         0.15 * scale,
         None,
@@ -34,7 +35,7 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         None,
         darken(color, 0.08),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.04, 0.25) * scale,
         0.065 * scale,
         None,

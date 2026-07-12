@@ -1,15 +1,16 @@
+use super::library::draw_toy_sphere;
 use super::library::{brighten, darken, draw_face};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {
-    draw_sphere(center, 0.25 * scale, None, color);
-    draw_sphere(
+    draw_toy_sphere(center, 0.25 * scale, None, color);
+    draw_toy_sphere(
         center + vec3(0.0, -0.03, -0.15) * scale,
         0.12 * scale,
         None,
         Color::new(0.92, 0.78, 0.60, 1.0),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.22, -0.15) * scale,
         0.16 * scale,
         None,
@@ -33,13 +34,13 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         None,
         Color::new(0.80, 0.18, 0.16, 1.0),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.11, 0.08, -0.26) * scale,
         0.022 * scale,
         None,
         Color::new(0.96, 0.78, 0.28, 1.0),
     );
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.0, 0.16, -0.29) * scale,
         0.08 * scale,
         None,
@@ -52,7 +53,7 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         color,
     );
     for x in [-0.14_f32, 0.14] {
-        draw_sphere(
+        draw_toy_sphere(
             center + vec3(x, -0.16, -0.12) * scale,
             0.055 * scale,
             None,

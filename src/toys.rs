@@ -1,7 +1,7 @@
 //! Procedural toy library and per-identity renderers.
 
 use crate::state::{RepairPartKind, ToyState};
-use library::ToyIdentity;
+use library::{draw_toy_sphere, ToyIdentity};
 use macroquad::prelude::*;
 
 mod antenna_bot;
@@ -112,7 +112,7 @@ fn draw_repair_part_3d(part: RepairPartKind, center: Vec3, color: Color, scale: 
                 None,
                 library::darken(color, 0.18),
             );
-            draw_sphere(
+            draw_toy_sphere(
                 center + vec3(0.0, 0.48, 0.0) * scale,
                 0.055 * scale,
                 None,

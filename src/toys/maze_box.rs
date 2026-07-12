@@ -1,4 +1,5 @@
 use super::library::draw_game_box;
+use super::library::draw_toy_sphere;
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {
@@ -18,7 +19,7 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             ink,
         );
     }
-    draw_sphere(
+    draw_toy_sphere(
         center + vec3(0.16, 0.155, 0.08) * scale,
         0.035 * scale,
         None,
