@@ -31,12 +31,40 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             vec3(0.05, 0.06, 0.08) * scale,
             darken(color, 0.16),
         );
-        // Two legs per side.
-        for z in [-0.08_f32, 0.10] {
+        // Three scuttling legs per side with silver foot tips.
+        for z in [-0.10_f32, 0.02, 0.13] {
             draw_cube_with_edges(
-                center + vec3(side * 0.18, 0.0, z) * scale,
-                vec3(0.05, 0.10, 0.05) * scale,
+                center + vec3(side * 0.21, 0.005, z) * scale,
+                vec3(0.045, 0.11, 0.045) * scale,
                 darken(color, 0.14),
+            );
+            draw_toy_sphere(
+                center + vec3(side * 0.21, -0.055, z) * scale,
+                0.026 * scale,
+                None,
+                Color::new(0.80, 0.84, 0.84, 1.0),
+            );
+        }
+    }
+
+    // Vent slats across the front plate.
+    for y in [0.09_f32, 0.13] {
+        draw_cube(
+            center + vec3(0.0, y, -0.155) * scale,
+            vec3(0.14, 0.022, 0.015) * scale,
+            None,
+            Color::new(0.10, 0.12, 0.14, 1.0),
+        );
+    }
+
+    // Rivets on the shell corners.
+    for x in [-0.09_f32, 0.09] {
+        for z in [-0.06_f32, 0.06] {
+            draw_toy_sphere(
+                center + vec3(x, 0.275, z) * scale,
+                0.016 * scale,
+                None,
+                Color::new(0.82, 0.84, 0.80, 1.0),
             );
         }
     }
@@ -53,6 +81,13 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
             0.035 * scale,
             None,
             Color::new(0.95, 0.76, 0.30, 1.0),
+        );
+        // Pupil dot looking forward.
+        draw_cube(
+            center + vec3(side * 0.07, 0.39, -0.112) * scale,
+            vec3(0.016, 0.016, 0.008) * scale,
+            None,
+            Color::new(0.08, 0.07, 0.07, 1.0),
         );
     }
 }
