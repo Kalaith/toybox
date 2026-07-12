@@ -5,7 +5,7 @@
   "version": "2.1.0",
   "room_width": 34.0,
   "room_height": 22.0,
-  "toy_count": 500,
+  "toy_count": 1500,
   "starting_carry_limit": 1,
   "player_speed": 3.4,
   "interaction_radius": 1.35,
