@@ -5,9 +5,48 @@ use macroquad::prelude::*;
 pub(crate) fn draw_shop_environment(data: &GameData) {
     draw_sky_glow(data);
     draw_floor(data);
+    draw_zone_rugs(data);
     draw_walls(data);
     draw_ceiling(data);
     draw_front_window(data);
+}
+
+/// Accent-tinted rug per zone so each department reads at floor level,
+/// not just from the hanging signs.
+fn draw_zone_rugs(data: &GameData) {
+    for zone in &data.layout.zones {
+        let accent = &zone.accent;
+        let center_x = zone.x + zone.w * 0.5;
+        let center_z = zone.y + zone.h * 0.5;
+        let rug_w = zone.w * 0.78;
+        let rug_d = zone.h * 0.78;
+
+        draw_cube(
+            vec3(center_x, 0.046, center_z),
+            vec3(rug_w, 0.012, rug_d),
+            None,
+            Color::new(accent[0], accent[1], accent[2], 0.14),
+        );
+
+        // Border band and corner ticks in a stronger accent.
+        let border = Color::new(accent[0], accent[1], accent[2], 0.38);
+        let half_w = rug_w * 0.5;
+        let half_d = rug_d * 0.5;
+        for side in [-1.0_f32, 1.0] {
+            draw_cube(
+                vec3(center_x, 0.052, center_z + side * (half_d - 0.09)),
+                vec3(rug_w, 0.010, 0.14),
+                None,
+                border,
+            );
+            draw_cube(
+                vec3(center_x + side * (half_w - 0.09), 0.052, center_z),
+                vec3(0.14, 0.010, rug_d - 0.36),
+                None,
+                border,
+            );
+        }
+    }
 }
 
 fn draw_sky_glow(data: &GameData) {
