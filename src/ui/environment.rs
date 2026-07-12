@@ -83,6 +83,19 @@ fn draw_skylights(data: &GameData) {
             None,
             Color::new(0.78, 0.87, 1.0, 0.09),
         );
+
+        // Cool motes falling through the moonbeam.
+        for cluster in 0..2 {
+            draw_dust_motes(
+                vec3(
+                    center_x - skylight.w * 0.25 + cluster as f32 * skylight.w * 0.5,
+                    0.0,
+                    center_z,
+                ),
+                97 + cluster * 41,
+                Color::new(0.80, 0.88, 1.0, 0.30),
+            );
+        }
     }
 }
 
@@ -128,7 +141,28 @@ fn draw_zone_lamps(data: &GameData) {
                 None,
                 Color::new(0.96, 0.86, 0.55, 0.10),
             );
+
+            draw_dust_motes(
+                vec3(x, 0.0, z),
+                zone_index * 13 + lamp_index * 7,
+                Color::new(0.98, 0.92, 0.70, 0.32),
+            );
         }
+    }
+}
+
+/// Slow-drifting dust motes inside a light column. View-only animation:
+/// gameplay state never touches the clock.
+fn draw_dust_motes(base: Vec3, seed: usize, tint: Color) {
+    let time = get_time() as f32;
+    for mote in 0..5 {
+        let phase = (seed + mote * 29) as f32;
+        let orbit = 0.15 + mote as f32 * 0.11;
+        let x = base.x + (time * 0.13 + phase).sin() * orbit;
+        let z = base.z + (time * 0.11 + phase * 1.7).cos() * orbit;
+        let y = 0.45 + ((time * 0.07 + phase * 0.9).sin() * 0.5 + 0.5) * 1.15;
+        let size = 0.010 + (mote % 3) as f32 * 0.004;
+        draw_cube(vec3(x, y, z), vec3(size, size, size), None, tint);
     }
 }
 
