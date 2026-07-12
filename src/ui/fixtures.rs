@@ -137,17 +137,16 @@ pub(crate) fn draw_aisle_shelving(ctx: &UiContext<'_>) {
             vec3(shelf.w, 1.52, 0.24),
             seed,
         );
-        // Shelf boards on both faces, stocked with deterministic box runs.
+        // Shelf boards on both faces, left bare: the night-shift store is
+        // waiting to be tidied, not already stocked.
         for level in 0..3 {
             let y = 0.34 + level as f32 * 0.44;
-            for (side_index, side) in [-1.0_f32, 1.0].iter().enumerate() {
-                let board_z = center_z + side * shelf.h * 0.25;
+            for side in [-1.0_f32, 1.0] {
                 draw_wood_cube(
-                    vec3(center_x, y, board_z),
+                    vec3(center_x, y, center_z + side * shelf.h * 0.25),
                     vec3(shelf.w * 0.97, 0.06, shelf.h * 0.46),
                     seed + level,
                 );
-                draw_shelf_stock(shelf, index, level, side_index, y, board_z);
             }
         }
         // End caps.
@@ -266,62 +265,6 @@ pub(crate) fn draw_checkout_counters(ctx: &UiContext<'_>) {
                 *tint,
             );
         }
-    }
-}
-
-const SHELF_STOCK_COLORS: [Color; 6] = [
-    Color::new(0.82, 0.42, 0.36, 1.0),
-    Color::new(0.90, 0.74, 0.34, 1.0),
-    Color::new(0.44, 0.66, 0.48, 1.0),
-    Color::new(0.42, 0.56, 0.76, 1.0),
-    Color::new(0.72, 0.52, 0.72, 1.0),
-    Color::new(0.86, 0.82, 0.72, 1.0),
-];
-
-/// A run of stock boxes along one shelf board: hash-varied widths, heights,
-/// and colors, with occasional sold-out gaps.
-fn draw_shelf_stock(
-    shelf: &crate::data::ShelfDef,
-    shelf_index: usize,
-    level: usize,
-    side_index: usize,
-    board_y: f32,
-    board_z: f32,
-) {
-    let mut x = shelf.x + 0.28;
-    let end = shelf.x + shelf.w - 0.28;
-    let mut slot = 0;
-    while x < end {
-        let hash = shelf_index * 131 + level * 47 + side_index * 89 + slot * 17;
-        let width = 0.20 + (hash % 5) as f32 * 0.05;
-        if x + width > end {
-            break;
-        }
-        // Roughly one slot in four sits empty.
-        if !hash.is_multiple_of(4) {
-            let height = 0.14 + ((hash / 5) % 4) as f32 * 0.04;
-            let depth = 0.24 + ((hash / 3) % 3) as f32 * 0.04;
-            let color = SHELF_STOCK_COLORS[hash % SHELF_STOCK_COLORS.len()];
-            draw_cube(
-                vec3(x + width * 0.5, board_y + 0.03 + height * 0.5, board_z),
-                vec3(width, height, depth),
-                None,
-                color,
-            );
-            // Label stripe across the face.
-            draw_cube(
-                vec3(
-                    x + width * 0.5,
-                    board_y + 0.03 + height * 0.55,
-                    board_z + (depth * 0.5 + 0.005) * if side_index == 0 { -1.0 } else { 1.0 },
-                ),
-                vec3(width * 0.6, height * 0.22, 0.008),
-                None,
-                Color::new(0.96, 0.94, 0.88, 1.0),
-            );
-        }
-        x += width + 0.07;
-        slot += 1;
     }
 }
 
