@@ -51,10 +51,58 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         vec3(0.04, 0.16, 0.04) * scale,
         dark,
     );
+    // Full cross on the king.
     draw_cube(
         center + vec3(-0.04, 0.27, 0.10) * scale,
         vec3(0.06, 0.02, 0.02) * scale,
         None,
         dark,
+    );
+    draw_cube(
+        center + vec3(-0.04, 0.275, 0.10) * scale,
+        vec3(0.018, 0.055, 0.018) * scale,
+        None,
+        dark,
+    );
+
+    // Light rook with merlon nubs.
+    draw_cube_with_edges(
+        center + vec3(0.14, 0.145, 0.10) * scale,
+        vec3(0.05, 0.10, 0.05) * scale,
+        light,
+    );
+    for x in [-0.017_f32, 0.017] {
+        draw_cube(
+            center + vec3(0.14 + x, 0.21, 0.10) * scale,
+            vec3(0.018, 0.032, 0.018) * scale,
+            None,
+            light,
+        );
+    }
+
+    // Dark knight, muzzle jutting forward.
+    draw_cube_with_edges(
+        center + vec3(-0.14, 0.145, 0.04) * scale,
+        vec3(0.04, 0.10, 0.04) * scale,
+        dark,
+    );
+    draw_cube(
+        center + vec3(-0.14, 0.21, 0.015) * scale,
+        vec3(0.036, 0.045, 0.065) * scale,
+        None,
+        dark,
+    );
+
+    // Captured pawn lying on its side by the board edge.
+    draw_cube_with_edges(
+        center + vec3(0.0, 0.105, 0.16) * scale,
+        vec3(0.09, 0.035, 0.035) * scale,
+        light,
+    );
+    draw_toy_sphere(
+        center + vec3(0.058, 0.105, 0.16) * scale,
+        0.028 * scale,
+        None,
+        light,
     );
 }
