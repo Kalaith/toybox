@@ -9,7 +9,81 @@ pub(crate) fn draw_shop_environment(data: &GameData) {
     draw_zone_lamps(data);
     draw_walls(data);
     draw_ceiling(data);
+    draw_skylights(data);
     draw_front_window(data);
+}
+
+/// Recessed night-sky skylights: dark glass, star field, moon sliver, and a
+/// cool moonlight pool on the floor below to contrast the warm lamps.
+fn draw_skylights(data: &GameData) {
+    let ceiling_bottom = data.layout.wall.height + 0.06;
+    for skylight in &data.layout.skylights {
+        let center_x = skylight.x + skylight.w * 0.5;
+        let center_z = skylight.y + skylight.h * 0.5;
+
+        // Frame ring just under the ceiling, then the glass panel.
+        for side in [-1.0_f32, 1.0] {
+            draw_dark_trim(
+                vec3(
+                    center_x,
+                    ceiling_bottom - 0.02,
+                    center_z + side * skylight.h * 0.5,
+                ),
+                vec3(skylight.w + 0.16, 0.08, 0.16),
+            );
+            draw_dark_trim(
+                vec3(
+                    center_x + side * skylight.w * 0.5,
+                    ceiling_bottom - 0.02,
+                    center_z,
+                ),
+                vec3(0.16, 0.08, skylight.h + 0.16),
+            );
+        }
+        draw_cube(
+            vec3(center_x, ceiling_bottom + 0.01, center_z),
+            vec3(skylight.w, 0.02, skylight.h),
+            None,
+            Color::new(0.030, 0.050, 0.105, 1.0),
+        );
+
+        // Star field and a low moon sliver.
+        for star in 0..16 {
+            let sx = skylight.x + 0.3 + ((star * 47) % 90) as f32 / 90.0 * (skylight.w - 0.6);
+            let sz = skylight.y + 0.3 + ((star * 31) % 70) as f32 / 70.0 * (skylight.h - 0.6);
+            let size = 0.024 + (star % 3) as f32 * 0.008;
+            draw_cube(
+                vec3(sx, ceiling_bottom - 0.005, sz),
+                vec3(size, 0.012, size),
+                None,
+                Color::new(0.86, 0.92, 1.0, 0.90),
+            );
+        }
+        draw_cube(
+            vec3(
+                skylight.x + skylight.w * 0.78,
+                ceiling_bottom - 0.008,
+                skylight.y + skylight.h * 0.30,
+            ),
+            vec3(0.16, 0.014, 0.16),
+            None,
+            Color::new(0.95, 0.90, 0.68, 1.0),
+        );
+
+        // Moonlight pool on the floor beneath.
+        draw_cube(
+            vec3(center_x, 0.055, center_z),
+            vec3(skylight.w + 1.0, 0.006, skylight.h + 1.0),
+            None,
+            Color::new(0.72, 0.82, 0.98, 0.06),
+        );
+        draw_cube(
+            vec3(center_x, 0.059, center_z),
+            vec3(skylight.w * 0.7, 0.006, skylight.h * 0.7),
+            None,
+            Color::new(0.78, 0.87, 1.0, 0.09),
+        );
+    }
 }
 
 /// Two pendant lamps per zone with warm floor pools — the night shift is

@@ -131,6 +131,7 @@ pub struct ZoneDef {
 pub struct LayoutData {
     pub wall: WallSpec,
     pub window: WindowSpec,
+    pub skylights: Vec<ShelfDef>,
     pub zones: Vec<ZoneDef>,
     pub shelving: Vec<ShelfDef>,
     pub counters: Vec<ShelfDef>,
