@@ -64,6 +64,8 @@ pub(crate) fn draw_title_screen(
 pub(crate) fn draw_settings_screen(
     title_texture: Option<&Texture2D>,
     fullscreen_enabled: bool,
+    fov_degrees: f32,
+    from_game: bool,
 ) -> Vec<UiAction> {
     draw_title_background(title_texture);
     draw_title_scrim();
@@ -73,28 +75,30 @@ pub(crate) fn draw_settings_screen(
     let button_w = 184.0;
     let button_h = 38.0;
     let button_gap = 14.0;
-    let total_w = button_w * 2.0 + button_gap;
-    let x = (LOGICAL_WIDTH - total_w) * 0.5;
-    let y = 614.0;
 
     draw_text_centered_in_box(
-        "Settings",
+        if from_game { "Paused" } else { "Settings" },
         0.0,
-        y - 56.0,
+        498.0,
         LOGICAL_WIDTH,
         38.0,
         24.0,
         title_parchment(),
     );
 
+    // Row 1: fullscreen toggle and field-of-view stepper.
+    let row1_y = 556.0;
+    let fov_group_w = 44.0 + 6.0 + 96.0 + 6.0 + 44.0;
+    let row1_w = button_w + button_gap + fov_group_w;
+    let row1_x = (LOGICAL_WIDTH - row1_w) * 0.5;
+
     let fullscreen_label = if fullscreen_enabled {
         "Fullscreen: On"
     } else {
         "Fullscreen: Off"
     };
-
     if title_button(
-        Rect::new(x, y, button_w, button_h),
+        Rect::new(row1_x, row1_y, button_w, button_h),
         fullscreen_label,
         true,
         ButtonTone::Primary,
@@ -103,13 +107,74 @@ pub(crate) fn draw_settings_screen(
         actions.push(UiAction::ToggleFullscreen);
     }
 
+    let fov_x = row1_x + button_w + button_gap;
     if title_button(
-        Rect::new(x + button_w + button_gap, y, button_w, button_h),
-        "Back",
+        Rect::new(fov_x, row1_y, 44.0, button_h),
+        "-",
         true,
         ButtonTone::Muted,
         mouse,
     ) {
+        actions.push(UiAction::FovDecrease);
+    }
+    draw_title_button_plaque(
+        Rect::new(fov_x + 50.0, row1_y, 96.0, button_h),
+        ButtonTone::Muted,
+        true,
+        false,
+        false,
+    );
+    draw_text_centered_in_box(
+        &format!("FOV {}", fov_degrees.round() as i32),
+        fov_x + 50.0,
+        row1_y - 1.0,
+        96.0,
+        button_h,
+        15.0,
+        title_parchment(),
+    );
+    if title_button(
+        Rect::new(fov_x + 152.0, row1_y, 44.0, button_h),
+        "+",
+        true,
+        ButtonTone::Muted,
+        mouse,
+    ) {
+        actions.push(UiAction::FovIncrease);
+    }
+
+    // Row 2: return where you came from, plus quit-to-title while paused.
+    let row2_y = 614.0;
+    let row2_w = if from_game {
+        button_w * 2.0 + button_gap
+    } else {
+        button_w
+    };
+    let row2_x = (LOGICAL_WIDTH - row2_w) * 0.5;
+
+    if title_button(
+        Rect::new(row2_x, row2_y, button_w, button_h),
+        if from_game { "Resume" } else { "Back" },
+        true,
+        if from_game {
+            ButtonTone::Positive
+        } else {
+            ButtonTone::Muted
+        },
+        mouse,
+    ) {
+        actions.push(UiAction::CloseSettings);
+    }
+
+    if from_game
+        && title_button(
+            Rect::new(row2_x + button_w + button_gap, row2_y, button_w, button_h),
+            "Quit to Title",
+            true,
+            ButtonTone::Danger,
+            mouse,
+        )
+    {
         actions.push(UiAction::BackToTitle);
     }
 

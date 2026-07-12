@@ -24,7 +24,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
         position: eye,
         target: eye + front,
         up,
-        fovy: 58.0,
+        fovy: ctx.fov_degrees.to_radians(),
         projection: Projection::Perspective,
         aspect: Some(screen_width() / screen_height().max(1.0)),
         ..Default::default()

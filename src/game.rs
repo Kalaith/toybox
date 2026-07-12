@@ -20,6 +20,12 @@ use macroquad_toolkit::prelude::dark;
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
 const ASSET_PACK_PATH: &str = "assets.zip";
 
+// Vertical field of view. 85 matches the look the game shipped with.
+const DEFAULT_FOV_DEGREES: f32 = 85.0;
+const MIN_FOV_DEGREES: f32 = 60.0;
+const MAX_FOV_DEGREES: f32 = 110.0;
+const FOV_STEP_DEGREES: f32 = 5.0;
+
 pub struct Game {
     data: GameData,
     session: GameSession,
@@ -29,6 +35,8 @@ pub struct Game {
     screen: GameScreen,
     has_save_file: bool,
     fullscreen_enabled: bool,
+    fov_degrees: f32,
+    settings_from_game: bool,
     mouse_locked: bool,
     debug_overlay: DebugOverlay,
     bench: Option<BenchMode>,
@@ -102,6 +110,8 @@ impl Game {
             screen,
             has_save_file,
             fullscreen_enabled: false,
+            fov_degrees: DEFAULT_FOV_DEGREES,
+            settings_from_game: false,
             mouse_locked: false,
             debug_overlay: DebugOverlay::new(),
             bench,
@@ -118,7 +128,7 @@ impl Game {
 
         if self.screen != GameScreen::Playing {
             if self.screen == GameScreen::Settings && is_key_pressed(KeyCode::Escape) {
-                self.screen = GameScreen::Title;
+                self.events.push(UiAction::CloseSettings);
             } else if self.screen == GameScreen::ToolShop
                 && (is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::T))
             {
@@ -147,8 +157,8 @@ impl Game {
         let movement = ui::movement_from_keys();
         self.session.move_player(movement, &self.data, dt);
 
-        if is_key_pressed(KeyCode::Escape) && self.mouse_locked {
-            self.set_mouse_locked(false);
+        if is_key_pressed(KeyCode::Escape) {
+            self.events.push(UiAction::Settings);
         }
         if is_key_pressed(KeyCode::R) {
             self.events.push(UiAction::NewGame);
@@ -183,14 +193,18 @@ impl Game {
             GameScreen::Title => {
                 ui::draw_title_screen(self.title_texture.as_ref(), self.has_save_file)
             }
-            GameScreen::Settings => {
-                ui::draw_settings_screen(self.title_texture.as_ref(), self.fullscreen_enabled)
-            }
+            GameScreen::Settings => ui::draw_settings_screen(
+                self.title_texture.as_ref(),
+                self.fullscreen_enabled,
+                self.fov_degrees,
+                self.settings_from_game,
+            ),
             GameScreen::ToolShop => {
                 let ctx = UiContext {
                     data: &self.data,
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
+                    fov_degrees: self.fov_degrees,
                 };
                 ui::draw_tool_shop_screen(ctx)
             }
@@ -199,6 +213,7 @@ impl Game {
                     data: &self.data,
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
+                    fov_degrees: self.fov_degrees,
                 };
                 ui::draw_game_ui(ctx, &self.debug_overlay)
             }
@@ -260,10 +275,20 @@ impl Game {
                 }
             }
             UiAction::Settings => {
+                self.settings_from_game = self.screen == GameScreen::Playing;
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::Settings;
             }
+            UiAction::CloseSettings => {
+                self.screen = if self.settings_from_game {
+                    GameScreen::Playing
+                } else {
+                    GameScreen::Title
+                };
+                self.settings_from_game = false;
+            }
             UiAction::BackToTitle => {
+                self.settings_from_game = false;
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::Title;
                 self.has_save_file =
@@ -279,6 +304,14 @@ impl Game {
             UiAction::ToggleFullscreen => {
                 self.fullscreen_enabled = !self.fullscreen_enabled;
                 set_fullscreen(self.fullscreen_enabled);
+            }
+            UiAction::FovIncrease => {
+                self.fov_degrees =
+                    (self.fov_degrees + FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
+            }
+            UiAction::FovDecrease => {
+                self.fov_degrees =
+                    (self.fov_degrees - FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
             }
             UiAction::QuitGame => {
                 self.set_mouse_locked(false);

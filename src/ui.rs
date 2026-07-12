@@ -34,10 +34,13 @@ pub enum UiAction {
     NewGame,
     Continue,
     Settings,
+    CloseSettings,
     BackToTitle,
     OpenToolShop,
     CloseToolShop,
     ToggleFullscreen,
+    FovIncrease,
+    FovDecrease,
     QuitGame,
     Save,
     Load,
@@ -51,6 +54,7 @@ pub struct UiContext<'a> {
     pub data: &'a GameData,
     pub session: &'a GameSession,
     pub mouse_locked: bool,
+    pub fov_degrees: f32,
 }
 
 pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction> {
