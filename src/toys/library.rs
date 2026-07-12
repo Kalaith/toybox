@@ -22,6 +22,11 @@ pub enum ToyIdentity {
     FinDragon,
     SpikeDragon,
     LongtailDragon,
+    WyrmDragon,
+    PudgyDragon,
+    TwinDragon,
+    HatchlingDragon,
+    CurledDragon,
     AntennaBot,
     ClawBot,
     TreadBot,
@@ -137,7 +142,7 @@ const PLUSH_IDENTITIES: [IdentityDef; 10] = [
     },
 ];
 
-const DRAGON_IDENTITIES: [IdentityDef; 5] = [
+const DRAGON_IDENTITIES: [IdentityDef; 10] = [
     IdentityDef {
         identity: ToyIdentity::CrescentDragon,
         label: "Crescent Dragon",
@@ -162,6 +167,31 @@ const DRAGON_IDENTITIES: [IdentityDef; 5] = [
         identity: ToyIdentity::LongtailDragon,
         label: "Longtail Dragon",
         short_code: "LT",
+    },
+    IdentityDef {
+        identity: ToyIdentity::WyrmDragon,
+        label: "Wyrm Dragon",
+        short_code: "WY",
+    },
+    IdentityDef {
+        identity: ToyIdentity::PudgyDragon,
+        label: "Pudgy Dragon",
+        short_code: "PD",
+    },
+    IdentityDef {
+        identity: ToyIdentity::TwinDragon,
+        label: "Twin Dragon",
+        short_code: "TD",
+    },
+    IdentityDef {
+        identity: ToyIdentity::HatchlingDragon,
+        label: "Hatchling Dragon",
+        short_code: "HD",
+    },
+    IdentityDef {
+        identity: ToyIdentity::CurledDragon,
+        label: "Curled Dragon",
+        short_code: "CD",
     },
 ];
 

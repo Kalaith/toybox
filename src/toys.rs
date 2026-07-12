@@ -13,9 +13,11 @@ mod castle_quest;
 mod cat;
 mod claw_bot;
 mod crescent_dragon;
+mod curled_dragon;
 mod duck;
 mod elephant;
 mod fin_dragon;
+mod hatchling_dragon;
 mod horned_dragon;
 pub mod library;
 mod longtail_dragon;
@@ -24,6 +26,7 @@ mod octopus;
 mod owl;
 mod penguin;
 mod planet_race;
+mod pudgy_dragon;
 mod puppy;
 mod rabbit;
 mod screen_bot;
@@ -34,7 +37,9 @@ mod tread_bot;
 mod treasure_map;
 mod tripod_bot;
 mod turtle;
+mod twin_dragon;
 mod word_tiles;
+mod wyrm_dragon;
 
 pub use library::{brighten, spawn_pose_for_toy, toy_color, toy_name, toy_profile, ToySpawnPose};
 
@@ -88,6 +93,11 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::FinDragon => fin_dragon::draw(center, color, scale),
         ToyIdentity::SpikeDragon => spike_dragon::draw(center, color, scale),
         ToyIdentity::LongtailDragon => longtail_dragon::draw(center, color, scale),
+        ToyIdentity::WyrmDragon => wyrm_dragon::draw(center, color, scale),
+        ToyIdentity::PudgyDragon => pudgy_dragon::draw(center, color, scale),
+        ToyIdentity::TwinDragon => twin_dragon::draw(center, color, scale),
+        ToyIdentity::HatchlingDragon => hatchling_dragon::draw(center, color, scale),
+        ToyIdentity::CurledDragon => curled_dragon::draw(center, color, scale),
         ToyIdentity::AntennaBot => antenna_bot::draw(center, color, scale),
         ToyIdentity::ClawBot => claw_bot::draw(center, color, scale),
         ToyIdentity::TreadBot => tread_bot::draw(center, color, scale),
