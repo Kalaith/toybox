@@ -673,6 +673,24 @@ pub fn migrate_save_value(
     let payload = value.get("data").cloned().unwrap_or(value);
 
     if let Ok(mut current) = serde_json::from_value::<SaveData>(payload) {
+        // A save from an older store stocks the wrong toy count entirely
+        // (e.g. the 100-toy prototype); restock fresh instead of loading a
+        // near-empty shop.
+        let live_toys = current
+            .toys
+            .iter()
+            .filter(|toy| {
+                !toy.is_consumed_repair_part()
+                    && toy.repair_part_kind() != Some(RepairPartKind::Head)
+            })
+            .count();
+        if live_toys != data.config.toy_count {
+            eprintln!(
+                "Save stocks {} toys but the store now holds {}; restocking fresh",
+                live_toys, data.config.toy_count
+            );
+            return Ok(GameSession::new(data).to_save(&data.config.version));
+        }
         current.version = data.config.version.clone();
         return Ok(current);
     }

@@ -325,49 +325,45 @@ pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameDat
     toys.extend(heads);
 }
 
-/// Deterministic head placement in a scatter pile whose zone differs from
-/// the body's zone, so finding the counterpart is a real errand.
+/// Deterministic head placement spread uniformly inside a zone that differs
+/// from the body's zone, so finding the counterpart is a real errand.
 fn head_scatter_position(toy_index: usize, body: WorldPoint, data: &GameData) -> WorldPoint {
     let config = &data.config;
     let body_zone = data.layout.zone_name_at(body.x, body.y);
-    let other_zone_piles: Vec<usize> = data
-        .layout
-        .scatter_piles
-        .iter()
-        .enumerate()
-        .filter(|(_, pile)| data.layout.zone_name_at(pile.x, pile.y) != body_zone)
-        .map(|(pile_index, _)| pile_index)
-        .collect();
 
-    let place_in_pile = |pile: &crate::data::ScatterPileDef| {
-        let angle = toy_index as f32 * 2.399 + 1.3;
-        let ring = ((toy_index * 29) % 100) as f32 / 100.0;
-        let offset = vec2(
-            angle.cos() * pile.radius * ring,
-            angle.sin() * pile.radius * ring,
-        );
-        let position = keep_off_fixtures(vec2(pile.x, pile.y) + offset, data);
+    let place_in_rect = |x: f32, y: f32, w: f32, h: f32| {
+        let hash_x = (toy_index.wrapping_mul(48_271).wrapping_add(11)) % 9_973;
+        let hash_y = (toy_index.wrapping_mul(69_621).wrapping_add(37)) % 9_973;
+        let inset = 0.5_f32;
+        let px = x + inset + (hash_x as f32 / 9_973.0) * (w - inset * 2.0).max(0.1);
+        let py = y + inset + (hash_y as f32 / 9_973.0) * (h - inset * 2.0).max(0.1);
+        let position = keep_off_fixtures(vec2(px, py), data);
         WorldPoint {
             x: position.x.clamp(0.8, config.room_width - 0.8),
             y: position.y.clamp(0.8, config.room_height - 0.8),
         }
     };
 
-    if other_zone_piles.is_empty() {
-        let pile = &data.layout.scatter_piles[(toy_index * 13) % data.layout.scatter_piles.len()];
-        return place_in_pile(pile);
+    let candidates: Vec<&crate::data::ZoneDef> = data
+        .layout
+        .zones
+        .iter()
+        .filter(|zone| Some(zone.name.as_str()) != body_zone)
+        .collect();
+    if candidates.is_empty() {
+        return place_in_rect(0.0, 0.0, config.room_width, config.room_height);
     }
 
-    // Scatter offsets can drift across a zone border, so validate the final
-    // position and walk to the next candidate pile if it slid back home.
+    // Fixture nudges can drift across a zone border, so validate the final
+    // position and walk to the next candidate zone if it slid back home.
     let mut fallback = None;
-    for attempt in 0..other_zone_piles.len() {
-        let pile_index = other_zone_piles[(toy_index * 13 + 5 + attempt) % other_zone_piles.len()];
-        let position = place_in_pile(&data.layout.scatter_piles[pile_index]);
+    for attempt in 0..candidates.len() {
+        let zone = candidates[(toy_index * 13 + attempt) % candidates.len()];
+        let position = place_in_rect(zone.x, zone.y, zone.w, zone.h);
         if data.layout.zone_name_at(position.x, position.y) != body_zone {
             return position;
         }
         fallback.get_or_insert(position);
     }
-    fallback.expect("at least one candidate pile was tried")
+    fallback.expect("at least one candidate zone was tried")
 }

@@ -55,6 +55,26 @@ pub(crate) fn draw_minimap(ctx: &UiContext<'_>) {
         );
     }
 
+    // Loose toys as faint density dots (sampled — thousands of quads per
+    // frame sink the FPS); repair parts always glow warm so counterpart
+    // hunts have a target.
+    for (index, toy) in ctx.session.toys.iter().enumerate() {
+        if toy.is_held || toy.placed_display_id.is_some() || toy.is_consumed_repair_part() {
+            continue;
+        }
+        let is_part = toy.is_repair_part();
+        if !is_part && index % 4 != 0 {
+            continue;
+        }
+        let dot = to_map(toy.position.x, toy.position.y);
+        let color = if is_part {
+            Color::new(0.96, 0.48, 0.20, 0.95)
+        } else {
+            Color::new(0.92, 0.90, 0.80, 0.45)
+        };
+        draw_rectangle(dot.x - 0.8, dot.y - 0.8, 1.6, 1.6, color);
+    }
+
     for display in &ctx.data.displays {
         let origin = to_map(display.x, display.y);
         let alpha = if ctx.session.is_display_complete(&display.id) {

@@ -92,14 +92,6 @@ pub struct ShelfDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScatterPileDef {
-    pub x: f32,
-    pub y: f32,
-    pub radius: f32,
-    pub weight: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WallSpec {
     pub height: f32,
     pub thickness: f32,
@@ -130,7 +122,6 @@ pub struct LayoutData {
     pub zones: Vec<ZoneDef>,
     pub shelving: Vec<ShelfDef>,
     pub benches: Vec<BenchDef>,
-    pub scatter_piles: Vec<ScatterPileDef>,
 }
 
 impl LayoutData {
@@ -164,15 +155,6 @@ impl GameData {
         }
         if layout.benches.iter().any(|bench| bench.capacity == 0) {
             return Err("layout.json bench capacity must be at least 1".to_owned());
-        }
-        if layout
-            .scatter_piles
-            .iter()
-            .map(|pile| pile.weight)
-            .sum::<usize>()
-            == 0
-        {
-            return Err("layout.json scatter piles need a non-zero total weight".to_owned());
         }
 
         Ok(Self {

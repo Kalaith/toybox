@@ -1,5 +1,6 @@
 //! Procedural toy library and per-identity renderers.
 
+use crate::data::ToyCategory;
 use crate::state::{RepairPartKind, ToyState};
 use library::{draw_toy_sphere, ToyIdentity};
 use macroquad::prelude::*;
@@ -74,12 +75,23 @@ pub fn draw_loose_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32)
     }
 }
 
-/// Distant stand-in: a single cube in the toy's color. Full per-identity
-/// detail (and spawn-pose tumble) only returns near the player.
-pub fn draw_toy_lod_3d(center: Vec3, color: Color, scale: f32) {
+/// Distant stand-in: a single cube in the toy's color, proportioned to the
+/// toy's category so the swap to full detail near the player stays subtle.
+pub fn draw_toy_lod_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
+    let (lift, size) = if toy.is_repair_part() {
+        (0.14, vec3(0.34, 0.26, 0.30))
+    } else {
+        match toy.category {
+            ToyCategory::Plushies => (0.15, vec3(0.34, 0.34, 0.34)),
+            ToyCategory::TinyDragons => (0.10, vec3(0.38, 0.22, 0.42)),
+            ToyCategory::ActionFigures => (0.20, vec3(0.28, 0.42, 0.26)),
+            ToyCategory::BoardGames => (0.08, vec3(0.42, 0.16, 0.40)),
+            ToyCategory::BuildingBlocks => (0.15, vec3(0.34, 0.32, 0.34)),
+        }
+    };
     draw_cube(
-        center + vec3(0.0, 0.16, 0.0) * scale,
-        vec3(0.40, 0.34, 0.36) * scale,
+        center + vec3(0.0, lift, 0.0) * scale,
+        size * scale,
         None,
         color,
     );

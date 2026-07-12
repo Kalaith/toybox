@@ -63,21 +63,43 @@ fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
             continue;
         }
         let layer = (index % 7) as f32;
-        let height = if toy.bench_slot_index.is_some() {
+        let base_height = if toy.bench_slot_index.is_some() {
             0.88
         } else {
-            0.20 + layer * 0.020 + toy.spawn_pose.floor_lift
+            0.20 + layer * 0.020
         };
         let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
-        let center = world_point(toy.position, height);
         if distance > config.toy_lod_distance {
-            draw_toy_lod_3d(center, toy_color(toy), scale);
+            // Stand-ins stay grounded: floor_lift only compensates for the
+            // tumbled pose, and applying it to upright draws leaves distant
+            // toys hovering and dropping as the player approaches.
+            draw_toy_lod_3d(
+                toy,
+                world_point(toy.position, base_height),
+                toy_color(toy),
+                scale,
+            );
         } else if distance > config.toy_pose_distance {
             // Full detail, but upright: the spawn-pose model matrix forces a
             // render-batch flush per toy, so it is reserved for close range.
-            draw_toy_3d(toy, center, toy_color(toy), scale);
+            draw_toy_3d(
+                toy,
+                world_point(toy.position, base_height),
+                toy_color(toy),
+                scale,
+            );
         } else {
-            draw_loose_toy_3d(toy, center, toy_color(toy), scale);
+            let lift = if toy.bench_slot_index.is_some() {
+                0.0
+            } else {
+                toy.spawn_pose.floor_lift
+            };
+            draw_loose_toy_3d(
+                toy,
+                world_point(toy.position, base_height + lift),
+                toy_color(toy),
+                scale,
+            );
         }
         drawn += 1;
     }
@@ -109,7 +131,7 @@ fn draw_placed_toys(ctx: &UiContext<'_>) -> usize {
             let height = placed_height(display, toy);
             let center = world_point(toy.position, height);
             if toy.position.to_vec2().distance(player) > lod_distance {
-                draw_toy_lod_3d(center, toy_color(toy), 0.92);
+                draw_toy_lod_3d(toy, center, toy_color(toy), 0.92);
             } else {
                 draw_toy_3d(toy, center, toy_color(toy), 0.92);
             }
