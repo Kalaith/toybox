@@ -4,7 +4,9 @@ use crate::data::DisplayDef;
 use crate::state::{display_slot_position, ToyState, WorldPoint};
 use crate::toys::{brighten, draw_loose_toy_3d, draw_toy_3d, draw_toy_lod_3d, toy_color};
 use crate::ui::environment::draw_shop_environment;
-use crate::ui::fixtures::{draw_displays, draw_repair_bench, placed_height_for_slot};
+use crate::ui::fixtures::{
+    draw_aisle_shelving, draw_displays, draw_repair_bench, placed_height_for_slot,
+};
 use crate::ui::UiContext;
 use macroquad::prelude::*;
 
@@ -29,6 +31,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
     set_camera(&camera);
     draw_shop_environment(ctx.data);
     draw_displays(ctx);
+    draw_aisle_shelving(ctx);
     draw_repair_bench(ctx);
     let drawn_toys = draw_loose_toys(ctx) + draw_placed_toys(ctx);
     draw_placement_preview(ctx);

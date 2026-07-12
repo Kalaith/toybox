@@ -37,17 +37,17 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
 pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
     let bench = ctx.data.primary_bench();
     let center = vec3(bench.x, 0.54, bench.y);
-    draw_wood_cube(center, vec3(2.2, 0.24, 1.1), 70);
+    draw_wood_cube(center, vec3(bench.w, 0.24, bench.h), 70);
     draw_cube(
         center + vec3(0.0, 0.15, 0.0),
-        vec3(1.90, 0.045, 0.82),
+        vec3(bench.w - 0.30, 0.045, bench.h - 0.28),
         None,
         Color::new(0.18, 0.23, 0.25, 1.0),
     );
     for x in [-0.42, 0.42] {
         for z in [-0.34, 0.34] {
             draw_wood_cube(
-                center + vec3(2.2 * x, -0.42, 1.1 * z),
+                center + vec3(bench.w * x, -0.42, bench.h * z),
                 vec3(0.18, 0.82, 0.18),
                 71,
             );
@@ -84,6 +84,44 @@ pub(crate) fn draw_repair_bench(ctx: &UiContext<'_>) {
             Color::new(0.42, 0.95, 0.96, 0.72)
         };
         draw_cube_wires(center + vec3(0.0, 0.25, 0.0), vec3(2.44, 1.05, 1.34), color);
+    }
+}
+
+pub(crate) fn draw_aisle_shelving(ctx: &UiContext<'_>) {
+    for (index, shelf) in ctx.data.layout.shelving.iter().enumerate() {
+        let center_x = shelf.x + shelf.w * 0.5;
+        let center_z = shelf.y + shelf.h * 0.5;
+        let seed = 75 + index * 3;
+
+        // Central spine of the gondola.
+        draw_wood_cube(
+            vec3(center_x, 0.76, center_z),
+            vec3(shelf.w, 1.52, 0.24),
+            seed,
+        );
+        // Shelf boards on both faces.
+        for level in 0..3 {
+            let y = 0.34 + level as f32 * 0.44;
+            for side in [-1.0_f32, 1.0] {
+                draw_wood_cube(
+                    vec3(center_x, y, center_z + side * shelf.h * 0.25),
+                    vec3(shelf.w * 0.97, 0.06, shelf.h * 0.46),
+                    seed + level,
+                );
+            }
+        }
+        // End caps.
+        for side in [-1.0_f32, 1.0] {
+            draw_dark_trim(
+                vec3(center_x + side * shelf.w * 0.5, 0.76, center_z),
+                vec3(0.10, 1.52, shelf.h),
+            );
+        }
+        draw_wood_cube(
+            vec3(center_x, 1.55, center_z),
+            vec3(shelf.w, 0.06, shelf.h),
+            seed + 1,
+        );
     }
 }
 

@@ -593,10 +593,36 @@ fn movement_follows_player_yaw() {
     let start = session.player.position;
 
     session.player.yaw = 0.0;
-    session.move_player(vec2(0.0, 1.0), &data.config, 0.25);
+    session.move_player(vec2(0.0, 1.0), &data, 0.25);
 
     assert!(session.player.position.x > start.x);
     assert!((session.player.position.y - start.y).abs() < 0.001);
+}
+
+#[test]
+fn player_collides_with_aisle_shelving() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let shelf = &data.layout.shelving[0];
+
+    session.player.position = WorldPoint {
+        x: shelf.x + shelf.w * 0.5,
+        y: shelf.y - 1.0,
+    };
+    session.player.yaw = std::f32::consts::FRAC_PI_2;
+    for _ in 0..40 {
+        session.move_player(vec2(0.0, 1.0), &data, 0.1);
+    }
+
+    let final_y = session.player.position.y;
+    assert!(
+        final_y > shelf.y - 1.0 + 0.2,
+        "player should approach shelf"
+    );
+    assert!(
+        final_y < shelf.y - 0.40,
+        "player should stop at the shelf edge, got y {final_y}"
+    );
 }
 
 #[test]

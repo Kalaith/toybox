@@ -145,7 +145,7 @@ impl Game {
         self.session.update_player_look(look_delta.x, look_delta.y);
 
         let movement = ui::movement_from_keys();
-        self.session.move_player(movement, &self.data.config, dt);
+        self.session.move_player(movement, &self.data, dt);
 
         if is_key_pressed(KeyCode::Escape) && self.mouse_locked {
             self.set_mouse_locked(false);

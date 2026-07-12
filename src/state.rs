@@ -304,11 +304,12 @@ impl GameSession {
             (self.player.pitch + pitch_delta).clamp(-Self::MAX_LOOK_PITCH, Self::MAX_LOOK_PITCH);
     }
 
-    pub fn move_player(&mut self, direction: Vec2, config: &GameConfig, dt: f32) {
+    pub fn move_player(&mut self, direction: Vec2, data: &GameData, dt: f32) {
         if self.phase != GamePhase::Playing || direction.length_squared() == 0.0 {
             return;
         }
 
+        let config = &data.config;
         let forward = vec2(self.player.yaw.cos(), self.player.yaw.sin());
         let right = vec2(-forward.y, forward.x);
         let world_direction = right * direction.x + forward * direction.y;
@@ -316,13 +317,32 @@ impl GameSession {
             return;
         }
 
-        let next =
-            self.player.position.to_vec2() + world_direction.normalize() * config.player_speed * dt;
-        let clamped = vec2(
-            next.x.clamp(0.45, config.room_width - 0.45),
-            next.y.clamp(0.45, config.room_height - 0.45),
-        );
-        self.player.position = WorldPoint::from_vec2(clamped);
+        let step = world_direction.normalize() * config.player_speed * dt;
+        let current = self.player.position.to_vec2();
+        let clamp_x = |x: f32| x.clamp(0.45, config.room_width - 0.45);
+        let clamp_y = |y: f32| y.clamp(0.45, config.room_height - 0.45);
+
+        // Legacy saves can wake up inside a newly added fixture: let them
+        // walk freely until clear instead of pinning them in place.
+        if position_blocked(current, data) {
+            self.player.position = WorldPoint::from_vec2(vec2(
+                clamp_x(current.x + step.x),
+                clamp_y(current.y + step.y),
+            ));
+            return;
+        }
+
+        // Axis-separated moves so the player slides along fixture edges.
+        let mut next = current;
+        let candidate_x = vec2(clamp_x(current.x + step.x), next.y);
+        if !position_blocked(candidate_x, data) {
+            next.x = candidate_x.x;
+        }
+        let candidate_y = vec2(next.x, clamp_y(current.y + step.y));
+        if !position_blocked(candidate_y, data) {
+            next.y = candidate_y.y;
+        }
+        self.player.position = WorldPoint::from_vec2(next);
     }
 
     pub fn carry_limit(&self, _config: &GameConfig) -> usize {
@@ -449,11 +469,11 @@ impl GameSession {
             position.x.clamp(0.65, config.room_width - 0.65),
             position.y.clamp(0.65, config.room_height - 0.65),
         );
-        let off_displays = keep_off_displays(clamped, data);
+        let off_fixtures = keep_off_fixtures(clamped, data);
 
         WorldPoint {
-            x: off_displays.x.clamp(0.65, config.room_width - 0.65),
-            y: off_displays.y.clamp(0.65, config.room_height - 0.65),
+            x: off_fixtures.x.clamp(0.65, config.room_width - 0.65),
+            y: off_fixtures.y.clamp(0.65, config.room_height - 0.65),
         }
     }
 
@@ -714,7 +734,7 @@ fn scattered_position(
         (((toy_index * 41) % 23) as f32 - 11.0) * 0.018,
         (((toy_index * 59) % 29) as f32 - 14.0) * 0.016,
     );
-    let position = keep_off_displays(anchor + offset + jitter, data);
+    let position = keep_off_fixtures(anchor + offset + jitter, data);
 
     WorldPoint {
         x: position.x.clamp(0.8, config.room_width - 0.8),
@@ -743,13 +763,47 @@ fn mess_pile_anchor(
     (vec2(last.x, last.y), last.radius)
 }
 
-fn keep_off_displays(mut position: Vec2, data: &GameData) -> Vec2 {
-    for display in &data.displays {
+const PLAYER_COLLISION_RADIUS: f32 = 0.45;
+
+/// Footprints of everything solid on the floor: displays, aisle shelving,
+/// and repair benches.
+fn fixture_rects(data: &GameData) -> impl Iterator<Item = Rect> + '_ {
+    let displays = data
+        .displays
+        .iter()
+        .map(|display| Rect::new(display.x, display.y, display.w, display.h));
+    let shelving = data
+        .layout
+        .shelving
+        .iter()
+        .map(|shelf| Rect::new(shelf.x, shelf.y, shelf.w, shelf.h));
+    let benches = data.layout.benches.iter().map(|bench| {
+        Rect::new(
+            bench.x - bench.w * 0.5,
+            bench.y - bench.h * 0.5,
+            bench.w,
+            bench.h,
+        )
+    });
+    displays.chain(shelving).chain(benches)
+}
+
+fn position_blocked(position: Vec2, data: &GameData) -> bool {
+    fixture_rects(data).any(|rect| {
+        position.x > rect.x - PLAYER_COLLISION_RADIUS
+            && position.x < rect.right() + PLAYER_COLLISION_RADIUS
+            && position.y > rect.y - PLAYER_COLLISION_RADIUS
+            && position.y < rect.bottom() + PLAYER_COLLISION_RADIUS
+    })
+}
+
+fn keep_off_fixtures(mut position: Vec2, data: &GameData) -> Vec2 {
+    for rect in fixture_rects(data) {
         let margin = 0.18;
-        let left = display.x - margin;
-        let right = display.x + display.w + margin;
-        let top = display.y - margin;
-        let bottom = display.y + display.h + margin;
+        let left = rect.x - margin;
+        let right = rect.right() + margin;
+        let top = rect.y - margin;
+        let bottom = rect.bottom() + margin;
         if position.x < left || position.x > right || position.y < top || position.y > bottom {
             continue;
         }

@@ -76,8 +76,18 @@ pub struct BenchDef {
     pub id: String,
     pub x: f32,
     pub y: f32,
+    pub w: f32,
+    pub h: f32,
     pub radius: f32,
     pub capacity: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShelfDef {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,6 +126,7 @@ pub struct LayoutData {
     pub wall: WallSpec,
     pub window: WindowSpec,
     pub zones: Vec<ZoneDef>,
+    pub shelving: Vec<ShelfDef>,
     pub benches: Vec<BenchDef>,
     pub scatter_piles: Vec<ScatterPileDef>,
 }
