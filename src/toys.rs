@@ -9,13 +9,16 @@ mod arch_blocks;
 mod bear;
 mod boxy_bot;
 mod bridge_blocks;
+mod card_deck;
 mod castle_blocks;
 mod castle_quest;
 mod cat;
+mod chess_set;
 mod claw_bot;
 mod crab_bot;
 mod crescent_dragon;
 mod curled_dragon;
+mod dice_tower;
 mod dome_bot;
 mod duck;
 mod elephant;
@@ -31,11 +34,13 @@ mod penguin;
 mod planet_race;
 mod pudgy_dragon;
 mod puppy;
+mod puzzle_cube;
 mod rabbit;
 mod rocket_bot;
 mod roller_bot;
 mod screen_bot;
 mod spike_dragon;
+mod spinner_game;
 mod tower_blocks;
 mod train_blocks;
 mod tread_bot;
@@ -118,6 +123,11 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::PlanetRace => planet_race::draw(center, color, scale),
         ToyIdentity::WordTiles => word_tiles::draw(center, color, scale),
         ToyIdentity::TreasureMap => treasure_map::draw(center, color, scale),
+        ToyIdentity::DiceTower => dice_tower::draw(center, color, scale),
+        ToyIdentity::CardDeck => card_deck::draw(center, color, scale),
+        ToyIdentity::SpinnerGame => spinner_game::draw(center, color, scale),
+        ToyIdentity::ChessSet => chess_set::draw(center, color, scale),
+        ToyIdentity::PuzzleCube => puzzle_cube::draw(center, color, scale),
         ToyIdentity::TowerBlocks => tower_blocks::draw(center, color, scale),
         ToyIdentity::ArchBlocks => arch_blocks::draw(center, color, scale),
         ToyIdentity::BridgeBlocks => bridge_blocks::draw(center, color, scale),

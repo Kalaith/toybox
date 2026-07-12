@@ -42,6 +42,11 @@ pub enum ToyIdentity {
     PlanetRace,
     WordTiles,
     TreasureMap,
+    DiceTower,
+    CardDeck,
+    SpinnerGame,
+    ChessSet,
+    PuzzleCube,
     TowerBlocks,
     ArchBlocks,
     BridgeBlocks,
@@ -253,7 +258,7 @@ const ROBOT_IDENTITIES: [IdentityDef; 10] = [
     },
 ];
 
-const BOARD_GAME_IDENTITIES: [IdentityDef; 5] = [
+const BOARD_GAME_IDENTITIES: [IdentityDef; 10] = [
     IdentityDef {
         identity: ToyIdentity::MazeBox,
         label: "Maze Box",
@@ -278,6 +283,31 @@ const BOARD_GAME_IDENTITIES: [IdentityDef; 5] = [
         identity: ToyIdentity::TreasureMap,
         label: "Treasure Map",
         short_code: "TM",
+    },
+    IdentityDef {
+        identity: ToyIdentity::DiceTower,
+        label: "Dice Tower",
+        short_code: "DT",
+    },
+    IdentityDef {
+        identity: ToyIdentity::CardDeck,
+        label: "Card Deck",
+        short_code: "CC",
+    },
+    IdentityDef {
+        identity: ToyIdentity::SpinnerGame,
+        label: "Spinner Game",
+        short_code: "SG",
+    },
+    IdentityDef {
+        identity: ToyIdentity::ChessSet,
+        label: "Chess Set",
+        short_code: "CH",
+    },
+    IdentityDef {
+        identity: ToyIdentity::PuzzleCube,
+        label: "Puzzle Cube",
+        short_code: "PC",
     },
 ];
 
