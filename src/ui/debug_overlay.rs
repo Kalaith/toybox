@@ -44,6 +44,11 @@ impl DebugOverlay {
             0.0
         };
         let player = &ctx.session.player;
+        let zone = ctx
+            .data
+            .layout
+            .zone_name_at(player.position.x, player.position.y)
+            .unwrap_or("Aisles");
         let lines = [
             format!("{:.0} FPS  {:.2} ms", fps, frame_ms),
             format!(
@@ -57,6 +62,7 @@ impl DebugOverlay {
                 player.position.y,
                 player.yaw.to_degrees().rem_euclid(360.0)
             ),
+            format!("Zone {}", zone),
         ];
 
         // Sits to the right of the HUD status panel (18,16,190x166).

@@ -103,11 +103,30 @@ pub struct WindowSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZoneDef {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LayoutData {
     pub wall: WallSpec,
     pub window: WindowSpec,
+    pub zones: Vec<ZoneDef>,
     pub benches: Vec<BenchDef>,
     pub scatter_piles: Vec<ScatterPileDef>,
+}
+
+impl LayoutData {
+    pub fn zone_name_at(&self, x: f32, y: f32) -> Option<&str> {
+        self.zones
+            .iter()
+            .find(|zone| x >= zone.x && x <= zone.x + zone.w && y >= zone.y && y <= zone.y + zone.h)
+            .map(|zone| zone.name.as_str())
+    }
 }
 
 #[derive(Debug, Clone)]
