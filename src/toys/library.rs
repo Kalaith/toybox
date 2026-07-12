@@ -32,6 +32,11 @@ pub enum ToyIdentity {
     TreadBot,
     ScreenBot,
     TripodBot,
+    DomeBot,
+    BoxyBot,
+    RollerBot,
+    CrabBot,
+    RocketBot,
     MazeBox,
     CastleQuest,
     PlanetRace,
@@ -195,7 +200,7 @@ const DRAGON_IDENTITIES: [IdentityDef; 10] = [
     },
 ];
 
-const ROBOT_IDENTITIES: [IdentityDef; 5] = [
+const ROBOT_IDENTITIES: [IdentityDef; 10] = [
     IdentityDef {
         identity: ToyIdentity::AntennaBot,
         label: "Antenna Bot",
@@ -220,6 +225,31 @@ const ROBOT_IDENTITIES: [IdentityDef; 5] = [
         identity: ToyIdentity::TripodBot,
         label: "Tripod Bot",
         short_code: "TP",
+    },
+    IdentityDef {
+        identity: ToyIdentity::DomeBot,
+        label: "Dome Bot",
+        short_code: "DM",
+    },
+    IdentityDef {
+        identity: ToyIdentity::BoxyBot,
+        label: "Boxy Bot",
+        short_code: "BX",
+    },
+    IdentityDef {
+        identity: ToyIdentity::RollerBot,
+        label: "Roller Bot",
+        short_code: "RL",
+    },
+    IdentityDef {
+        identity: ToyIdentity::CrabBot,
+        label: "Crab Bot",
+        short_code: "CB",
+    },
+    IdentityDef {
+        identity: ToyIdentity::RocketBot,
+        label: "Rocket Bot",
+        short_code: "RK",
     },
 ];
 

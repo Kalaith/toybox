@@ -7,13 +7,16 @@ use macroquad::prelude::*;
 mod antenna_bot;
 mod arch_blocks;
 mod bear;
+mod boxy_bot;
 mod bridge_blocks;
 mod castle_blocks;
 mod castle_quest;
 mod cat;
 mod claw_bot;
+mod crab_bot;
 mod crescent_dragon;
 mod curled_dragon;
+mod dome_bot;
 mod duck;
 mod elephant;
 mod fin_dragon;
@@ -29,6 +32,8 @@ mod planet_race;
 mod pudgy_dragon;
 mod puppy;
 mod rabbit;
+mod rocket_bot;
+mod roller_bot;
 mod screen_bot;
 mod spike_dragon;
 mod tower_blocks;
@@ -103,6 +108,11 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::TreadBot => tread_bot::draw(center, color, scale),
         ToyIdentity::ScreenBot => screen_bot::draw(center, color, scale),
         ToyIdentity::TripodBot => tripod_bot::draw(center, color, scale),
+        ToyIdentity::DomeBot => dome_bot::draw(center, color, scale),
+        ToyIdentity::BoxyBot => boxy_bot::draw(center, color, scale),
+        ToyIdentity::RollerBot => roller_bot::draw(center, color, scale),
+        ToyIdentity::CrabBot => crab_bot::draw(center, color, scale),
+        ToyIdentity::RocketBot => rocket_bot::draw(center, color, scale),
         ToyIdentity::MazeBox => maze_box::draw(center, color, scale),
         ToyIdentity::CastleQuest => castle_quest::draw(center, color, scale),
         ToyIdentity::PlanetRace => planet_race::draw(center, color, scale),

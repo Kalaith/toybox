@@ -69,7 +69,7 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 - [ ] **More toy identities**: grow toward ~10 identities per category (currently 5 each). Each is a new module in `src/toys/` + `ToyIdentity` variant + dispatch arm + `library.rs` roster entry. Batch 2–4 identities per iteration; keep silhouettes distinct so shelving-by-sight still works.
   - [x] Plushies → 10 (Elephant, Owl, Turtle, Penguin, Octopus)
   - [x] Tiny Dragons → 10 (Wyrm, Pudgy, Twin, Hatchling, Curled)
-  - [ ] Action Figures (robots) → 10
+  - [x] Action Figures (robots) → 10 (Dome, Boxy, Roller, Crab, Rocket)
   - [ ] Board Games → 10
   - [ ] Building Blocks → 10
 - [ ] **(Optional) one or two new categories** (e.g. `Vehicles`, `Puzzles`): new `ToyCategory` variant, displays, identities, HUD icon. Skip if the five categories already fill the store well.
@@ -119,3 +119,4 @@ You are one iteration of a recurring loop expanding **Toybox After Hours** from 
 - 2026-07-12 — Phase 1 gate — `.\publish.ps1` clean end-to-end (Windows zip + WebGL wasm 1.4 MB + assets.zip 2.1 MB deployed to `D:\xampp\htdocs\games\toybox`, Project Roost notified). Verified: all six served files return HTTP 200 at `http://127.0.0.1/games/toybox/`, wasm magic valid, native release full-session bench green (245 FPS). Interactive browser playthrough NOT performed (loop runs unattended) — user should spot-check the preview URL; the loop's automated equivalent (session boot + sweep + 25 logic tests incl. full display completion) all passes. Phase 1 complete — Phase 2 next (more toy identities).
 - 2026-07-12 — Toy identities batch 1: Plushies → 10 — new modules elephant/owl/turtle/penguin/octopus (distinct silhouettes: trunk+ears, upright egg+big eyes, low dome shell, tall belly-panel bird, dome+8 tentacles). `toy_profile` rosters are now `&[IdentityDef]` slices so categories can have different counts; variety test relaxed to `>= 5` labels per display. One batch per category per iteration — same shape each time (module + variant + roster entry + dispatch arm). Bench 500 toys: 254.7 FPS.
 - 2026-07-12 — Toy identities batch 2: Tiny Dragons → 10 — wyrm (S-curve serpent, no wings), pudgy (ball + tiny wings), twin (two heads), hatchling (cracked egg shell), curled (sleeping spiral). Bench 500 toys: 260.0 FPS. Robots next.
+- 2026-07-12 — Toy identities batch 3: Robots → 10 — dome (squat drum + glass dome), boxy (oversized cube + square eyes), roller (slim torso on ball wheel), crab (wide low + pincers + eye stalks), rocket (tall finned rocket + thruster glow). Bench 500 toys: 254.4 FPS. Board games next.
