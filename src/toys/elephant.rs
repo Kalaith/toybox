@@ -1,0 +1,47 @@
+use super::library::{brighten, darken, draw_eye_pair, draw_toy_sphere};
+use macroquad::prelude::*;
+
+pub fn draw(center: Vec3, color: Color, scale: f32) {
+    // Round body on stubby legs.
+    draw_toy_sphere(
+        center + vec3(0.0, 0.04, 0.05) * scale,
+        0.23 * scale,
+        None,
+        color,
+    );
+    for x in [-0.12_f32, 0.12] {
+        for z in [-0.08_f32, 0.16] {
+            draw_cube(
+                center + vec3(x, -0.14, z) * scale,
+                vec3(0.10, 0.14, 0.10) * scale,
+                None,
+                darken(color, 0.08),
+            );
+        }
+    }
+
+    // Head with wide flat ears and a segmented trunk.
+    let head = center + vec3(0.0, 0.22, -0.16) * scale;
+    draw_toy_sphere(head, 0.15 * scale, None, brighten(color, 0.05));
+    for side in [-1.0_f32, 1.0] {
+        draw_cube(
+            head + vec3(side * 0.18, 0.02, 0.03) * scale,
+            vec3(0.05, 0.17, 0.15) * scale,
+            None,
+            darken(color, 0.10),
+        );
+    }
+    draw_cube(
+        head + vec3(0.0, -0.09, -0.13) * scale,
+        vec3(0.07, 0.10, 0.07) * scale,
+        None,
+        color,
+    );
+    draw_cube(
+        head + vec3(0.0, -0.17, -0.16) * scale,
+        vec3(0.06, 0.10, 0.06) * scale,
+        None,
+        darken(color, 0.06),
+    );
+    draw_eye_pair(center, 0.26, -0.28, 0.07, scale);
+}

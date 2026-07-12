@@ -65,7 +65,7 @@ fn new_session_generates_identity_variety_per_display() {
             .map(|toy| toy_profile(toy.category, toy.slot_number).label)
             .collect();
 
-        assert_eq!(labels.len(), 5, "{} identities: {:?}", display.id, labels);
+        assert!(labels.len() >= 5, "{} identities: {:?}", display.id, labels);
     }
 }
 

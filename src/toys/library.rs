@@ -12,6 +12,11 @@ pub enum ToyIdentity {
     Rabbit,
     Cat,
     Puppy,
+    Elephant,
+    Owl,
+    Turtle,
+    Penguin,
+    Octopus,
     CrescentDragon,
     HornedDragon,
     FinDragon,
@@ -79,7 +84,7 @@ struct IdentityDef {
     short_code: &'static str,
 }
 
-const PLUSH_IDENTITIES: [IdentityDef; 5] = [
+const PLUSH_IDENTITIES: [IdentityDef; 10] = [
     IdentityDef {
         identity: ToyIdentity::Bear,
         label: "Bear",
@@ -104,6 +109,31 @@ const PLUSH_IDENTITIES: [IdentityDef; 5] = [
         identity: ToyIdentity::Puppy,
         label: "Puppy",
         short_code: "PP",
+    },
+    IdentityDef {
+        identity: ToyIdentity::Elephant,
+        label: "Elephant",
+        short_code: "EL",
+    },
+    IdentityDef {
+        identity: ToyIdentity::Owl,
+        label: "Owl",
+        short_code: "OW",
+    },
+    IdentityDef {
+        identity: ToyIdentity::Turtle,
+        label: "Turtle",
+        short_code: "TU",
+    },
+    IdentityDef {
+        identity: ToyIdentity::Penguin,
+        label: "Penguin",
+        short_code: "PG",
+    },
+    IdentityDef {
+        identity: ToyIdentity::Octopus,
+        label: "Octopus",
+        short_code: "OC",
     },
 ];
 
@@ -220,7 +250,7 @@ const BLOCK_IDENTITIES: [IdentityDef; 5] = [
 ];
 
 pub fn toy_profile(category: ToyCategory, slot_number: usize) -> ToyProfile {
-    let identities = match category {
+    let identities: &[IdentityDef] = match category {
         ToyCategory::Plushies => &PLUSH_IDENTITIES,
         ToyCategory::TinyDragons => &DRAGON_IDENTITIES,
         ToyCategory::ActionFigures => &ROBOT_IDENTITIES,

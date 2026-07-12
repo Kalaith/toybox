@@ -14,11 +14,15 @@ mod cat;
 mod claw_bot;
 mod crescent_dragon;
 mod duck;
+mod elephant;
 mod fin_dragon;
 mod horned_dragon;
 pub mod library;
 mod longtail_dragon;
 mod maze_box;
+mod octopus;
+mod owl;
+mod penguin;
 mod planet_race;
 mod puppy;
 mod rabbit;
@@ -29,6 +33,7 @@ mod train_blocks;
 mod tread_bot;
 mod treasure_map;
 mod tripod_bot;
+mod turtle;
 mod word_tiles;
 
 pub use library::{brighten, spawn_pose_for_toy, toy_color, toy_name, toy_profile, ToySpawnPose};
@@ -73,6 +78,11 @@ pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
         ToyIdentity::Rabbit => rabbit::draw(center, color, scale),
         ToyIdentity::Cat => cat::draw(center, color, scale),
         ToyIdentity::Puppy => puppy::draw(center, color, scale),
+        ToyIdentity::Elephant => elephant::draw(center, color, scale),
+        ToyIdentity::Owl => owl::draw(center, color, scale),
+        ToyIdentity::Turtle => turtle::draw(center, color, scale),
+        ToyIdentity::Penguin => penguin::draw(center, color, scale),
+        ToyIdentity::Octopus => octopus::draw(center, color, scale),
         ToyIdentity::CrescentDragon => crescent_dragon::draw(center, color, scale),
         ToyIdentity::HornedDragon => horned_dragon::draw(center, color, scale),
         ToyIdentity::FinDragon => fin_dragon::draw(center, color, scale),
