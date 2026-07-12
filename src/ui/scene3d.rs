@@ -37,26 +37,56 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
 }
 
 fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
+    let config = &ctx.data.config;
+    let player = ctx.session.player.position.to_vec2();
+    let forward = vec2(ctx.session.player.yaw.cos(), ctx.session.player.yaw.sin());
     let mut drawn = 0;
-    for (index, toy) in ctx.session.toys.iter().enumerate() {
-        if !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part() {
-            let layer = (index % 7) as f32;
-            let height = if toy.bench_slot_index.is_some() {
-                0.88
-            } else {
-                0.20 + layer * 0.020 + toy.spawn_pose.floor_lift
-            };
-            let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
-            draw_loose_toy_3d(
-                toy,
-                world_point(toy.position, height),
-                toy_color(toy),
-                scale,
-            );
-            drawn += 1;
+    for index in ctx
+        .session
+        .spatial()
+        .indices_near(player, config.toy_render_distance)
+    {
+        let toy = &ctx.session.toys[index];
+        if toy.is_held || toy.placed_display_id.is_some() || toy.is_consumed_repair_part() {
+            continue;
         }
+        if !loose_toy_is_visible(toy.position.to_vec2(), player, forward, config) {
+            continue;
+        }
+        let layer = (index % 7) as f32;
+        let height = if toy.bench_slot_index.is_some() {
+            0.88
+        } else {
+            0.20 + layer * 0.020 + toy.spawn_pose.floor_lift
+        };
+        let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
+        draw_loose_toy_3d(
+            toy,
+            world_point(toy.position, height),
+            toy_color(toy),
+            scale,
+        );
+        drawn += 1;
     }
     drawn
+}
+
+fn loose_toy_is_visible(
+    toy_position: Vec2,
+    player: Vec2,
+    forward: Vec2,
+    config: &crate::data::GameConfig,
+) -> bool {
+    let to_toy = toy_position - player;
+    let distance = to_toy.length();
+    if distance > config.toy_render_distance {
+        return false;
+    }
+    // Nearby toys always draw so turning in place never pops them in late.
+    if distance <= config.toy_always_draw_radius {
+        return true;
+    }
+    to_toy.dot(forward) / distance >= config.toy_view_cull_min_dot
 }
 
 fn draw_placed_toys(ctx: &UiContext<'_>) -> usize {

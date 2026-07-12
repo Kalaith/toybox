@@ -23,6 +23,9 @@ pub struct GameConfig {
     pub interaction_radius: f32,
     pub mistake_penalty_seconds: f32,
     pub spatial_cell_size: f32,
+    pub toy_render_distance: f32,
+    pub toy_view_cull_min_dot: f32,
+    pub toy_always_draw_radius: f32,
     pub debug_overlay_enabled: bool,
 }
 

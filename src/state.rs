@@ -11,7 +11,7 @@ mod repair;
 mod spatial;
 
 pub use repair::repair_bench_position;
-use spatial::ToySpatialGrid;
+pub use spatial::ToySpatialGrid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -280,6 +280,10 @@ impl GameSession {
             unlocked_upgrade_ids: self.unlocked_upgrade_ids.clone(),
             phase: self.phase,
         }
+    }
+
+    pub fn spatial(&self) -> &ToySpatialGrid {
+        &self.spatial
     }
 
     pub fn update_timer(&mut self, dt: f32) {
