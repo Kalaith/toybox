@@ -31,6 +31,17 @@ pub struct Game {
     fullscreen_enabled: bool,
     mouse_locked: bool,
     debug_overlay: DebugOverlay,
+    bench: Option<BenchMode>,
+}
+
+/// Headless-ish perf probe: set TOYBOX_BENCH_SECONDS=<n> to boot straight
+/// into a fresh run, sweep the view for n seconds, print frame stats to
+/// stdout, and exit. Used by the roadmap perf gates.
+struct BenchMode {
+    duration_seconds: f32,
+    elapsed_seconds: f32,
+    frames: u32,
+    worst_frame_seconds: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +76,22 @@ impl Game {
         let has_save_file = slot_exists(&data.config.game_name, &data.config.save_slot);
         let notifications = NotificationManager::new();
 
+        let bench = std::env::var("TOYBOX_BENCH_SECONDS")
+            .ok()
+            .and_then(|raw| raw.parse::<f32>().ok())
+            .filter(|seconds| *seconds > 0.0)
+            .map(|duration_seconds| BenchMode {
+                duration_seconds,
+                elapsed_seconds: 0.0,
+                frames: 0,
+                worst_frame_seconds: 0.0,
+            });
+        let screen = if bench.is_some() {
+            GameScreen::Playing
+        } else {
+            GameScreen::Title
+        };
+
         let session = GameSession::new(&data);
         Self {
             data,
@@ -72,11 +99,12 @@ impl Game {
             title_texture,
             notifications,
             events: EventBus::new(),
-            screen: GameScreen::Title,
+            screen,
             has_save_file,
             fullscreen_enabled: false,
             mouse_locked: false,
             debug_overlay: DebugOverlay::new(),
+            bench,
         }
     }
 
@@ -86,6 +114,7 @@ impl Game {
         if self.data.config.debug_overlay_enabled && is_key_pressed(KeyCode::F3) {
             self.debug_overlay.toggle();
         }
+        self.update_bench(dt);
 
         if self.screen != GameScreen::Playing {
             if self.screen == GameScreen::Settings && is_key_pressed(KeyCode::Escape) {
@@ -185,6 +214,30 @@ impl Game {
                 anchor: NotificationAnchor::TopRight,
                 ..Default::default()
             });
+    }
+
+    fn update_bench(&mut self, dt: f32) {
+        let Some(bench) = &mut self.bench else {
+            return;
+        };
+        bench.frames += 1;
+        bench.elapsed_seconds += dt;
+        bench.worst_frame_seconds = bench.worst_frame_seconds.max(dt);
+        // Slow sweep so the run exercises culling across view directions.
+        self.session.update_player_look(0.55 * dt, 0.0);
+
+        if bench.elapsed_seconds >= bench.duration_seconds {
+            let average_fps = bench.frames as f32 / bench.elapsed_seconds.max(f32::EPSILON);
+            println!(
+                "BENCH toys={} frames={} seconds={:.2} avg_fps={:.1} worst_frame_ms={:.2}",
+                self.session.toys.len(),
+                bench.frames,
+                bench.elapsed_seconds,
+                average_fps,
+                bench.worst_frame_seconds * 1000.0
+            );
+            quit();
+        }
     }
 
     fn apply_queued_actions(&mut self) {
