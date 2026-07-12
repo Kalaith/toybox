@@ -402,7 +402,10 @@ pub fn spawn_pose_for_toy(
     let yaw = (yaw_seed as f32 + 7.0).to_radians();
     let lean = (((toy_index * 31 + slot_index * 11) % 21) as f32 - 10.0).to_radians();
 
-    match (toy_index * 7 + display_index * 5 + slot_index * 3) % 8 {
+    // Slot coefficient must keep the selector odd-capable: with per-display
+    // capacity C, toy_index = C*display + slot, and an all-even reduction
+    // (e.g. C=25 with slot*3) locks out half the poses.
+    match (toy_index * 7 + display_index * 5 + slot_index * 4) % 8 {
         0 => ToySpawnPose {
             yaw,
             pitch: lean * 0.4,

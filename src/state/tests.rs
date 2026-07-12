@@ -231,7 +231,11 @@ fn correct_placement_completes_a_display() {
         .collect();
     matching_toy_ids.sort_by_key(|(slot_number, _)| *slot_number);
 
-    for (slot_index, (_, toy_id)) in matching_toy_ids.into_iter().enumerate() {
+    for (slot_index, (_, toy_id)) in matching_toy_ids
+        .into_iter()
+        .take(display.capacity)
+        .enumerate()
+    {
         let toy_index = session
             .toys
             .iter()
@@ -538,7 +542,11 @@ fn full_shelf_rejects_extra_toy() {
         .collect();
     matching_toy_ids.sort_by_key(|(slot_number, _)| *slot_number);
 
-    for (slot_index, (_, toy_id)) in matching_toy_ids.into_iter().enumerate() {
+    for (slot_index, (_, toy_id)) in matching_toy_ids
+        .into_iter()
+        .take(display.capacity)
+        .enumerate()
+    {
         let toy_index = session
             .toys
             .iter()
@@ -641,12 +649,20 @@ fn complete_display_by_index(session: &mut GameSession, data: &GameData, display
     let mut matching_toy_ids: Vec<(usize, String)> = session
         .toys
         .iter()
-        .filter(|toy| toy_matches_display(toy, display))
+        .filter(|toy| {
+            // Same-theme displays share matching toys: leave already-shelved
+            // ones on their display.
+            toy_matches_display(toy, display) && toy.placed_display_id.is_none() && !toy.is_held
+        })
         .map(|toy| (toy.slot_number, toy.id.clone()))
         .collect();
     matching_toy_ids.sort_by_key(|(slot_number, _)| *slot_number);
 
-    for (slot_index, (_, toy_id)) in matching_toy_ids.into_iter().enumerate() {
+    for (slot_index, (_, toy_id)) in matching_toy_ids
+        .into_iter()
+        .take(display.capacity)
+        .enumerate()
+    {
         let toy_index = session
             .toys
             .iter()

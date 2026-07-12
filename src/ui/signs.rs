@@ -1,6 +1,7 @@
 //! Static in-world stock signs with procedural sign-face textures.
 
-use crate::data::{DisplayDef, ZoneDef};
+use crate::data::{DisplayDef, ToyCategory, ZoneDef};
+use crate::ui::fixtures::{display_style, DisplayStyle};
 use macroquad::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -430,38 +431,38 @@ fn draw_hanging_sign_wires(layout: SignLayout, accent: Color) {
 fn sign_layout(display: &DisplayDef) -> SignLayout {
     let center_x = display.x + display.w * 0.5;
     let center_z = display.y + display.h * 0.5;
-    match display.id.as_str() {
-        "blocks_table" => SignLayout {
+    match display_style(display) {
+        DisplayStyle::Table => SignLayout {
             panel_center: vec3(center_x, 1.96, center_z),
             panel_size: vec3(display.w * 0.64, 0.46, display.h * 0.28),
             face_z_sign: -1.0,
             hanging: true,
         },
-        "dragon_bin" => SignLayout {
+        DisplayStyle::Bin => SignLayout {
             panel_center: vec3(center_x, 1.26, display.y + display.h * 0.54),
             panel_size: vec3(display.w * 0.82, 0.36, 0.10),
             face_z_sign: 1.0,
             hanging: false,
         },
-        "board_game_shelf" => SignLayout {
+        DisplayStyle::Shelf => SignLayout {
             panel_center: vec3(center_x, 1.90, center_z - 0.48),
             panel_size: vec3(display.w * 0.76, 0.38, 0.10),
             face_z_sign: -1.0,
             hanging: false,
         },
-        "robot_pegboard" => SignLayout {
+        DisplayStyle::Pegboard => SignLayout {
             panel_center: vec3(center_x, 2.32, display.y + display.h - 0.38),
             panel_size: vec3(display.w * 0.78, 0.38, 0.10),
             face_z_sign: -1.0,
             hanging: false,
         },
-        "plushie_wall" => SignLayout {
+        DisplayStyle::Wall => SignLayout {
             panel_center: vec3(center_x, 2.32, display.y + 0.34),
             panel_size: vec3(display.w * 0.82, 0.38, 0.10),
             face_z_sign: 1.0,
             hanging: false,
         },
-        _ => SignLayout {
+        DisplayStyle::Generic => SignLayout {
             panel_center: vec3(center_x, 1.70, center_z),
             panel_size: vec3(display.w * 0.70, 0.36, 0.10),
             face_z_sign: -1.0,
@@ -471,12 +472,12 @@ fn sign_layout(display: &DisplayDef) -> SignLayout {
 }
 
 fn stock_label(display: &DisplayDef) -> (&'static str, &str) {
-    match display.id.as_str() {
-        "plushie_wall" => ("PLUSHIES", &display.theme),
-        "dragon_bin" => ("DRAGONS", &display.theme),
-        "robot_pegboard" => ("ROBOTS", &display.theme),
-        "board_game_shelf" => ("BOARD GAMES", &display.theme),
-        "blocks_table" => ("BLOCK SETS", &display.theme),
-        _ => ("TOYS", &display.theme),
-    }
+    let title = match display.category {
+        ToyCategory::Plushies => "PLUSHIES",
+        ToyCategory::TinyDragons => "DRAGONS",
+        ToyCategory::ActionFigures => "ROBOTS",
+        ToyCategory::BoardGames => "BOARD GAMES",
+        ToyCategory::BuildingBlocks => "BLOCK SETS",
+    };
+    (title, &display.theme)
 }

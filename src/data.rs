@@ -203,7 +203,7 @@ mod tests {
         let total_capacity: usize = data.displays.iter().map(|display| display.capacity).sum();
 
         assert_eq!(data.config.game_name, "toybox_after_hours");
-        assert_eq!(data.displays.len(), 5);
+        assert_eq!(data.displays.len(), 20);
         assert_eq!(data.upgrades.len(), 1);
         assert_eq!(total_capacity, data.config.toy_count);
     }

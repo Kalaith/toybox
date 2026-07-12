@@ -5,18 +5,47 @@ use crate::ui::wood::{draw_dark_trim, draw_wood_cube};
 use crate::ui::UiContext;
 use macroquad::prelude::*;
 
+/// Visual family of a display, derived from its id so displays.json can add
+/// any number of displays without new Rust dispatch arms.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DisplayStyle {
+    Wall,
+    Bin,
+    Pegboard,
+    Shelf,
+    Table,
+    Generic,
+}
+
+pub(crate) fn display_style(display: &DisplayDef) -> DisplayStyle {
+    let id = display.id.as_str();
+    if id.contains("pegboard") {
+        DisplayStyle::Pegboard
+    } else if id.contains("wall") {
+        DisplayStyle::Wall
+    } else if id.contains("shelf") {
+        DisplayStyle::Shelf
+    } else if id.contains("table") {
+        DisplayStyle::Table
+    } else if id.contains("bin") {
+        DisplayStyle::Bin
+    } else {
+        DisplayStyle::Generic
+    }
+}
+
 pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
     for display in &ctx.data.displays {
         let accent = accent_color(display, 1.0);
         let is_complete = ctx.session.is_display_complete(&display.id);
 
-        match display.id.as_str() {
-            "plushie_wall" => draw_wall_display(display, accent),
-            "dragon_bin" => draw_dragon_bin(display, accent),
-            "robot_pegboard" => draw_robot_pegboard(display, accent),
-            "board_game_shelf" => draw_board_shelf(display, accent),
-            "blocks_table" => draw_blocks_table(display, accent),
-            _ => draw_generic_display(display, accent),
+        match display_style(display) {
+            DisplayStyle::Wall => draw_wall_display(display, accent),
+            DisplayStyle::Bin => draw_dragon_bin(display, accent),
+            DisplayStyle::Pegboard => draw_robot_pegboard(display, accent),
+            DisplayStyle::Shelf => draw_board_shelf(display, accent),
+            DisplayStyle::Table => draw_blocks_table(display, accent),
+            DisplayStyle::Generic => draw_generic_display(display, accent),
         }
         draw_stock_sign(display, accent);
 
@@ -136,13 +165,13 @@ pub(crate) fn draw_aisle_shelving(ctx: &UiContext<'_>) {
 
 pub(crate) fn placed_height_for_slot(display: &DisplayDef, slot_number: usize) -> f32 {
     let row = (slot_number.saturating_sub(1) / 5) as f32;
-    match display.id.as_str() {
-        "plushie_wall" => 0.62 + row * 0.34,
-        "robot_pegboard" => 0.70 + row * 0.31,
-        "board_game_shelf" => 0.38 + row * 0.31,
-        "blocks_table" => 0.84 + row * 0.11,
-        "dragon_bin" => 0.46 + row * 0.07,
-        _ => 0.54 + row * 0.10,
+    match display_style(display) {
+        DisplayStyle::Wall => 0.62 + row * 0.34,
+        DisplayStyle::Pegboard => 0.70 + row * 0.31,
+        DisplayStyle::Shelf => 0.38 + row * 0.31,
+        DisplayStyle::Table => 0.84 + row * 0.11,
+        DisplayStyle::Bin => 0.46 + row * 0.07,
+        DisplayStyle::Generic => 0.54 + row * 0.10,
     }
 }
 
