@@ -1,6 +1,6 @@
 //! Static in-world stock signs with procedural sign-face textures.
 
-use crate::data::DisplayDef;
+use crate::data::{DisplayDef, ZoneDef};
 use macroquad::prelude::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -75,6 +75,88 @@ pub fn draw_stock_sign(display: &DisplayDef, accent: Color) {
             board,
         );
     }
+}
+
+/// Double-sided hanging sign with the zone name, suspended over the zone
+/// center on accent-colored wires.
+pub fn draw_zone_sign(zone: &ZoneDef) {
+    let accent = Color::new(
+        zone.accent[0],
+        zone.accent[1],
+        zone.accent[2],
+        zone.accent[3],
+    );
+    let center = vec3(zone.x + zone.w * 0.5, 2.02, zone.y + zone.h * 0.5);
+    let panel_size = vec3(2.6, 0.5, 0.14);
+
+    for x in [-1.0_f32, 1.0] {
+        draw_line_3d(
+            center + vec3(x * 1.1, 0.26, 0.0),
+            vec3(center.x + x * 1.1, 2.30, center.z),
+            Color::new(accent.r, accent.g, accent.b, 0.82),
+        );
+    }
+    draw_cube(
+        center,
+        panel_size,
+        None,
+        Color::new(0.10, 0.075, 0.055, 1.0),
+    );
+    draw_cube_wires(
+        center,
+        panel_size,
+        Color::new(accent.r, accent.g, accent.b, 0.55),
+    );
+
+    for z_sign in [-1.0_f32, 1.0] {
+        draw_zone_face(
+            zone,
+            accent,
+            center + vec3(0.0, 0.0, z_sign * 0.085),
+            vec3(panel_size.x * 0.92, panel_size.y * 0.72, 0.030),
+        );
+    }
+}
+
+fn draw_zone_face(zone: &ZoneDef, accent: Color, center: Vec3, size: Vec3) {
+    SIGN_TEXTURES.with(|textures| {
+        let mut textures = textures.borrow_mut();
+        let texture = textures
+            .entry(format!("zone:{}", zone.name))
+            .or_insert_with(|| build_zone_sign_texture(zone, accent));
+        draw_cube(center, size, Some(texture), WHITE);
+    });
+}
+
+fn build_zone_sign_texture(zone: &ZoneDef, accent: Color) -> Texture2D {
+    let face = Color::new(
+        (accent.r * 0.42).clamp(0.0, 1.0),
+        (accent.g * 0.42).clamp(0.0, 1.0),
+        (accent.b * 0.42).clamp(0.0, 1.0),
+        1.0,
+    );
+    let mut image = Image::gen_image_color(160, 40, Color::new(0.055, 0.038, 0.025, 1.0));
+    fill_rect(&mut image, 3, 3, 154, 34, face);
+
+    let name = zone.name.to_ascii_uppercase();
+    let scale = if pixel_text_width(&name, 2) <= 148 {
+        2
+    } else {
+        1
+    };
+    let text_y = (40 - 7 * scale) / 2;
+    draw_pixel_text_centered(
+        &mut image,
+        &name,
+        text_y,
+        scale,
+        Color::new(0.98, 0.94, 0.76, 1.0),
+    );
+
+    flip_image_vertical(&mut image);
+    let texture = Texture2D::from_image(&image);
+    texture.set_filter(FilterMode::Nearest);
+    texture
 }
 
 fn draw_textured_face(display: &DisplayDef, accent: Color, center: Vec3, size: Vec3) {

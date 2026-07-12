@@ -119,6 +119,7 @@ pub struct ZoneDef {
     pub y: f32,
     pub w: f32,
     pub h: f32,
+    pub accent: [f32; 4],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

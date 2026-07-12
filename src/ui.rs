@@ -11,6 +11,7 @@ mod environment;
 mod fixtures;
 mod hud;
 mod hud_icons;
+mod minimap;
 mod scene3d;
 mod signs;
 mod space;
@@ -59,6 +60,7 @@ pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction>
     let actions = Vec::new();
 
     draw_game_hud(&ctx);
+    minimap::draw_minimap(&ctx);
     overlay.draw(&ctx, &stats);
 
     if ctx.session.phase == GamePhase::Finished {
