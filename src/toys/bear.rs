@@ -50,4 +50,55 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         tan,
     );
     draw_face(center, 0.22, -0.28, 0.07, scale);
+
+    // Stubby arms hugging forward, with tan paw pads.
+    for x in [-0.22_f32, 0.22] {
+        draw_toy_sphere(
+            center + vec3(x, 0.04, -0.10) * scale,
+            0.085 * scale,
+            None,
+            brighten(color, 0.05),
+        );
+        draw_toy_sphere(
+            center + vec3(x * 1.08, 0.02, -0.165) * scale,
+            0.045 * scale,
+            None,
+            tan,
+        );
+    }
+
+    // Tan pads on the feet fronts.
+    for x in [-0.16_f32, 0.16] {
+        draw_toy_sphere(
+            center + vec3(x, -0.165, -0.185) * scale,
+            0.035 * scale,
+            None,
+            tan,
+        );
+    }
+
+    // Round tail.
+    draw_toy_sphere(
+        center + vec3(0.0, -0.06, 0.24) * scale,
+        0.07 * scale,
+        None,
+        brighten(color, 0.04),
+    );
+
+    // Cream ribbon bow at the throat.
+    let ribbon = Color::new(0.95, 0.92, 0.80, 1.0);
+    draw_toy_sphere(
+        center + vec3(0.0, 0.10, -0.24) * scale,
+        0.035 * scale,
+        None,
+        ribbon,
+    );
+    for x in [-0.05_f32, 0.05] {
+        draw_cube(
+            center + vec3(x, 0.10, -0.235) * scale,
+            vec3(0.055, 0.045, 0.022) * scale,
+            None,
+            ribbon,
+        );
+    }
 }
