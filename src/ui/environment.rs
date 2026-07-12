@@ -6,9 +6,56 @@ pub(crate) fn draw_shop_environment(data: &GameData) {
     draw_sky_glow(data);
     draw_floor(data);
     draw_zone_rugs(data);
+    draw_zone_lamps(data);
     draw_walls(data);
     draw_ceiling(data);
     draw_front_window(data);
+}
+
+/// Two pendant lamps per zone with warm floor pools — the night shift is
+/// lit, not fluorescent-bright. Offsets keep them clear of the zone signs.
+fn draw_zone_lamps(data: &GameData) {
+    let shade = Color::new(0.15, 0.18, 0.17, 1.0);
+    let warm = Color::new(0.95, 0.84, 0.55, 1.0);
+    let ceiling_y = data.layout.wall.height + 0.06;
+
+    for (zone_index, zone) in data.layout.zones.iter().enumerate() {
+        for (lamp_index, offset) in [-0.26_f32, 0.26].iter().enumerate() {
+            let x = zone.x + zone.w * (0.5 + offset);
+            let drift = ((zone_index * 3 + lamp_index * 5) % 5) as f32 * 0.3 - 0.6;
+            let z = zone.y + zone.h * 0.5 + drift;
+
+            // Rod, shade, and glowing bulb.
+            draw_cube(
+                vec3(x, ceiling_y - 0.20, z),
+                vec3(0.03, 0.40, 0.03),
+                None,
+                shade,
+            );
+            draw_cube(vec3(x, 2.00, z), vec3(0.30, 0.10, 0.30), None, shade);
+            draw_cube(
+                vec3(x, 1.945, z),
+                vec3(0.34, 0.02, 0.34),
+                None,
+                Color::new(0.42, 0.36, 0.26, 1.0),
+            );
+            draw_cube(vec3(x, 1.91, z), vec3(0.09, 0.07, 0.09), None, warm);
+
+            // Soft warm pool on the floor, brighter core inside a wide wash.
+            draw_cube(
+                vec3(x, 0.058, z),
+                vec3(2.8, 0.006, 2.8),
+                None,
+                Color::new(0.95, 0.82, 0.50, 0.07),
+            );
+            draw_cube(
+                vec3(x, 0.062, z),
+                vec3(1.5, 0.006, 1.5),
+                None,
+                Color::new(0.96, 0.86, 0.55, 0.10),
+            );
+        }
+    }
 }
 
 /// Accent-tinted rug per zone so each department reads at floor level,
