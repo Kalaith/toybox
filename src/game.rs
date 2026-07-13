@@ -1,6 +1,7 @@
 //! High-level game loop, state transitions, and toolkit integration.
 
 use crate::data::GameData;
+use crate::gallery::GalleryScene;
 use crate::state::{
     migrate_save_value, GameSession, InteractionResult, SaveData, ToolPurchaseResult,
 };
@@ -40,6 +41,7 @@ pub struct Game {
     mouse_locked: bool,
     debug_overlay: DebugOverlay,
     bench: Option<BenchMode>,
+    gallery: Option<GalleryScene>,
 }
 
 /// Headless-ish perf probe: set TOYBOX_BENCH_SECONDS=<n> to boot straight
@@ -115,10 +117,30 @@ impl Game {
             mouse_locked: false,
             debug_overlay: DebugOverlay::new(),
             bench,
+            gallery: None,
+        }
+    }
+
+    /// Seed a scene for the screenshot harness (TOYBOX_CAPTURE_SCENE).
+    pub fn begin_capture_scene(&mut self, scene: &str) {
+        match scene {
+            "toy_gallery" => {
+                let slug =
+                    std::env::var("TOYBOX_CAPTURE_TOY").unwrap_or_else(|_| "bear".to_owned());
+                self.gallery = Some(GalleryScene::new(&slug));
+            }
+            "gameplay" => {
+                self.session = GameSession::new(&self.data);
+                self.screen = GameScreen::Playing;
+            }
+            _ => {}
         }
     }
 
     pub fn update(&mut self, dt: f32) {
+        if self.gallery.is_some() {
+            return;
+        }
         self.notifications.update(dt);
         self.debug_overlay.record_frame(dt);
         if self.data.config.debug_overlay_enabled && is_key_pressed(KeyCode::F3) {
@@ -186,6 +208,10 @@ impl Game {
     }
 
     pub fn draw(&mut self) {
+        if let Some(gallery) = &self.gallery {
+            gallery.draw();
+            return;
+        }
         clear_background(dark::BACKGROUND);
 
         ui::begin_ui_frame();

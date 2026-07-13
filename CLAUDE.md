@@ -34,4 +34,4 @@ Single-loop macroquad game; no state-machine enum of separate state structs. Ins
 - Saves use toolkit slot persistence with version migration: `migrate_save_value` in `state.rs` upgrades old save JSON. New fields on `ToyState`/`PlayerState`/`SaveData` need `#[serde(default)]` (or a migration step) so existing saves keep loading.
 - `asset_packs.json` makes the publish pipeline zip `assets/` into `assets.zip`; the game loads via `AssetPack` with a loose-file fallback, so `cargo run` from source works without the pack.
 - `index.html` + `storage.js` are the WebGL shell — `storage.js` is the localStorage bridge for toolkit persistence in WASM builds. `dist/` holds built artifacts.
-- No screenshot-capture harness is wired for this game (no `<PREFIX>_CAPTURE_PATH` scene support).
+- Screenshot harness (`TOYBOX_CAPTURE_*`): scenes `toy_gallery` (one toy from front/right/back/left, selected via `TOYBOX_CAPTURE_TOY=<module slug>`) and `gameplay`. `.\scripts\capture_toys.ps1` sweeps every toy module into `docs\verification\toys\<toy>.png` (`-Toys a,b` to filter, `-SkipBuild` to reuse the build).
