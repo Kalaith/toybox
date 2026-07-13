@@ -50,4 +50,48 @@ pub fn draw(center: Vec3, color: Color, scale: f32) {
         );
     }
     draw_eye_pair(center, 0.29, -0.13, 0.055, scale);
+
+    // Speckles on the egg shell.
+    let speckle = Color::new(0.78, 0.68, 0.52, 1.0);
+    let spots = [
+        (0.14_f32, 0.02, -0.12),
+        (-0.16, -0.02, -0.06),
+        (0.05, -0.05, -0.17),
+        (-0.08, 0.06, 0.15),
+        (0.15, 0.06, 0.08),
+    ];
+    for (x, y, z) in spots {
+        draw_cube(
+            center + vec3(x, y, z) * scale,
+            vec3(0.022, 0.022, 0.022) * scale,
+            None,
+            speckle,
+        );
+    }
+
+    // Blush cheeks under the eyes.
+    for side in [-1.0_f32, 1.0] {
+        draw_toy_sphere(
+            center + vec3(side * 0.095, 0.25, -0.10) * scale,
+            0.022 * scale,
+            None,
+            Color::new(0.96, 0.64, 0.64, 1.0),
+        );
+    }
+
+    // Bit of shell still perched on its head like a cap.
+    draw_toy_sphere(
+        center + vec3(0.0, 0.41, 0.05) * scale,
+        0.070 * scale,
+        None,
+        shell,
+    );
+
+    // Tail tip already poking through a low crack.
+    draw_toy_sphere(
+        center + vec3(0.17, 0.04, 0.10) * scale,
+        0.045 * scale,
+        None,
+        color,
+    );
 }
