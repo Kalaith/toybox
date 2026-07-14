@@ -492,21 +492,11 @@ pub fn toy_color(toy: &ToyState) -> Color {
 }
 
 pub fn brighten(color: Color, amount: f32) -> Color {
-    Color::new(
-        (color.r + amount).clamp(0.0, 1.0),
-        (color.g + amount).clamp(0.0, 1.0),
-        (color.b + amount).clamp(0.0, 1.0),
-        color.a,
-    )
+    macroquad_toolkit::colors::lighten(color, amount)
 }
 
 pub fn darken(color: Color, amount: f32) -> Color {
-    Color::new(
-        (color.r - amount).clamp(0.0, 1.0),
-        (color.g - amount).clamp(0.0, 1.0),
-        (color.b - amount).clamp(0.0, 1.0),
-        color.a,
-    )
+    macroquad_toolkit::colors::darken(color, amount)
 }
 
 pub fn draw_cube_with_edges(center: Vec3, size: Vec3, color: Color) {

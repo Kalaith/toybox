@@ -97,12 +97,7 @@ pub(in crate::ui) fn category_icon(category: ToyCategory) -> IconKind {
 }
 
 pub(in crate::ui) fn brighten_color(color: Color, amount: f32) -> Color {
-    Color::new(
-        (color.r + amount).clamp(0.0, 1.0),
-        (color.g + amount).clamp(0.0, 1.0),
-        (color.b + amount).clamp(0.0, 1.0),
-        color.a,
-    )
+    macroquad_toolkit::colors::lighten(color, amount)
 }
 
 fn draw_star_icon(center: Vec2, radius: f32, color: Color) {

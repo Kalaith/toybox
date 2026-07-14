@@ -658,13 +658,6 @@ pub fn toy_matches_display(toy: &ToyState, display: &DisplayDef) -> bool {
         && toy.theme == display.theme
 }
 
-pub fn format_elapsed_time(seconds: f32) -> String {
-    let total_seconds = seconds.max(0.0).floor() as u32;
-    let minutes = total_seconds / 60;
-    let remaining_seconds = total_seconds % 60;
-    format!("{minutes:02}:{remaining_seconds:02}")
-}
-
 pub fn migrate_save_value(
     detected_version: Option<String>,
     value: Value,

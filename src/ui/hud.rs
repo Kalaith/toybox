@@ -3,15 +3,13 @@
 use super::hud_icons::{
     brighten_color, category_icon, draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind,
 };
-use crate::state::{
-    format_elapsed_time, toy_matches_display, GamePhase, InteractionPreview, ToyState,
-};
+use crate::state::{toy_matches_display, GamePhase, InteractionPreview, ToyState};
 use crate::toys::{toy_color, toy_profile};
 use crate::ui::widgets::draw_fitted_text;
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text_ex, measure_ui_text};
+use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss, measure_ui_text};
 
 pub(super) fn draw_game_hud(ctx: &UiContext<'_>) {
     draw_status_panel(ctx);
@@ -29,7 +27,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     let rect = status_panel_rect();
     draw_hud_panel(rect, Color::new(0.025, 0.026, 0.032, 0.86), hud_border());
 
-    let time = format_elapsed_time(ctx.session.player.elapsed_seconds);
+    let time = format_mmss(ctx.session.player.elapsed_seconds);
     draw_stopwatch_icon(vec2(rect.x + 33.0, rect.y + 38.0), 15.0, dark::TEXT_BRIGHT);
     draw_ui_text_ex(
         &time,

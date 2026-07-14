@@ -1,48 +1,43 @@
 //! F3-toggled debug overlay: frame timing, draw counts, and player pose.
+//!
+//! Wraps the shared `macroquad_toolkit::debug::DebugOverlay` (toggle state
+//! and smoothed FPS/frame-time) with toybox's own panel layout, since it
+//! sits beside the HUD status panel rather than the toolkit's default
+//! top-left corner.
 
 use crate::ui::scene3d::SceneStats;
 use crate::ui::UiContext;
 use macroquad::prelude::*;
+use macroquad_toolkit::debug::DebugOverlay as ToolkitDebugOverlay;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
 
 pub struct DebugOverlay {
-    visible: bool,
-    smoothed_frame_seconds: f32,
+    inner: ToolkitDebugOverlay,
 }
 
 impl DebugOverlay {
     pub fn new() -> Self {
         Self {
-            visible: false,
-            smoothed_frame_seconds: 0.0,
+            inner: ToolkitDebugOverlay::new(),
         }
     }
 
     pub fn toggle(&mut self) {
-        self.visible = !self.visible;
+        self.inner.toggle();
     }
 
     pub fn record_frame(&mut self, dt: f32) {
-        if self.smoothed_frame_seconds <= 0.0 {
-            self.smoothed_frame_seconds = dt;
-        } else {
-            // Exponential moving average keeps the readout steady enough to read.
-            self.smoothed_frame_seconds += (dt - self.smoothed_frame_seconds) * 0.08;
-        }
+        self.inner.record_frame(dt);
     }
 
     pub fn draw(&self, ctx: &UiContext<'_>, stats: &SceneStats) {
-        if !self.visible {
+        if !self.inner.visible {
             return;
         }
 
-        let frame_ms = self.smoothed_frame_seconds * 1000.0;
-        let fps = if self.smoothed_frame_seconds > 0.0 {
-            1.0 / self.smoothed_frame_seconds
-        } else {
-            0.0
-        };
+        let fps = self.inner.fps();
+        let frame_ms = self.inner.frame_ms();
         let player = &ctx.session.player;
         let zone = ctx
             .data

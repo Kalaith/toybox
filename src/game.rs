@@ -17,6 +17,7 @@ use macroquad_toolkit::persistence::{
     load_from_slot_with_migration, save_to_slot_with_version, slot_exists,
 };
 use macroquad_toolkit::prelude::dark;
+use macroquad_toolkit::settings::GameSettings;
 
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
 const ASSET_PACK_PATH: &str = "assets.zip";
@@ -35,7 +36,7 @@ pub struct Game {
     events: EventBus<UiAction>,
     screen: GameScreen,
     has_save_file: bool,
-    fullscreen_enabled: bool,
+    settings: GameSettings,
     fov_degrees: f32,
     settings_from_game: bool,
     mouse_locked: bool,
@@ -85,6 +86,8 @@ impl Game {
         };
         let has_save_file = slot_exists(&data.config.game_name, &data.config.save_slot);
         let notifications = NotificationManager::new();
+        let settings = GameSettings::load(&data.config.game_name);
+        settings.apply_display();
 
         let bench = std::env::var("TOYBOX_BENCH_SECONDS")
             .ok()
@@ -111,7 +114,7 @@ impl Game {
             events: EventBus::new(),
             screen,
             has_save_file,
-            fullscreen_enabled: false,
+            settings,
             fov_degrees: DEFAULT_FOV_DEGREES,
             settings_from_game: false,
             mouse_locked: false,
@@ -221,7 +224,7 @@ impl Game {
             }
             GameScreen::Settings => ui::draw_settings_screen(
                 self.title_texture.as_ref(),
-                self.fullscreen_enabled,
+                self.settings.fullscreen,
                 self.fov_degrees,
                 self.settings_from_game,
             ),
@@ -328,8 +331,10 @@ impl Game {
                 self.screen = GameScreen::Playing;
             }
             UiAction::ToggleFullscreen => {
-                self.fullscreen_enabled = !self.fullscreen_enabled;
-                set_fullscreen(self.fullscreen_enabled);
+                self.settings.toggle_fullscreen();
+                if let Err(err) = self.settings.save(&self.data.config.game_name) {
+                    eprintln!("Failed to save settings: {err}");
+                }
             }
             UiAction::FovIncrease => {
                 self.fov_degrees =

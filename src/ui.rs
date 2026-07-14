@@ -1,10 +1,10 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
 use crate::data::{GameData, UpgradeDef};
-use crate::state::{format_elapsed_time, GamePhase, GameSession};
+use crate::state::{GamePhase, GameSession};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
-use macroquad_toolkit::ui::draw_ui_text_ex;
+use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
 
 mod debug_overlay;
 mod environment;
@@ -347,7 +347,7 @@ fn draw_finish_overlay(ctx: &UiContext<'_>) {
     draw_text_centered_in_box(
         &format!(
             "Time {}   Wrong attempts {}   Completion {:.0}%",
-            format_elapsed_time(ctx.session.player.elapsed_seconds),
+            format_mmss(ctx.session.player.elapsed_seconds),
             ctx.session.player.mistakes,
             completion
         ),
