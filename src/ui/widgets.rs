@@ -2,7 +2,7 @@
 
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::TextStyle;
-use macroquad_toolkit::ui::{draw_ui_text_ex, measure_ui_text};
+use macroquad_toolkit::ui::{draw_ui_text_ex, truncate_text_to_width};
 
 pub(super) fn draw_fitted_text(
     text: &str,
@@ -12,13 +12,6 @@ pub(super) fn draw_fitted_text(
     size: f32,
     color: Color,
 ) {
-    let mut fitted = text.to_owned();
-    while !fitted.is_empty() && measure_ui_text(&fitted, None, size as u16, 1.0).width > max_width {
-        fitted.pop();
-    }
-    if fitted.len() < text.len() && fitted.len() > 3 {
-        fitted.truncate(fitted.len() - 3);
-        fitted.push_str("...");
-    }
+    let fitted = truncate_text_to_width(text, max_width, size);
     draw_ui_text_ex(&fitted, x, baseline_y, TextStyle::new(size, color).params());
 }

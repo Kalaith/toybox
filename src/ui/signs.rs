@@ -3,6 +3,7 @@
 use crate::data::{DisplayDef, GameData, PosterDef, ToyCategory, ZoneDef};
 use crate::ui::fixtures::{display_style, DisplayStyle};
 use macroquad::prelude::*;
+use macroquad_toolkit::raster::fill_rect;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -225,7 +226,7 @@ fn build_poster_image(poster: &PosterDef, accent: Color) -> Image {
     // Accent bands top and bottom, plus corner pin dots.
     fill_rect(&mut image, 0, 0, 160, 7, accent);
     fill_rect(&mut image, 0, 57, 160, 7, accent);
-    for &(x, y) in &[(6_u32, 12_u32), (150, 12), (6, 48), (150, 48)] {
+    for &(x, y) in &[(6_i32, 12_i32), (150, 12), (6, 48), (150, 48)] {
         fill_rect(&mut image, x, y, 4, 4, Color::new(0.30, 0.26, 0.22, 1.0));
     }
 
@@ -366,14 +367,6 @@ fn flip_image_vertical(image: &mut Image) {
     }
 }
 
-fn fill_rect(image: &mut Image, x: u32, y: u32, w: u32, h: u32, color: Color) {
-    for yy in y..(y + h).min(image.height() as u32) {
-        for xx in x..(x + w).min(image.width() as u32) {
-            image.set_pixel(xx, yy, color);
-        }
-    }
-}
-
 fn draw_border(image: &mut Image, color: Color) {
     fill_rect(image, 4, 4, 120, 3, color);
     fill_rect(image, 4, 57, 120, 3, color);
@@ -385,10 +378,10 @@ fn draw_border(image: &mut Image, color: Color) {
     }
 }
 
-fn draw_pixel_text_centered(image: &mut Image, text: &str, y: u32, scale: u32, color: Color) {
+fn draw_pixel_text_centered(image: &mut Image, text: &str, y: i32, scale: i32, color: Color) {
     let text = text.to_ascii_uppercase();
     let width = pixel_text_width(&text, scale);
-    let x = ((image.width() as i32 - width as i32) / 2).max(8) as u32;
+    let x = ((image.width() as i32 - width) / 2).max(8);
     draw_pixel_text(
         image,
         &text,
@@ -397,10 +390,10 @@ fn draw_pixel_text_centered(image: &mut Image, text: &str, y: u32, scale: u32, c
         scale,
         Color::new(0.02, 0.018, 0.014, 0.82),
     );
-    draw_pixel_text(image, &text, x, y.saturating_sub(1), scale, color);
+    draw_pixel_text(image, &text, x, y - 1, scale, color);
 }
 
-fn draw_pixel_text(image: &mut Image, text: &str, mut x: u32, y: u32, scale: u32, color: Color) {
+fn draw_pixel_text(image: &mut Image, text: &str, mut x: i32, y: i32, scale: i32, color: Color) {
     for ch in text.chars() {
         if ch == ' ' {
             x += 4 * scale;
@@ -411,21 +404,22 @@ fn draw_pixel_text(image: &mut Image, text: &str, mut x: u32, y: u32, scale: u32
     }
 }
 
-fn pixel_text_width(text: &str, scale: u32) -> u32 {
-    text.chars()
+fn pixel_text_width(text: &str, scale: i32) -> i32 {
+    let glyphs: i32 = text
+        .chars()
         .map(|ch| if ch == ' ' { 4 * scale } else { 6 * scale })
-        .sum::<u32>()
-        .saturating_sub(scale)
+        .sum();
+    (glyphs - scale).max(0)
 }
 
-fn draw_glyph(image: &mut Image, ch: char, x: u32, y: u32, scale: u32, color: Color) {
+fn draw_glyph(image: &mut Image, ch: char, x: i32, y: i32, scale: i32, color: Color) {
     for (row, bits) in glyph(ch).iter().enumerate() {
         for (column, bit) in bits.chars().enumerate() {
             if bit == '1' {
                 fill_rect(
                     image,
-                    x + column as u32 * scale,
-                    y + row as u32 * scale,
+                    x + column as i32 * scale,
+                    y + row as i32 * scale,
                     scale,
                     scale,
                     color,
