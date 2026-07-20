@@ -7,6 +7,7 @@ use crate::data::ToyCategory;
 use crate::state::{RepairState, ToyState, WorldPoint};
 use crate::toys::{draw_toy_3d, toy_color, toy_profile, ToySpawnPose};
 use macroquad::prelude::*;
+use macroquad_toolkit::ui::logical_viewport;
 
 const CATEGORIES: [ToyCategory; 5] = [
     ToyCategory::Plushies,
@@ -75,7 +76,13 @@ impl GalleryScene {
                 fovy: 45.0_f32.to_radians(),
                 projection: Projection::Perspective,
                 aspect: Some(half_w as f32 / half_h.max(1) as f32),
-                viewport: Some((view_x, view_y, half_w, half_h)),
+                // half_w/half_h are logical pixels; the viewport needs physical.
+                viewport: Some(logical_viewport(
+                    view_x as f32,
+                    view_y as f32,
+                    half_w as f32,
+                    half_h as f32,
+                )),
                 ..Default::default()
             });
             draw_plane(
