@@ -42,10 +42,5 @@ action figure, and board game to its matching display before opening.
 ```powershell
 .\publish.ps1
 ```
-# Practical Future Improvements
 
-- Add deterministic replay tests for sorting, scoring, mistake penalties, timer acceleration, and completion goals.
-- Validate upgrade availability and challenge metadata before run start so new toy types cannot break progression.
-- Separate 3D scene rendering from game-state mutation so camera and visual effects do not affect scoring.
-- Add scenario fixtures for beginner, mid-upgrade, and high-pressure sorting runs.
-
+Outstanding work is tracked in [`TODO.md`](TODO.md).
