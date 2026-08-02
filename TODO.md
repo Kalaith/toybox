@@ -22,4 +22,4 @@
 - Scenario fixtures for beginner, mid-upgrade, and high-pressure sorting runs.
 - Validate upgrade availability and challenge metadata before a run starts so new toy types cannot break progression.
 - Separate 3D scene rendering from session mutation so camera and visual effects cannot affect scoring.
-- The screenshot harness is unusable for the whole-store scenes (`gameplay`, `repair_bench`): a debug build spends minutes per capture on 4500 toys, so neither has ever produced a PNG. `toy_gallery` is fine because it draws one toy. Needs a release-build path (the shared `capture_ui.ps1` hardcodes `debug\<exe>.exe`) or a reduced-stock capture config, or every 3D change here stays visually unverified.
+- Fold the release-build capture path back into the shared `macroquad-toolkit/scripts/capture_ui.ps1` (a `-Release` switch) so other large games do not each need a local `capture_scene.ps1`.
