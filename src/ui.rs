@@ -57,6 +57,21 @@ pub(crate) fn animation_seconds() -> f32 {
     ANIMATION_SECONDS.with(|clock| clock.get())
 }
 
+/// A credit count with the noun agreed, e.g. `1 credit` / `3 credits`.
+///
+/// Four places quote a price — the shop row, its refusal line, the HUD nudge
+/// and the notification when Buy is refused — and all four wrote `credit(s)`.
+/// The Toy Scanner costs exactly 1 and is the first tool anyone buys, so
+/// `Costs 1 credit(s)` sat on the very first purchase decision a player makes.
+/// One helper rather than four fixes, so they cannot drift apart later.
+pub fn credits_phrase(count: usize) -> String {
+    if count == 1 {
+        "1 credit".to_owned()
+    } else {
+        format!("{count} credits")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiAction {
     NewGame,
@@ -303,7 +318,11 @@ fn tool_status(upgrade: &UpgradeDef, ctx: &UiContext<'_>) -> (String, Color, boo
     let credits = ctx.session.available_tool_credits(ctx.data);
     if credits < upgrade.cost {
         return (
-            format!("Need {} credit(s). You have {}", upgrade.cost, credits),
+            format!(
+                "Need {}. You have {}",
+                credits_phrase(upgrade.cost),
+                credits
+            ),
             Color::new(0.95, 0.72, 0.36, 1.0),
             false,
         );
@@ -312,7 +331,7 @@ fn tool_status(upgrade: &UpgradeDef, ctx: &UiContext<'_>) -> (String, Color, boo
     (
         // "Available: 1 credit(s)" reads as the player's balance, not the
         // price — actively wrong next to a Tool Credits counter showing 9.
-        format!("Costs {} credit(s)", upgrade.cost),
+        format!("Costs {}", credits_phrase(upgrade.cost)),
         Color::new(0.56, 0.92, 0.92, 1.0),
         true,
     )

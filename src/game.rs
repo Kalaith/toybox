@@ -697,8 +697,10 @@ impl Game {
                 cost,
                 available_credits,
             } => self.notifications.warning(format!(
-                "{} needs {} tool credit(s). You have {}",
-                tool_name, cost, available_credits
+                "{} needs {}. You have {}",
+                tool_name,
+                ui::credits_phrase(cost),
+                available_credits
             )),
             ToolPurchaseResult::AlreadyOwned { tool_name } => self
                 .notifications

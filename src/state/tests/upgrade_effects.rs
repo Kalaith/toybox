@@ -175,3 +175,28 @@ fn the_carry_full_message_names_a_tool_the_player_owns() {
         "the message must use the name in upgrades.json, not a copy of it"
     );
 }
+
+/// Prices read as English, and every place that quotes one agrees.
+///
+/// The four sites that name a price — the shop row, its refusal line, the HUD
+/// nudge and the Buy-refused notification — all wrote `credit(s)`. The Toy
+/// Scanner costs exactly 1 and is the first tool anyone buys, so `Costs 1
+/// credit(s)` sat on the very first purchase decision in the game. Routed
+/// through one helper so the four cannot drift apart later.
+#[test]
+fn a_price_of_one_reads_as_one_credit() {
+    use crate::ui::credits_phrase;
+
+    assert_eq!(credits_phrase(1), "1 credit");
+    assert_eq!(credits_phrase(0), "0 credits");
+    assert_eq!(credits_phrase(2), "2 credits");
+    assert_eq!(credits_phrase(11), "11 credits");
+
+    // The singular is reachable from the shipped data, which is the only
+    // reason this matters.
+    let data = GameData::load().unwrap();
+    assert!(
+        data.upgrades.iter().any(|upgrade| upgrade.cost == 1),
+        "no tool costs 1, so the singular would never be seen"
+    );
+}

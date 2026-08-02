@@ -198,7 +198,11 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
         } else {
             NoticeRow {
                 key: None,
-                text: format!("{} needs {} credit(s)", upgrade.name, upgrade.cost),
+                text: format!(
+                    "{} needs {}",
+                    upgrade.name,
+                    crate::ui::credits_phrase(upgrade.cost)
+                ),
                 tone: NoticeTone::Warning,
             }
         };
@@ -523,7 +527,7 @@ fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
             }
             PromptVisual::neutral("Click to look")
         }
-        InteractionPreview::Finished => PromptVisual::good("Shop restored"),
+        InteractionPreview::Finished => PromptVisual::good("Store restored"),
         InteractionPreview::ShiftOver => PromptVisual::warning("The doors are open"),
     };
     Some(prompt)
