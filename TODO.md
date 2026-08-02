@@ -19,5 +19,6 @@
 
 ## Engineering
 
-- Balance the five tools against measured pacing. `state/tests/replay.rs` now prints a per-loadout table; over 400 actions the Sorting Trolley halves both walking (6482m -> 2662m) and clock (39.8 -> 18.8 min), and Grippy Sneakers takes another 18% off. The trolley may be too strong for 2 credits.
-- The replay closer drives the simulation API (`pick_up_toy`, `place_active_toy`) rather than pressing E, because `interact` is context-sensitive and routing scripted intent through it produces actions the script never meant. So the pacing numbers assume pickups always succeed and cost no aiming. Extending the harness to real input would make them more honest.
+- Balance the five tools against measured pacing. Now that pickups run through real crosshair input, the earlier "the Sorting Trolley is probably too strong" reading is **wrong** — that came from assuming every pickup succeeds. Per minute over 400 actions: bare-handed 8.3 toys, trolley+scanner 7.9, fully equipped 9.7. The trolley alone is roughly neutral, because gathering a same-display armful means targeting *specific* toys and the crosshair misses most of them. The speed tools are what actually pay.
+- Placement still goes through `place_active_toy` rather than aiming at a shelf slot, so the numbers cover the cost of *finding* a toy but not of *placing* it.
+- **Crosshair pickup misses roughly half the time** in a full shop (193 of 400 attempts bare-handed, 264 of 400 when gathering a same-display armful). That is measured against a closer that walks to arm's length and aims straight at the toy, so it is a floor, not a worst case. Worth deciding whether that is acceptable friction or whether pickup wants a wider cone / a nearest-toy fallback when the crosshair is empty.

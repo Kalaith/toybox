@@ -83,6 +83,8 @@ struct RunReport {
     shelved: usize,
     repaired: usize,
     mistakes: u32,
+    /// Times the crosshair did not deliver the toy the closer walked to.
+    aim_misses: usize,
     deferred_parts: usize,
     displays_complete: usize,
     walked_metres: f32,
@@ -93,11 +95,12 @@ impl RunReport {
     fn line(&self, name: &str) -> String {
         format!(
             "{name:>15}: {:>5} shelved  {:>3} repaired  {:>2} mistakes  \
-             {:>3} deferred  {:>2} displays  {:>6.0}m walked  {:>5.1} min",
+             {:>3} deferred  {:>4} aim misses  {:>2} displays  {:>6.0}m walked               {:>5.1} min",
             self.shelved,
             self.repaired,
             self.mistakes,
             self.deferred_parts,
+            self.aim_misses,
             self.displays_complete,
             self.walked_metres,
             self.minutes
@@ -109,9 +112,14 @@ impl RunReport {
 /// the clock for the distance. Stopping short matters: standing exactly on a
 /// toy puts it at zero range, and the game's crosshair targeting rejects
 /// anything that is not actually in front of the player.
-fn walk_to(session: &mut GameSession, data: &GameData, target: WorldPoint, walked: &mut f32) {
-    const STANDOFF: f32 = 0.55;
+/// Mirrors `PLAYER_EYE_HEIGHT` in `state/interactions.rs`, which is private.
+const EYE_HEIGHT: f32 = 1.08;
+/// Roughly where a loose toy's aim centre sits above the floor.
+const TOY_AIM_HEIGHT: f32 = 0.22;
+/// How far short of a target the closer stops.
+const STANDOFF: f32 = 0.55;
 
+fn walk_to(session: &mut GameSession, data: &GameData, target: WorldPoint, walked: &mut f32) {
     let from = session.player.position.to_vec2();
     let to_target = target.to_vec2() - from;
     let distance = to_target.length();
@@ -126,20 +134,79 @@ fn walk_to(session: &mut GameSession, data: &GameData, target: WorldPoint, walke
     if to_target.length_squared() > f32::EPSILON {
         session.player.yaw = to_target.y.atan2(to_target.x);
     }
-    session.player.pitch = -0.42;
     session.player.elapsed_seconds += distance / speed.max(0.1) + INTERACTION_SECONDS;
     *walked += distance;
 }
 
-/// Pick up a specific toy.
+/// Pick a toy up the way a player does: stand in front of it, look at it, and
+/// press E — but only once the game agrees that E will pick something up.
 ///
-/// This drives the simulation directly rather than pressing E. `interact` is
-/// context-sensitive — standing near a display it shelves the held toy instead
-/// of picking a new one — so routing scripted intent through it produces
-/// actions the script never meant, including mis-shelvings that are the
-/// harness's fault rather than the game's. Crosshair targeting is covered
-/// separately, in `render_settings_cannot_move_the_score`.
-fn aim_and_pick_up(session: &mut GameSession, data: &GameData, toy_index: usize) -> bool {
+/// `interact` dispatches on context, so a script cannot simply press E and
+/// assume. Near a display while holding something it shelves instead, which an
+/// earlier version of this harness discovered by inventing mis-shelvings that
+/// were its own fault. `interaction_preview` is the game's own answer to "what
+/// would E do here", so checking it first is what makes driving the input
+/// layer faithful rather than reckless.
+///
+/// Returns the toy actually picked up, which is not always the one aimed at:
+/// in a pile the crosshair takes whatever is nearest the centre of the view.
+/// Callers must work with what they got rather than forcing what they wanted —
+/// forcing it is how the first attempt at this ended up holding one toy and
+/// shelving it on another's display.
+fn aim_and_pick_up(
+    session: &mut GameSession,
+    data: &GameData,
+    intended: usize,
+    misses: &mut usize,
+) -> Option<usize> {
+    // Look down at the floor, not out across it. A fixed shallow pitch aims
+    // over the top of a toy standing at arm's length and misses almost every
+    // time — the first measured pass reported an 89% miss rate for exactly
+    // this reason, and read it as the pile being crowded.
+    let ground = session
+        .player
+        .position
+        .to_vec2()
+        .distance(session.toys[intended].position.to_vec2())
+        .max(STANDOFF * 0.5);
+    session.player.pitch = ((TOY_AIM_HEIGHT - EYE_HEIGHT) / ground)
+        .atan()
+        .clamp(-GameSession::MAX_LOOK_PITCH, GameSession::MAX_LOOK_PITCH);
+
+    if !matches!(
+        session.interaction_preview(data),
+        InteractionPreview::Pickup { .. }
+    ) {
+        *misses += 1;
+        return None;
+    }
+
+    if !matches!(session.interact(data), InteractionResult::PickedUp { .. }) {
+        *misses += 1;
+        return None;
+    }
+
+    let held = session.active_toy()?.id.clone();
+    let got = session.toys.iter().position(|toy| toy.id == held)?;
+    if got != intended {
+        *misses += 1;
+    }
+    Some(got)
+}
+
+/// Take a *named* toy, bypassing the crosshair.
+///
+/// The restoration errand needs one specific half, and at 4000 loose toys the
+/// crosshair cannot reliably deliver a named toy — measured, the closer failed
+/// to dig out its intended part on essentially every attempt even given six
+/// tries each, and completed zero repairs. Sorting does not have this problem
+/// because any toy in the pile is a fine toy to shelve, which is why that
+/// strategy runs on real input above.
+///
+/// So this measures the errand's *travel and rejoin* cost with the digging
+/// abstracted away. The digging cost is real and is not in these numbers; see
+/// the aim-miss column on the sorting rows for its scale.
+fn take_directly(session: &mut GameSession, data: &GameData, toy_index: usize) -> bool {
     matches!(
         session.pick_up_toy(toy_index, data),
         InteractionResult::PickedUp { .. }
@@ -309,7 +376,10 @@ fn restore_one_pair(
     *actions += 1;
     let first_position = session.toys[first].position;
     walk_to(session, data, first_position, walked);
-    aim_and_pick_up(session, data, first);
+    if !take_directly(session, data, first) {
+        deferred.insert(first);
+        return None;
+    }
     if resolve_repair_part(session, data, walked) {
         return Some(first);
     }
@@ -324,7 +394,10 @@ fn restore_one_pair(
     *actions += 1;
     let mate_position = session.toys[mate].position;
     walk_to(session, data, mate_position, walked);
-    aim_and_pick_up(session, data, mate);
+    if !take_directly(session, data, mate) {
+        deferred.insert(mate);
+        return None;
+    }
     if resolve_repair_part(session, data, walked) {
         // The survivor of a repair is the body, whichever index that is.
         return session
@@ -347,6 +420,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
     let mut next_slot = vec![0usize; data.displays.len()];
     let mut walked = 0.0;
     let (mut shelved, mut repaired, mut actions) = (0usize, 0usize, 0usize);
+    let mut misses = 0usize;
     // Parts the closer gave up on. Two mismatched halves fill a bench and
     // every later part then cycles pick-up, walk, refuse, drop forever, with
     // the closer parked at the bench so the dropped part is always the nearest
@@ -376,13 +450,16 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let target = session.toys[first_index].position;
             walk_to(&mut session, data, target, &mut walked);
-            aim_and_pick_up(&mut session, data, first_index);
+            let Some(held) = aim_and_pick_up(&mut session, data, first_index, &mut misses) else {
+                deferred.insert(first_index);
+                continue;
+            };
 
-            if session.toys[first_index].is_repair_part() {
+            if session.toys[held].is_repair_part() {
                 if resolve_repair_part(&mut session, data, &mut walked) {
                     repaired += 1;
                 } else {
-                    deferred.insert(first_index);
+                    deferred.insert(held);
                     continue;
                 }
             }
@@ -410,7 +487,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let extra_position = session.toys[extra].position;
             walk_to(&mut session, data, extra_position, &mut walked);
-            if !aim_and_pick_up(&mut session, data, extra) {
+            if aim_and_pick_up(&mut session, data, extra, &mut misses).is_none() {
                 break;
             }
         }
@@ -447,6 +524,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         shelved,
         repaired,
         mistakes: session.player.mistakes,
+        aim_misses: misses,
         deferred_parts: deferred.len(),
         displays_complete: session.completed_display_count(),
         walked_metres: walked,
