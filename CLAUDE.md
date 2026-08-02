@@ -29,6 +29,10 @@ Single-loop macroquad game; no state-machine enum of separate state structs. Ins
 - `toys.rs` + `toys/library.rs` + ~25 per-identity modules — toys are generated **deterministically** from display definitions (no runtime RNG); `library.rs` maps category + slot to a `ToyIdentity`, and each identity has its own module drawing the 3D primitives. Adding a toy = new identity module + `ToyIdentity` variant + dispatch arm in `toys.rs`.
 - `ui.rs` + `ui/` — pure view layer returning `Vec<UiAction>`. `scene3d.rs` renders the 3D room (fixtures, signs, environment, procedural wood textures); `hud.rs` draws the 2D overlay in logical 1280×720 coordinates managed by `space.rs` (`begin_ui_frame`/`set_ui_camera`/`end_ui_frame`).
 
+## Perf probe
+
+`TOYBOX_BENCH_SECONDS=<n>` boots straight into a fresh run, sweeps the view for `n` seconds, prints `BENCH toys=… avg_fps=… worst_frame_ms=…`, and exits. `window_conf` uncaps vsync for a bench run (`swap_interval = 0`) — without that every measurement came back at the refresh rate, so the probe reported the monitor rather than the game and could not have caught a regression until the game was already dropping frames. Normal play stays synced. The shipped 240-toy shop measures ~245 fps; `toy_lod_distance` is the dominant knob (see the render-band entry in `TODO.md` for the sweep), and `every_toy_render_band_is_reachable` guards the ordering of the three distances.
+
 ## Save/load and assets
 
 - Saves use toolkit slot persistence with version migration: `migrate_save_value` in `state.rs` upgrades old save JSON. New fields on `ToyState`/`PlayerState`/`SaveData` need `#[serde(default)]` (or a migration step) so existing saves keep loading.

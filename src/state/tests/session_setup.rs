@@ -173,3 +173,38 @@ fn new_session_starts_with_all_toys_on_the_floor() {
         }
     }
 }
+
+/// The three render bands are all reachable.
+///
+/// `scene3d::draw_loose_toys` picks a stand-in cube beyond `toy_lod_distance`,
+/// a full upright model beyond `toy_pose_distance`, and a full posed model
+/// closer than that. The middle band is written as an `else if`, so setting the
+/// two distances *equal* deletes it silently — which is how the game shipped:
+/// both were 5.0, the "full detail, but upright" arm could never run, and every
+/// toy past five metres was a coloured box. That LOD was tuned when the shop
+/// held 4000 toys; it holds 240 now.
+///
+/// Measured on the shipped shop with the vsync-uncapped bench, average fps:
+/// lod 5 -> ~320, 7 -> 272, 8 -> 245, 9 -> 221, 12 (no cubes at all) -> 113.
+/// 8.0 buys nearly all of the visual gain for about 1.3x the frame cost.
+#[test]
+fn every_toy_render_band_is_reachable() {
+    let data = GameData::load().unwrap();
+    let config = &data.config;
+
+    assert!(
+        config.toy_lod_distance > config.toy_pose_distance,
+        "lod {} is not beyond pose {}, so the upright band is dead code",
+        config.toy_lod_distance,
+        config.toy_pose_distance
+    );
+    assert!(
+        config.toy_render_distance > config.toy_lod_distance,
+        "render {} is not beyond lod {}, so no toy is ever a stand-in",
+        config.toy_render_distance,
+        config.toy_lod_distance
+    );
+    // Toys inside this radius always draw, so it must not reach past the point
+    // where they stop being drawn at all.
+    assert!(config.toy_always_draw_radius <= config.toy_render_distance);
+}

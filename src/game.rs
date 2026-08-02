@@ -55,6 +55,18 @@ pub struct Game {
     beat_record: bool,
 }
 
+/// How long the perf probe should run, if it was asked for.
+///
+/// Read here *and* by `window_conf`, which uncaps vsync for a bench run —
+/// otherwise every measurement comes back at the refresh rate and the probe
+/// reports the display rather than the game.
+pub fn bench_seconds() -> Option<f32> {
+    std::env::var("TOYBOX_BENCH_SECONDS")
+        .ok()
+        .and_then(|raw| raw.parse::<f32>().ok())
+        .filter(|seconds| *seconds > 0.0)
+}
+
 /// Headless-ish perf probe: set TOYBOX_BENCH_SECONDS=<n> to boot straight
 /// into a fresh run, sweep the view for n seconds, print frame stats to
 /// stdout, and exit. Used by the roadmap perf gates.
@@ -99,16 +111,12 @@ impl Game {
         let settings = GameSettings::load(&data.config.game_name);
         settings.apply_display();
 
-        let bench = std::env::var("TOYBOX_BENCH_SECONDS")
-            .ok()
-            .and_then(|raw| raw.parse::<f32>().ok())
-            .filter(|seconds| *seconds > 0.0)
-            .map(|duration_seconds| BenchMode {
-                duration_seconds,
-                elapsed_seconds: 0.0,
-                frames: 0,
-                worst_frame_seconds: 0.0,
-            });
+        let bench = bench_seconds().map(|duration_seconds| BenchMode {
+            duration_seconds,
+            elapsed_seconds: 0.0,
+            frames: 0,
+            worst_frame_seconds: 0.0,
+        });
         let screen = if bench.is_some() {
             GameScreen::Playing
         } else {
