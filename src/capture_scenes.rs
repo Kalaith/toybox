@@ -114,6 +114,31 @@ pub fn shift_over(data: &GameData) -> GameSession {
     session
 }
 
+/// Carrying one half of a broken toy with no tools bought. The unaided hint
+/// names the aisle its counterpart landed in and nothing more — the whole point
+/// of the tier, and invisible in every other scene because they either carry a
+/// whole toy or own the scanner.
+pub fn carrying_a_half(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    if let Some(part_index) = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+    {
+        session.pick_up_toy(part_index, data);
+    }
+    session.player.pitch = -0.10;
+    session
+}
+
+/// The same moment once the Toy Scanner is owned: distance on the notice row,
+/// and the beacon column standing over the exact spot.
+pub fn carrying_a_half_scanned(data: &GameData) -> GameSession {
+    let mut session = carrying_a_half(data);
+    session.unlocked_upgrade_ids.push("toy_scanner".to_owned());
+    session
+}
+
 /// Shelve `share` of one display's matching toys, straight into their slots.
 fn stock_display(session: &mut GameSession, data: &GameData, display_index: usize, share: f32) {
     let display = &data.displays[display_index];

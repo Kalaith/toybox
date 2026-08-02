@@ -2,7 +2,7 @@
   {
     "id": "toy_scanner",
     "name": "Toy Scanner",
-    "description": "Names the display a held toy belongs to, highlights it across the shop, and points to the far half of a carried repair part.",
+    "description": "Names the display a held toy belongs to, highlights it across the shop, and pins the exact spot of a carried part's other half instead of just its aisle.",
     "unlock_completed_displays": 1,
     "cost": 1,
     "effect": { "kind": "scanner" }

@@ -3,7 +3,7 @@
 ## Repair flow at scale
 
 - The cross-zone scatter is **deliberate** — hunting scattered halves and rejoining them is a pillar of the game alongside sorting, and must not be shortened to make repairs cheaper. Measured on its own terms in `state/tests/replay.rs` (`Strategy::Restorer`), the errand is fully winnable: at the 240-toy shop that is all 28 broken pairs in 56 actions with nothing deferred, ~18s per pair. Cost per pair is unchanged by the shop retune; there are simply fewer pairs. The earlier "zero repairs" figure came from a nearest-first closer, which measures the sorting loop and never runs the errand at all.
-- Repairs are gated on owning the Toy Scanner in practice — without it there is no way to learn where a carried part's other half went, so the errand is a blind search. Decide whether that gate is intended, or whether an unaided player needs some weaker signal.
+- **The scanner gate is softened, not removed.** A carried half now always names the aisle its counterpart landed in ("Other half: head in Checkout"); the scanner upgrades that to distance plus the beacon column ("Scanner: head in Checkout, 17m"). Unaided the errand is a real search of one zone rather than a sweep of the whole shop for one object among hundreds, which was a wall rather than a journey. The scanner's `upgrades.json` description was rewritten to sell what it now actually adds.
 - Mistake penalty and timer are still untuned against `assets/data/*.json`.
 - Repair parts render per *category* but not per *identity* — every plush head is the same model, so a broken Bear and a broken Octopus are indistinguishable while split. Decide whether identity-level parts are worth 50×2 renderers or whether identity-derived detail on the existing 10 is enough.
 

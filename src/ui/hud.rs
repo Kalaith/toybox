@@ -173,28 +173,35 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
         rows.push(row);
     }
 
-    if ctx.session.scanner_enabled(ctx.data) {
-        if let Some(active_toy) = ctx.session.active_toy() {
-            let text = if active_toy.is_repair_part() {
-                counterpart_scanner_text(ctx)
-            } else if let Some(display) = ctx
+    let scanner = ctx.session.scanner_enabled(ctx.data);
+    if let Some(active_toy) = ctx.session.active_toy() {
+        // A carried half always names the aisle its counterpart landed in, tool
+        // or not. Without any signal the errand is a sweep of the whole shop
+        // for one object among hundreds, which is not a search so much as a
+        // wall — and the scatter is meant to be a journey, not a lockout. The
+        // scanner still earns its price: it adds the distance and the beacon
+        // that turn "somewhere in the Robot Lab" into "exactly there".
+        let (text, tone) = if active_toy.is_repair_part() {
+            (counterpart_text(ctx, scanner), NoticeTone::Scanner)
+        } else if scanner {
+            let named = ctx
                 .data
                 .displays
                 .iter()
                 .find(|display| toy_matches_display(active_toy, display))
-            {
-                format!("Scanner: {} - {}", display.name, display.theme)
-            } else {
-                String::new()
-            };
+                .map(|display| format!("Scanner: {} - {}", display.name, display.theme))
+                .unwrap_or_default();
+            (named, NoticeTone::Scanner)
+        } else {
+            (String::new(), NoticeTone::Scanner)
+        };
 
-            if !text.is_empty() {
-                rows.push(NoticeRow {
-                    key: None,
-                    text,
-                    tone: NoticeTone::Scanner,
-                });
-            }
+        if !text.is_empty() {
+            rows.push(NoticeRow {
+                key: None,
+                text,
+                tone,
+            });
         }
     }
 
@@ -241,34 +248,52 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
 /// Scanner readout for a carried repair part: where its other half is, in
 /// zone-and-distance terms. Falls back to the bench hint when the counterpart
 /// has already been consumed by an earlier repair.
-fn counterpart_scanner_text(ctx: &UiContext<'_>) -> String {
+fn counterpart_text(ctx: &UiContext<'_>, scanner: bool) -> String {
     let Some(counterpart) = ctx.session.carried_counterpart() else {
-        return "Scanner: Repair Bench".to_owned();
+        return if scanner {
+            "Scanner: Repair Bench".to_owned()
+        } else {
+            "Take it to a repair bench".to_owned()
+        };
     };
-    describe_counterpart(ctx, counterpart)
+    describe_counterpart(ctx, counterpart, scanner)
 }
 
-fn describe_counterpart(ctx: &UiContext<'_>, counterpart: CounterpartLocation) -> String {
+/// Where the other half is. Unaided this names the aisle and stops there: the
+/// player still has to walk it and pick the part out of whatever is lying
+/// around. The scanner adds the metres, and pairs with the beacon column that
+/// marks the exact spot.
+fn describe_counterpart(
+    ctx: &UiContext<'_>,
+    counterpart: CounterpartLocation,
+    scanner: bool,
+) -> String {
+    let zone = ctx
+        .data
+        .layout
+        .zone_name_at(counterpart.position.x, counterpart.position.y);
+    // One phrase for both tiers, carrying its own preposition. Naming the zone
+    // without one produced "head Checkout, 17m", and bolting "in" on in front
+    // of the bench case would produce "in on a bench".
+    let place = if counterpart.on_bench {
+        "on a bench".to_owned()
+    } else {
+        zone.map(|zone| format!("in {zone}"))
+            .unwrap_or_else(|| "on the shop floor".to_owned())
+    };
+    let part = counterpart.part.label();
+
+    if !scanner {
+        return format!("Other half: {part} {place}");
+    }
+
     let distance = ctx
         .session
         .player
         .position
         .to_vec2()
         .distance(counterpart.position.to_vec2());
-    let place = if counterpart.on_bench {
-        "on a bench".to_owned()
-    } else {
-        ctx.data
-            .layout
-            .zone_name_at(counterpart.position.x, counterpart.position.y)
-            .map(str::to_owned)
-            .unwrap_or_else(|| "the shop floor".to_owned())
-    };
-
-    format!(
-        "Scanner: {} {place}, {distance:.0}m",
-        counterpart.part.label()
-    )
+    format!("Scanner: {part} {place}, {distance:.0}m")
 }
 
 fn draw_carried_card(ctx: &UiContext<'_>) {

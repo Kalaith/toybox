@@ -151,6 +151,14 @@ impl Game {
                 self.session = capture_scenes::shift_over(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            "carrying_a_half" => {
+                self.session = capture_scenes::carrying_a_half(&self.data);
+                self.screen = GameScreen::Playing;
+            }
+            "carrying_a_half_scanned" => {
+                self.session = capture_scenes::carrying_a_half_scanned(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "closing_soon" => {
                 self.session = capture_scenes::closing_soon(&self.data);
                 self.screen = GameScreen::Playing;
