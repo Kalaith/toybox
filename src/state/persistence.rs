@@ -64,6 +64,24 @@ impl GameSession {
                 .iter()
                 .any(|toy| &toy.id == toy_id && !toy.is_consumed_repair_part())
         });
+
+        // `carried_toy_ids` is the authority on what the player holds, but
+        // `is_held` is what rendering and pickup targeting read. A save where
+        // the two disagree leaves a carried toy drawn on the floor, or a held
+        // toy that `targeted_loose_toy_index` skips forever.
+        for toy in &mut self.toys {
+            let carried = self.player.carried_toy_ids.contains(&toy.id);
+            if toy.is_held == carried {
+                continue;
+            }
+            toy.is_held = carried;
+            if carried {
+                toy.placed_display_id = None;
+                toy.placed_slot_index = None;
+                toy.bench_slot_index = None;
+                toy.bench_id = None;
+            }
+        }
         for (toy_index, toy) in self.toys.iter_mut().enumerate() {
             if toy.spawn_pose.is_uninitialized() {
                 toy.spawn_pose = spawn_pose_for_toy(

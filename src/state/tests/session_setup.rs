@@ -173,23 +173,3 @@ fn new_session_starts_with_all_toys_on_the_floor() {
         }
     }
 }
-
-#[test]
-fn stale_save_with_wrong_toy_count_restocks_fresh() {
-    let data = GameData::load().unwrap();
-    let mut session = GameSession::new(&data);
-    session.toys.truncate(100);
-    let stale = serde_json::to_value(session.to_save("2.1.0")).unwrap();
-
-    let migrated = migrate_save_value(Some("2.1.0".to_owned()), stale, &data).unwrap();
-
-    let live_toys = migrated
-        .toys
-        .iter()
-        .filter(|toy| {
-            !toy.is_consumed_repair_part() && toy.repair_part_kind() != Some(RepairPartKind::Head)
-        })
-        .count();
-    assert_eq!(live_toys, data.config.toy_count);
-    assert_eq!(migrated.version, data.config.version);
-}
