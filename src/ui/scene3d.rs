@@ -73,7 +73,7 @@ fn draw_loose_toys(ctx: &UiContext<'_>) -> usize {
         } else {
             0.20 + layer * 0.020
         };
-        let scale = 0.88 + ((index * 13) % 9) as f32 * 0.025;
+        let scale = toy_draw_scale(index, toy.bench_slot_index.is_some());
         if distance > config.toy_lod_distance {
             // Stand-ins stay grounded: floor_lift only compensates for the
             // tumbled pose, and applying it to upright draws leaves distant
@@ -268,4 +268,53 @@ fn camera_basis(yaw: f32, pitch: f32) -> (Vec3, Vec3, Vec3) {
     let right = front.cross(world_up).normalize_or_zero();
     let up = right.cross(front).normalize_or_zero();
     (front, right, up)
+}
+
+/// How big to draw a loose toy, and why a benched part is exempt.
+///
+/// Toys on the floor get a little size variety off their index, so a shop
+/// buried in them does not read as a grid of identical objects. A part waiting
+/// on the repair bench must not: the two halves of one toy sit side by side
+/// there, at the only range in the game where a player studies them closely,
+/// and the jitter drew them up to 23% apart. A real pair measured 0.88 against
+/// 1.03 — a bear whose head is visibly too big for its own body, moments before
+/// you press `E` to join them.
+///
+/// Same shape of exemption as `floor_lift` just below: what makes a tumbled
+/// floor look alive makes a workbench look wrong.
+pub(crate) fn toy_draw_scale(index: usize, on_bench: bool) -> f32 {
+    if on_bench {
+        1.0
+    } else {
+        0.88 + ((index * 13) % 9) as f32 * 0.025
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::toy_draw_scale;
+
+    #[test]
+    fn two_halves_on_a_bench_are_drawn_the_same_size() {
+        // The pair this was found on: body at toy index 0, head at 195.
+        assert_eq!(toy_draw_scale(0, true), toy_draw_scale(195, true));
+        assert_ne!(
+            toy_draw_scale(0, false),
+            toy_draw_scale(195, false),
+            "the loose-toy jitter is what made them differ; keep it"
+        );
+
+        // No index escapes the rule, and the floor keeps its variety.
+        let benched: Vec<f32> = (0..500).map(|index| toy_draw_scale(index, true)).collect();
+        assert!(benched.iter().all(|scale| *scale == benched[0]));
+
+        let loose: Vec<f32> = (0..500).map(|index| toy_draw_scale(index, false)).collect();
+        let low = loose.iter().copied().fold(f32::MAX, f32::min);
+        let high = loose.iter().copied().fold(f32::MIN, f32::max);
+        assert!(low < high, "loose toys lost their size variety");
+        assert!(
+            (0.85..=1.10).contains(&low) && (0.85..=1.10).contains(&high),
+            "loose scales drifted out of range: {low}..{high}"
+        );
+    }
 }

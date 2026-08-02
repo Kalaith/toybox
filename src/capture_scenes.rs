@@ -327,6 +327,72 @@ pub fn broken_lineup(data: &GameData) -> GameSession {
     session
 }
 
+/// The bench holding a matched pair: the moment the whole repair errand pays
+/// off, and the one bench stage a player meets on every single repair.
+/// `repair_bench` only ever showed `AwaitingMatch`, so the green beacon and the
+/// press-to-repair prompt had never been rendered.
+pub fn repair_bench_ready(data: &GameData) -> GameSession {
+    let bench = data.primary_bench();
+    let mut session = GameSession::new(data);
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
+
+    // Bench a body, then hunt down the head it was split from. Any other head
+    // is refused as a different break, which is the whole point of the stage
+    // below this one.
+    let benched_repair_id = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+        .and_then(|body_index| {
+            let repair_id = match &session.toys[body_index].repair_state {
+                RepairState::BrokenPart { repair_id, .. } => repair_id.clone(),
+                _ => return None,
+            };
+            session.pick_up_toy(body_index, data);
+            session.interact(data);
+            Some(repair_id)
+        })
+        .expect("a broken body to bench");
+
+    let counterpart = session
+        .toys
+        .iter()
+        .position(|toy| match &toy.repair_state {
+            RepairState::BrokenPart {
+                repair_id, part, ..
+            } => *part == RepairPartKind::Head && *repair_id == benched_repair_id,
+            _ => false,
+        })
+        .expect("the head it was split from");
+    // Carried to the bench by the player, so no walk is simulated.
+    session.toys[counterpart].position = session.player.position;
+    session.pick_up_toy(counterpart, data);
+    session.interact(data);
+
+    let bench_point = vec2(bench.x, bench.y);
+    session.toys.retain(|toy| {
+        toy.bench_slot_index.is_some()
+            || toy.position.to_vec2().distance(bench_point) > BENCH_CLEARANCE
+    });
+    let mut session = GameSession::from_save(session.to_save(&data.config.version), data);
+
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y - 1.45,
+    };
+    session.player.yaw = std::f32::consts::FRAC_PI_2 - 0.30;
+    session.player.pitch = -0.10;
+    assert_eq!(
+        session.bench_status(bench).stage,
+        crate::state::BenchStage::Ready,
+        "the bench is not holding a matched pair"
+    );
+    session
+}
+
 /// Shelve `share` of one display's matching toys, straight into their slots.
 fn stock_display(session: &mut GameSession, data: &GameData, display_index: usize, share: f32) {
     let display = &data.displays[display_index];

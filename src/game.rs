@@ -162,6 +162,17 @@ impl Game {
                 self.best_runs = capture_scenes::previous_best();
                 self.screen = GameScreen::Title;
             }
+            // The screen every new player actually meets first: no save to
+            // continue, no records to chase. `title` forces both on, so the
+            // disabled Continue button and the missing best-run line had never
+            // been drawn. `BestRuns::default()` explicitly rather than whatever
+            // `Game::new` loaded, so the capture does not depend on whether the
+            // machine running it has played the game.
+            "title_first_run" => {
+                self.has_save_file = false;
+                self.best_runs = BestRuns::default();
+                self.screen = GameScreen::Title;
+            }
             "mid_run" => {
                 self.session = capture_scenes::mid_run(&self.data);
                 self.screen = GameScreen::Playing;
@@ -238,6 +249,10 @@ impl Game {
             // pause menu. They are not one screen with a different heading: the
             // paused form adds Quit to Title and renames Back to Resume, so its
             // second row is laid out to a different width.
+            "repair_bench_ready" => {
+                self.session = capture_scenes::repair_bench_ready(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "settings" => {
                 self.settings_from_game = false;
                 self.screen = GameScreen::Settings;
