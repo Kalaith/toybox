@@ -116,6 +116,130 @@ fn stand_in_the_open_looking_at(session: &mut GameSession, toy_index: usize) {
     session.spatial.rebuild(&session.toys);
 }
 
+/// Standing at a stocked shelf, looking down at a toy on the floor, `E` must
+/// take the toy on the floor.
+///
+/// Shelf slots are targeted in 2D from yaw alone, so a player aiming at their
+/// own feet still "looks at" every slot in front of them — and the shelf branch
+/// used to be checked first. A replay driving real input found the closer
+/// un-shelving what it had just put away 583 times in one run, mistaking it for
+/// the crosshair handing over a neighbouring toy.
+#[test]
+fn looking_down_at_the_floor_beside_a_shelf_does_not_unshelve_anything() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let display = &data.displays[0];
+
+    // Shelve one toy properly, then stand at its slot facing the shelf.
+    let shelved_index = session
+        .toys
+        .iter()
+        .position(|toy| toy_matches_display(toy, display) && !toy.is_repair_part())
+        .unwrap();
+    let shelved_id = session.toys[shelved_index].id.clone();
+    session.pick_up_toy(shelved_index, &data);
+    session.place_active_toy(0, 0, &data);
+
+    let slot = display_slot_position(display, 0, data.config.room_width);
+    session.player.position = slot;
+    session.player.yaw = 0.0;
+
+    // A loose toy at the player's feet, everything else swept far away.
+    let loose_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.id != shelved_id && toy.placed_display_id.is_none())
+        .unwrap();
+    let loose_id = session.toys[loose_index].id.clone();
+    for (index, toy) in session.toys.iter_mut().enumerate() {
+        if index != loose_index && toy.placed_display_id.is_none() {
+            toy.position = WorldPoint { x: 30.0, y: 20.0 };
+        }
+    }
+    session.toys[loose_index].position = WorldPoint {
+        x: slot.x + 0.55,
+        y: slot.y,
+    };
+    session.spatial.rebuild(&session.toys);
+
+    // Aimed at the floor toy, the way the replay's closer aims.
+    session.player.pitch = -1.0;
+
+    assert!(
+        matches!(
+            session.interaction_preview(&data),
+            InteractionPreview::Pickup { .. }
+        ),
+        "the probe is not looking at anything pickable"
+    );
+    session.interact(&data);
+
+    assert_eq!(
+        session.active_toy().map(|toy| toy.id.as_str()),
+        Some(loose_id.as_str()),
+        "E took something other than the toy underfoot"
+    );
+    let shelved = session
+        .toys
+        .iter()
+        .find(|toy| toy.id == shelved_id)
+        .unwrap();
+    assert_eq!(
+        shelved.placed_display_id.as_deref(),
+        Some(display.id.as_str()),
+        "the shelved toy was lifted back off the display"
+    );
+}
+
+/// The other half of the same rule: looking *at* the shelf still retrieves from
+/// it. Fixing the case above by always preferring the floor would make a
+/// mis-shelved toy impossible to collect while anything lay nearby.
+#[test]
+fn looking_at_a_stocked_slot_still_takes_the_toy_off_the_shelf() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let display = &data.displays[0];
+
+    let shelved_index = session
+        .toys
+        .iter()
+        .position(|toy| toy_matches_display(toy, display) && !toy.is_repair_part())
+        .unwrap();
+    let shelved_id = session.toys[shelved_index].id.clone();
+    session.pick_up_toy(shelved_index, &data);
+    session.place_active_toy(0, 0, &data);
+
+    let slot = display_slot_position(display, 0, data.config.room_width);
+    session.player.position = slot;
+    session.player.yaw = 0.0;
+    // Level, not down at the floor.
+    session.player.pitch = 0.0;
+
+    let loose_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.id != shelved_id && toy.placed_display_id.is_none())
+        .unwrap();
+    for (index, toy) in session.toys.iter_mut().enumerate() {
+        if index != loose_index && toy.placed_display_id.is_none() {
+            toy.position = WorldPoint { x: 30.0, y: 20.0 };
+        }
+    }
+    session.toys[loose_index].position = WorldPoint {
+        x: slot.x + 0.55,
+        y: slot.y,
+    };
+    session.spatial.rebuild(&session.toys);
+
+    session.interact(&data);
+
+    assert_eq!(
+        session.active_toy().map(|toy| toy.id.as_str()),
+        Some(shelved_id.as_str()),
+        "a level look at a stocked slot no longer retrieves from the shelf"
+    );
+}
+
 #[test]
 fn interact_places_held_toy_on_floor_when_no_target_is_active() {
     let data = GameData::load().unwrap();

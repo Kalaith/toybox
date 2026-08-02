@@ -102,6 +102,9 @@ struct RunReport {
     /// closer still walks away holding something, so this is pile texture, not
     /// lost work.
     grabbed_neighbour: usize,
+    /// Times the closer walked to a gap on a shelf and `E` would not shelve
+    /// there, because the crosshair offered a different slot that was taken.
+    place_whiffs: usize,
     deferred_parts: usize,
     displays_complete: usize,
     /// Toys still on the floor when the run stopped. Together with `actions`
@@ -118,7 +121,7 @@ impl RunReport {
         format!(
             "{name:>15}: {:>5} actions  {:>5} shelved  {:>5} loose  {:>3} repaired  \
              {:>2} mistakes  {:>4} deferred  {:>4} whiffed  {:>4} neighbour  \
-             {:>2} displays  {:>6.0}m walked  {:>6.1} min",
+             {:>4} noslot  {:>2} displays  {:>6.0}m walked  {:>6.1} min",
             self.actions,
             self.shelved,
             self.still_loose,
@@ -127,6 +130,7 @@ impl RunReport {
             self.deferred_parts,
             self.whiffs,
             self.grabbed_neighbour,
+            self.place_whiffs,
             self.displays_complete,
             self.walked_metres,
             self.minutes
@@ -219,6 +223,65 @@ fn aim_and_pick_up(
         *neighbours += 1;
     }
     Some(got)
+}
+
+/// Is nothing shelved in this slot yet?
+///
+/// `GameSession` knows this privately, but the closer needs it too: with real
+/// aiming it cannot pick a slot, only stand in front of one, so it has to walk
+/// the shelf to a free spot the way a player scanning for a gap does.
+fn slot_is_free(
+    session: &GameSession,
+    display: &crate::data::DisplayDef,
+    slot_index: usize,
+) -> bool {
+    !session.toys.iter().any(|toy| {
+        toy.placed_display_id.as_deref() == Some(display.id.as_str())
+            && toy.placed_slot_index == Some(slot_index)
+    })
+}
+
+fn next_free_slot(
+    session: &GameSession,
+    display: &crate::data::DisplayDef,
+    from: usize,
+) -> Option<usize> {
+    (from..display.capacity).find(|slot| slot_is_free(session, display, *slot))
+}
+
+/// Shelve the active toy the way a player does: walk to the gap, face it, and
+/// press E only once the game agrees E will shelve.
+///
+/// The counterpart to `aim_and_pick_up`, and the half the replay was missing.
+/// Going straight to `place_active_toy` charged a run for *finding* a toy but
+/// not for putting it away, which is a walk to a specific spot on a specific
+/// fixture for every single toy — and, with a trolley, a separate walk per toy
+/// in the armful, because the slot just filled is no longer the one the
+/// crosshair offers.
+fn aim_and_place(
+    session: &mut GameSession,
+    data: &GameData,
+    display_index: usize,
+    slot_index: usize,
+    walked: &mut f32,
+    place_whiffs: &mut usize,
+) -> Option<InteractionResult> {
+    let display = &data.displays[display_index];
+    let slot = display_slot_position(display, slot_index, data.config.room_width);
+    walk_to(session, data, slot, walked);
+    // Shelf slots are targeted from yaw alone, so pitch cannot change the
+    // outcome — but leaving it aimed at the floor from the last pickup would
+    // misrepresent where the player is looking when they press E.
+    session.player.pitch = 0.0;
+
+    if !matches!(
+        session.interaction_preview(data),
+        InteractionPreview::PlaceOnShelf
+    ) {
+        *place_whiffs += 1;
+        return None;
+    }
+    Some(session.interact(data))
 }
 
 /// Take a *named* toy, bypassing the crosshair.
@@ -353,14 +416,14 @@ fn counterpart_index(session: &GameSession, toy_index: usize) -> Option<usize> {
 fn home_display_index(
     data: &GameData,
     toy: &ToyState,
-    next_slot: &[usize],
+    session: &GameSession,
     from: Vec2,
 ) -> Option<usize> {
     data.displays
         .iter()
         .enumerate()
-        .filter(|(index, display)| {
-            toy_matches_display(toy, display) && next_slot[*index] < display.capacity
+        .filter(|(_, display)| {
+            toy_matches_display(toy, display) && next_free_slot(session, display, 0).is_some()
         })
         .min_by(|(_, left), (_, right)| {
             display_centre(left)
@@ -504,10 +567,10 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
 
     // Where each display's next free slot is. Placement rejects a taken slot,
     // so the closer fills each shelf left to right like a person would.
-    let mut next_slot = vec![0usize; data.displays.len()];
+
     let mut walked = 0.0;
     let (mut shelved, mut repaired, mut actions) = (0usize, 0usize, 0usize);
-    let (mut whiffs, mut neighbours) = (0usize, 0usize);
+    let (mut whiffs, mut neighbours, mut place_whiffs) = (0usize, 0usize, 0usize);
     // Parts the closer gave up on. Two mismatched halves fill a bench and
     // every later part then cycles pick-up, walk, refuse, drop forever, with
     // the closer parked at the bench so the dropped part is always the nearest
@@ -568,7 +631,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             continue;
         };
         let Some(display_index) =
-            home_display_index(data, &active, &next_slot, session.player.position.to_vec2())
+            home_display_index(data, &active, &session, session.player.position.to_vec2())
         else {
             session.drop_active(data);
             continue;
@@ -590,15 +653,8 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             }
         }
 
-        // Walk once, unload the armful.
-        walk_to(
-            &mut session,
-            data,
-            display_slot_position(display, next_slot[display_index], data.config.room_width),
-            &mut walked,
-        );
+        // Unload the armful, walking to a free slot for each toy in it.
         while !session.player.carried_toy_ids.is_empty() {
-            let slot = next_slot[display_index];
             // An armful gathered for one display can still contain a stray: the
             // crosshair hands over whatever sat nearest the centre of the view,
             // not always the toy aimed at. A player checks what is in hand
@@ -607,17 +663,28 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             let belongs = session
                 .active_toy()
                 .is_some_and(|toy| toy_matches_display(toy, display));
-            if !belongs || slot >= display.capacity {
+            let free_slot = next_free_slot(&session, display, 0);
+            let (true, Some(slot)) = (belongs, free_slot) else {
                 session.drop_active(data);
                 continue;
-            }
-            match session.place_active_toy(display_index, slot, data) {
-                InteractionResult::Placed { was_wrong, .. } => {
-                    next_slot[display_index] += 1;
+            };
+
+            match aim_and_place(
+                &mut session,
+                data,
+                display_index,
+                slot,
+                &mut walked,
+                &mut place_whiffs,
+            ) {
+                Some(InteractionResult::Placed { was_wrong, .. }) => {
                     if !was_wrong {
                         shelved += 1;
                     }
                 }
+                // Dropped rather than retried: a whiff here means the crosshair
+                // offered a different slot than the gap walked to, and trying
+                // the same spot again would loop forever.
                 _ => {
                     session.drop_active(data);
                 }
@@ -632,6 +699,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         mistakes: session.player.mistakes,
         whiffs,
         grabbed_neighbour: neighbours,
+        place_whiffs,
         deferred_parts: deferred.len(),
         displays_complete: session.completed_display_count(),
         still_loose: session
@@ -804,6 +872,43 @@ fn the_deadline_is_reachable_by_a_closer_who_buys_tools() {
         earner.minutes < reports[0].1.minutes,
         "buying tools did not beat staying bare-handed"
     );
+}
+
+/// A display has to stay fillable to its back row.
+///
+/// Slots are laid out five to a row, so capacity decides depth: 12 slots is
+/// three rows, 200 is forty. Shelf targeting picks the *nearest* slot in the
+/// crosshair, so once a front row fills, the rows behind it are shadowed —
+/// walking to a gap in row three still offers the taken slot in row one, and
+/// `E` refuses. The scaling sweep makes the cliff plain: at capacity 12 a run
+/// is turned away from a shelf 2 times against 214 shelved, at capacity 100 it
+/// is 7173 against 628, and at 200 the shop is essentially unfillable.
+///
+/// This is a second, independent reason the shop settled on twelve, and the
+/// one most easily broken by a later retune — nothing else would fail if
+/// displays got deeper, they would just quietly stop accepting toys.
+#[test]
+fn a_display_stays_fillable_to_its_back_row() {
+    let data = GameData::load().unwrap();
+
+    for scenario in [BEGINNER, FULLY_EQUIPPED] {
+        let report = run(&scenario, &data, data.config.toy_count * 4);
+        println!("{}", report.line(scenario.name));
+        assert!(
+            report.shelved > 0,
+            "{} shelved nothing at all",
+            scenario.name
+        );
+        assert!(
+            report.place_whiffs * 4 < report.shelved,
+            "{} was turned away from a shelf {} times against {} toys shelved. \
+             Slots are five to a row, so this is what a display too deep for the \
+             crosshair looks like: the back rows are shadowed by the front ones.",
+            scenario.name,
+            report.place_whiffs,
+            report.shelved
+        );
+    }
 }
 
 /// What a wrong shelf should cost, expressed in the only unit the player

@@ -34,14 +34,17 @@ impl GameSession {
                 }
                 return self.drop_active_as_interaction(data);
             }
-            if let Some(target) = self.targeted_empty_display_slot(data) {
-                return self.place_active_toy(target.display_index, target.slot_index, data);
-            }
-            // Loading the armful outranks reporting a full or occupied shelf,
-            // which is a no-op the player gains nothing from. Shelving still
-            // wins outright above, so aiming at a free slot always places.
+            // Same rule as the empty-handed branch below: the pitch-aware
+            // crosshair beats 2D shelf targeting. Looking down at a toy loads it
+            // onto the trolley; looking at the shelf shelves what is in hand,
+            // which is what a player does anyway to choose a slot. This never
+            // fires at a carry limit of one, so a bare-handed player's `E` still
+            // shelves exactly as before.
             if let Some(toy_index) = self.targeted_pickup_addition(data) {
                 return self.pick_up_toy(toy_index, data);
+            }
+            if let Some(target) = self.targeted_empty_display_slot(data) {
+                return self.place_active_toy(target.display_index, target.slot_index, data);
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
@@ -60,6 +63,20 @@ impl GameSession {
             return self.repair_benched_toys(data);
         }
 
+        // The loose-toy test accounts for pitch; shelf-slot targeting is 2D from
+        // yaw alone, so a player looking at their own feet still "looks at"
+        // every slot in front of them. Asking the precise test first is what
+        // stops standing at a stocked shelf and reaching for a toy underfoot
+        // from lifting something back off the display instead. Looking level at
+        // the shelf puts the floor toy outside the 3D cone, so retrieval still
+        // works — see the pair of tests in `tests/pickup_and_movement.rs`.
+        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
+            if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
+                return InteractionResult::InventoryFull;
+            }
+            return self.pick_up_toy(toy_index, data);
+        }
+
         if let Some(target) = self.targeted_display_slot(data) {
             let display = &data.displays[target.display_index];
             if let Some(toy_index) =
@@ -74,10 +91,6 @@ impl GameSession {
 
         if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
             return InteractionResult::InventoryFull;
-        }
-
-        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
-            return self.pick_up_toy(toy_index, data);
         }
 
         if self.is_near_repair_bench(data) && self.repair_bench_is_full(data) {
@@ -118,14 +131,13 @@ impl GameSession {
                 }
                 return InteractionPreview::PutDown;
             }
-            if let Some(target) = self.targeted_empty_display_slot(data) {
-                let _display = &data.displays[target.display_index];
-                return InteractionPreview::PlaceOnShelf;
-            }
             if let Some(toy_index) = self.targeted_pickup_addition(data) {
                 return InteractionPreview::Pickup {
                     toy_name: self.toys[toy_index].name.clone(),
                 };
+            }
+            if self.targeted_empty_display_slot(data).is_some() {
+                return InteractionPreview::PlaceOnShelf;
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
@@ -146,6 +158,16 @@ impl GameSession {
             }
         }
 
+        // Mirrors `interact`: the pitch-aware test wins over the 2D one.
+        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
+            if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
+                return InteractionPreview::InventoryFull;
+            }
+            return InteractionPreview::Pickup {
+                toy_name: self.toys[toy_index].name.clone(),
+            };
+        }
+
         if let Some(target) = self.targeted_display_slot(data) {
             let display = &data.displays[target.display_index];
             if let Some(toy) =
@@ -162,12 +184,6 @@ impl GameSession {
 
         if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
             return InteractionPreview::InventoryFull;
-        }
-
-        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
-            return InteractionPreview::Pickup {
-                toy_name: self.toys[toy_index].name.clone(),
-            };
         }
 
         if self.is_near_repair_bench(data) {
