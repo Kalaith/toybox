@@ -202,6 +202,92 @@ fn a_lone_benched_part_names_the_counterpart_still_missing() {
 }
 
 #[test]
+fn bench_status_reports_every_stage_for_the_beacon() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let bench = data.primary_bench();
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
+
+    assert_eq!(
+        session.bench_status(bench),
+        BenchStatus {
+            filled: 0,
+            capacity: bench.capacity,
+            stage: BenchStage::Empty,
+        }
+    );
+
+    let (body_id, pair_repair_id) = session
+        .toys
+        .iter()
+        .find_map(|toy| match &toy.repair_state {
+            RepairState::BrokenPart {
+                repair_id,
+                part: RepairPartKind::Body,
+                ..
+            } => Some((toy.id.clone(), repair_id.clone())),
+            _ => None,
+        })
+        .unwrap();
+    let body_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.id == body_id)
+        .unwrap();
+    session.pick_up_toy(body_index);
+    session.interact(&data);
+
+    assert_eq!(session.bench_status(bench).stage, BenchStage::AwaitingMatch);
+    assert_eq!(session.bench_status(bench).filled, 1);
+
+    // A head from a different break fills the bench without matching.
+    let stranger_index = session
+        .toys
+        .iter()
+        .position(|toy| {
+            matches!(
+                &toy.repair_state,
+                RepairState::BrokenPart {
+                    repair_id,
+                    part: RepairPartKind::Head,
+                    ..
+                } if *repair_id != pair_repair_id
+            )
+        })
+        .unwrap();
+    session.pick_up_toy(stranger_index);
+    session.interact(&data);
+
+    assert_eq!(session.bench_status(bench).stage, BenchStage::Mismatched);
+    assert_eq!(session.bench_status(bench).filled, bench.capacity);
+
+    // Swap the stranger for the real counterpart and the beacon goes green.
+    session.pick_up_toy(stranger_index);
+    let matching_head_index = session
+        .toys
+        .iter()
+        .position(|toy| {
+            matches!(
+                &toy.repair_state,
+                RepairState::BrokenPart {
+                    repair_id,
+                    part: RepairPartKind::Head,
+                    ..
+                } if *repair_id == pair_repair_id
+            )
+        })
+        .unwrap();
+    session.drop_active(&data);
+    session.pick_up_toy(matching_head_index);
+    session.interact(&data);
+
+    assert_eq!(session.bench_status(bench).stage, BenchStage::Ready);
+}
+
+#[test]
 fn carrying_an_unrelated_part_warns_before_it_is_benched() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);

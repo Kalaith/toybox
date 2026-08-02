@@ -2,7 +2,6 @@
 
 ## Repair flow at scale
 
-- Show from a distance what is waiting on each bench (procedural indicator on the bench itself).
 - Give the Toy Scanner (or a new tool) the ability to locate a carried part's counterpart.
 - Balance pass now that ~12% of 4000 toys spawn broken: mistake penalty, timer, and repair pacing, all tuned through `assets/data/*.json`.
 - Repair parts still render as the generic head/body model for every category.

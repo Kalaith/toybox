@@ -3,7 +3,8 @@
 use crate::data::GameData;
 use crate::gallery::GalleryScene;
 use crate::state::{
-    migrate_save_value, GameSession, InteractionResult, SaveData, ToolPurchaseResult,
+    migrate_save_value, GameSession, InteractionResult, RepairPartKind, SaveData,
+    ToolPurchaseResult, WorldPoint,
 };
 use crate::ui::{self, DebugOverlay, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
@@ -134,6 +135,32 @@ impl Game {
             }
             "gameplay" => {
                 self.session = GameSession::new(&self.data);
+                self.screen = GameScreen::Playing;
+            }
+            // A bench holding one half of a broken toy, framed from the front,
+            // so the status beacon can be checked without playing to that state.
+            "repair_bench" => {
+                self.session = GameSession::new(&self.data);
+                let bench = self.data.primary_bench();
+                self.session.player.position = WorldPoint {
+                    x: bench.x,
+                    y: bench.y,
+                };
+                if let Some(body_index) = self
+                    .session
+                    .toys
+                    .iter()
+                    .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+                {
+                    self.session.pick_up_toy(body_index);
+                    self.session.interact(&self.data);
+                }
+                self.session.player.position = WorldPoint {
+                    x: bench.x,
+                    y: bench.y - 2.6,
+                };
+                self.session.player.yaw = std::f32::consts::FRAC_PI_2;
+                self.session.player.pitch = -0.06;
                 self.screen = GameScreen::Playing;
             }
             _ => {}

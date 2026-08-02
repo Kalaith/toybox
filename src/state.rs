@@ -17,6 +17,7 @@ use collision::{keep_off_fixtures, position_blocked};
 use spawn::build_toys;
 
 pub use persistence::{migrate_save_value, SaveData};
+pub use repair::{BenchStage, BenchStatus};
 pub use spatial::ToySpatialGrid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

@@ -35,6 +35,26 @@ impl ToyState {
     }
 }
 
+/// What a bench is holding, readable at a glance from across the room.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BenchStatus {
+    pub filled: usize,
+    pub capacity: usize,
+    pub stage: BenchStage,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchStage {
+    /// No parts waiting.
+    Empty,
+    /// Parts waiting, but the set is not complete yet.
+    AwaitingMatch,
+    /// Every slot filled by parts from different broken toys.
+    Mismatched,
+    /// Every slot filled by parts of the same toy — pressing E repairs it.
+    Ready,
+}
+
 impl RepairPartKind {
     pub fn label(self) -> &'static str {
         match self {
@@ -87,8 +107,13 @@ impl GameSession {
         if part_indices.len() != bench.capacity {
             return None;
         }
+        self.matched_repair_name(&part_indices)
+    }
 
-        let first_part = &self.toys[part_indices[0]];
+    /// The repaired name shared by every part in `part_indices`, or `None` if
+    /// they came from different breaks.
+    fn matched_repair_name(&self, part_indices: &[usize]) -> Option<String> {
+        let first_part = &self.toys[*part_indices.first()?];
         let repair_id = first_part.repair_id()?;
         let matching_parts = part_indices
             .iter()
@@ -100,6 +125,28 @@ impl GameSession {
                 .unwrap_or(&first_part.name)
                 .to_owned()
         })
+    }
+
+    /// Per-bench summary for the renderer, so a player can read every bench
+    /// from across the room instead of walking to each one.
+    pub fn bench_status(&self, bench: &BenchDef) -> BenchStatus {
+        let part_indices = self.benched_repair_part_indices(bench);
+        let filled = part_indices.len();
+        let stage = if filled == 0 {
+            BenchStage::Empty
+        } else if filled < bench.capacity {
+            BenchStage::AwaitingMatch
+        } else if self.matched_repair_name(&part_indices).is_some() {
+            BenchStage::Ready
+        } else {
+            BenchStage::Mismatched
+        };
+
+        BenchStatus {
+            filled,
+            capacity: bench.capacity,
+            stage,
+        }
     }
 
     /// A part left waiting on the nearest bench whose counterpart is still out

@@ -247,7 +247,7 @@ impl GameSession {
             .map(|toy_index| &self.toys[toy_index])
     }
 
-    pub(super) fn pick_up_toy(&mut self, toy_index: usize) -> InteractionResult {
+    pub(crate) fn pick_up_toy(&mut self, toy_index: usize) -> InteractionResult {
         let toy_id = self.toys[toy_index].id.clone();
         let toy_name = self.toys[toy_index].name.clone();
         let already_carried = self.player.carried_toy_ids.iter().any(|id| id == &toy_id);
