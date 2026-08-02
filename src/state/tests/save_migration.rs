@@ -181,3 +181,144 @@ fn the_retired_tag_lantern_id_still_grants_the_scanner() {
     // The retired id must still spend its credit, or the tool comes out free.
     assert_eq!(reloaded.available_tool_credits(&data), 0);
 }
+
+/// The player's own save, written to a real file and read back.
+///
+/// Every other test here hands `migrate_save_value` a `Value` it built in
+/// memory. That is the arrangement in which a save bug cannot happen — and it
+/// is not the code that runs: a save written by this build carries the current
+/// version, so `load_from_slot_with_migration` takes its *fast path* and
+/// deserialises the wrapper directly, never calling `migrate_save_value` at
+/// all. The migration tests cannot reach it.
+///
+/// This matters because that exact pair of calls silently dropped the best-run
+/// records for two iterations, caught only once something went through a file.
+/// Records were a leaderboard; this is the player's shift.
+mod on_disk {
+    use super::*;
+    use macroquad_toolkit::persistence::{
+        get_app_data_path, load_from_slot_with_migration, save_to_slot_with_version, slot_exists,
+    };
+    use std::fs;
+
+    fn scratch_game(tag: &str) -> String {
+        format!("toybox_session_test_{tag}")
+    }
+
+    fn remove_scratch(game_name: &str) {
+        if let Some(path) = get_app_data_path(game_name, "x") {
+            if let Some(dir) = path.parent() {
+                let _ = fs::remove_dir_all(dir);
+            }
+        }
+    }
+
+    /// Play a little: shelve one toy, carry another, bank a mistake and a
+    /// repair, and buy a tool. A save of an untouched session would round-trip
+    /// even if the payload were being dropped entirely.
+    fn played_session(data: &GameData) -> GameSession {
+        let mut session = GameSession::new(data);
+        let display = &data.displays[0];
+
+        let right = session
+            .toys
+            .iter()
+            .position(|toy| toy_matches_display(toy, display) && !toy.is_repair_part())
+            .unwrap();
+        session.pick_up_toy(right, data);
+        session.place_active_toy(0, 0, data);
+
+        let wrong = session
+            .toys
+            .iter()
+            .position(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
+            .unwrap();
+        session.pick_up_toy(wrong, data);
+        session.place_active_toy(0, 1, data);
+
+        let carried = session
+            .toys
+            .iter()
+            .position(|toy| toy.placed_display_id.is_none() && !toy.is_held)
+            .unwrap();
+        session.pick_up_toy(carried, data);
+
+        session.player.repairs = 3;
+        session.player.elapsed_seconds = 421.5;
+        session.shift_mode = ShiftMode::Relaxed;
+        session.unlocked_upgrade_ids.push("toy_scanner".to_owned());
+        session
+    }
+
+    #[test]
+    fn a_session_survives_a_round_trip_through_a_file() {
+        let data = GameData::load().unwrap();
+        let game = scratch_game("roundtrip");
+        let slot = "session";
+        remove_scratch(&game);
+
+        let before = played_session(&data);
+        let version = &data.config.version;
+        save_to_slot_with_version(&game, slot, &before.to_save(version), version)
+            .expect("save session");
+        assert!(slot_exists(&game, slot));
+
+        let loaded: SaveData =
+            load_from_slot_with_migration(&game, slot, version, |detected, value| {
+                // Reaching here means the fast path did *not* run, which is
+                // itself worth failing on: it would mean a save this build just
+                // wrote does not carry this build's version.
+                panic!("unexpected migration from {detected:?}: {value}")
+            })
+            .expect("load session");
+        let after = GameSession::from_save(loaded, &data);
+
+        assert_eq!(after.shift_mode, ShiftMode::Relaxed);
+        assert_eq!(after.player.mistakes, before.player.mistakes);
+        assert_eq!(after.player.repairs, 3);
+        assert_eq!(after.player.elapsed_seconds, 421.5);
+        assert_eq!(after.unlocked_upgrade_ids, before.unlocked_upgrade_ids);
+        assert_eq!(after.toys.len(), before.toys.len());
+        assert_eq!(after.total_placed_toys(), before.total_placed_toys());
+        assert!(
+            after.total_placed_toys() > 0,
+            "nothing was shelved to check"
+        );
+        assert_eq!(
+            after.player.carried_toy_ids, before.player.carried_toy_ids,
+            "the toy in hand did not come back"
+        );
+        assert_eq!(
+            after.active_toy().map(|toy| toy.id.clone()),
+            before.active_toy().map(|toy| toy.id.clone())
+        );
+
+        remove_scratch(&game);
+    }
+
+    /// A save from an older build reaches `migrate_save_value` through the real
+    /// load, not just through a direct call.
+    #[test]
+    fn an_older_saves_version_routes_it_through_migration() {
+        let data = GameData::load().unwrap();
+        let game = scratch_game("migrate");
+        let slot = "session";
+        remove_scratch(&game);
+
+        let session = GameSession::new(&data);
+        save_to_slot_with_version(&game, slot, &session.to_save("2.1.0"), "2.1.0")
+            .expect("save old session");
+
+        let loaded: SaveData =
+            load_from_slot_with_migration(&game, slot, &data.config.version, |detected, value| {
+                assert_eq!(detected.as_deref(), Some("2.1.0"));
+                migrate_save_value(detected, value, &data)
+            })
+            .expect("load old session");
+
+        assert_eq!(loaded.version, data.config.version);
+        assert_eq!(loaded.toys.len(), session.toys.len());
+
+        remove_scratch(&game);
+    }
+}
