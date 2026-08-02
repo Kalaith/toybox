@@ -142,6 +142,17 @@ impl GamePhase {
     pub fn is_over(self) -> bool {
         !matches!(self, GamePhase::Playing)
     }
+
+    /// Whether leaving for the title should write this shift to the save slot.
+    ///
+    /// A run still in progress has to survive being quit — that button is the
+    /// only way out of a shift from the UI. A finished one must *not* be
+    /// written, because the title's "Continue" would then resume onto a score
+    /// screen for a run that is already over and already recorded, and would
+    /// have overwritten whatever resumable shift was in the slot before it.
+    pub fn should_save_on_leaving(self) -> bool {
+        !self.is_over()
+    }
 }
 
 impl ShiftMode {

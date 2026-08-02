@@ -215,12 +215,16 @@ pub(crate) fn draw_settings_screen(
         actions.push(UiAction::CloseSettings);
     }
 
+    // Named for what it does rather than what it used to: leaving writes the
+    // shift to the save slot, so the title's Continue picks it back up. A
+    // Danger tone said the opposite — that the run was about to be thrown
+    // away, which is exactly what used to happen.
     if from_game
         && title_button(
             Rect::new(row2_x + button_w + button_gap, row2_y, button_w, button_h),
-            "Quit to Title",
+            "Save & Quit",
             true,
-            ButtonTone::Danger,
+            ButtonTone::Muted,
             mouse,
         )
     {

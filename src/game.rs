@@ -216,6 +216,19 @@ impl Game {
                 self.session = capture_scenes::repair_bench(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            // The settings panel, and the same panel opened mid-shift as the
+            // pause menu. They are not one screen with a different heading: the
+            // paused form adds Quit to Title and renames Back to Resume, so its
+            // second row is laid out to a different width.
+            "settings" => {
+                self.settings_from_game = false;
+                self.screen = GameScreen::Settings;
+            }
+            "paused" => {
+                self.session = capture_scenes::mid_run(&self.data);
+                self.settings_from_game = true;
+                self.screen = GameScreen::Settings;
+            }
             _ => {}
         }
     }
@@ -459,6 +472,19 @@ impl Game {
                 self.settings_from_game = false;
             }
             UiAction::BackToTitle => {
+                // Keep the shift. This button is the only way out of a run from
+                // the UI, and `Ctrl+S` was the only thing that ever wrote the
+                // save slot — so leaving without saving threw the run away and
+                // then offered "Continue" backed by whatever older save
+                // happened to be on disk, with nothing to say the shift the
+                // player just left was gone.
+                //
+                // Only while the shift is still playable: writing a finished
+                // one would make "Continue" resume onto a score screen for a
+                // run that is already over and already recorded.
+                if self.session.phase.should_save_on_leaving() {
+                    self.save_game();
+                }
                 self.settings_from_game = false;
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::Title;

@@ -321,4 +321,56 @@ mod on_disk {
 
         remove_scratch(&game);
     }
+
+    /// Quitting to the title mid-shift keeps the run, and quitting once the
+    /// shift is over leaves the resumable one alone.
+    ///
+    /// "Quit to Title" was the only way out of a run from the UI and it wrote
+    /// nothing — `Ctrl+S` was the sole path to the save slot — so leaving threw
+    /// the shift away and then offered "Continue" backed by whatever older save
+    /// was on disk. The second half matters just as much: a finished run must
+    /// not overwrite a live one, or Continue resumes onto a score screen for a
+    /// shift that already ended.
+    #[test]
+    fn quitting_mid_shift_keeps_the_run_and_quitting_after_it_does_not() {
+        let data = GameData::load().unwrap();
+        let game = scratch_game("quit_to_title");
+        let slot = "session";
+        remove_scratch(&game);
+
+        let version = &data.config.version;
+        let live = played_session(&data);
+        assert!(live.phase.should_save_on_leaving());
+        save_to_slot_with_version(&game, slot, &live.to_save(version), version).expect("save live");
+
+        // A run the clock ended: still worth plenty of progress, so a version
+        // that wrote it anyway would look fine until Continue was pressed.
+        let mut over = played_session(&data);
+        over.phase = GamePhase::TimeUp;
+        assert!(!over.phase.should_save_on_leaving());
+        if over.phase.should_save_on_leaving() {
+            save_to_slot_with_version(&game, slot, &over.to_save(version), version)
+                .expect("save finished");
+        }
+
+        let loaded: SaveData = load_from_slot_with_migration(&game, slot, version, |_, _| {
+            Err("a save this build wrote must not need migrating".to_owned())
+        })
+        .expect("load session");
+        let resumed = GameSession::from_save(loaded, &data);
+
+        assert_eq!(
+            resumed.phase,
+            GamePhase::Playing,
+            "Continue would resume onto a score screen"
+        );
+        assert_eq!(resumed.total_placed_toys(), live.total_placed_toys());
+        assert!(resumed.total_placed_toys() > 0, "nothing was shelved");
+        assert_eq!(
+            resumed.player.carried_toy_ids, live.player.carried_toy_ids,
+            "the toy in hand did not survive the quit"
+        );
+
+        remove_scratch(&game);
+    }
 }
