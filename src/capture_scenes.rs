@@ -5,7 +5,7 @@
 //! real run.
 
 use crate::data::GameData;
-use crate::state::{GameSession, RepairPartKind, WorldPoint};
+use crate::state::{GamePhase, GameSession, RepairPartKind, WorldPoint};
 use macroquad::prelude::*;
 
 /// How much shop floor to sweep around the bench. At 4000 loose toys the
@@ -87,6 +87,30 @@ pub fn mid_run(data: &GameData) -> GameSession {
 pub fn closing_soon(data: &GameData) -> GameSession {
     let mut session = mid_run(data);
     session.player.elapsed_seconds = data.config.shift_seconds - 44.0;
+    session
+}
+
+/// The score screen after the clock beat the player: two aisles restored, the
+/// rest part-done, a handful of repairs and a few wrong shelves. A fresh
+/// `TimeUp` session would score every row zero and prove nothing about layout.
+pub fn shift_over(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+
+    // Plush Corner and the Dragon Alcove finished; the rest partway.
+    for display_index in 0..8 {
+        stock_display(&mut session, data, display_index, 1.0);
+    }
+    for display_index in 8..14 {
+        stock_display(&mut session, data, display_index, 0.55);
+    }
+    for display_index in 14..17 {
+        stock_display(&mut session, data, display_index, 0.2);
+    }
+
+    session.player.repairs = 7;
+    session.player.mistakes = 4;
+    session.player.elapsed_seconds = data.config.shift_seconds;
+    session.phase = GamePhase::TimeUp;
     session
 }
 

@@ -442,6 +442,7 @@ fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
             PromptVisual::neutral("Click to look")
         }
         InteractionPreview::Finished => PromptVisual::good("Shop restored"),
+        InteractionPreview::ShiftOver => PromptVisual::warning("The doors are open"),
     };
     Some(prompt)
 }

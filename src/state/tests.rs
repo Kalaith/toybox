@@ -7,5 +7,6 @@ mod replay;
 mod save_migration;
 mod session_setup;
 mod shift_clock;
+mod shift_summary;
 mod upgrade_effects;
 mod zone_progress;

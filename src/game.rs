@@ -147,6 +147,10 @@ impl Game {
                 self.session = capture_scenes::mid_run(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            "shift_over" => {
+                self.session = capture_scenes::shift_over(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "closing_soon" => {
                 self.session = capture_scenes::closing_soon(&self.data);
                 self.screen = GameScreen::Playing;
@@ -428,6 +432,7 @@ impl Game {
                 display_name,
                 was_wrong,
                 completed_display,
+                completed_zone,
                 available_tools,
                 finished,
             } => {
@@ -440,6 +445,11 @@ impl Game {
                 }
                 if let Some(name) = completed_display {
                     self.notifications.success(format!("Completed {}", name));
+                }
+                // Louder than a single display: an aisle is four of them.
+                if let Some(name) = completed_zone {
+                    self.notifications
+                        .success(format!("{} is fully restored", name));
                 }
                 for tool_name in available_tools {
                     self.notifications

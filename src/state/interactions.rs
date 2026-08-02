@@ -89,7 +89,10 @@ impl GameSession {
 
     pub fn interaction_preview(&self, data: &GameData) -> InteractionPreview {
         if self.phase != GamePhase::Playing {
-            return InteractionPreview::Finished;
+            return match self.phase {
+                GamePhase::TimeUp => InteractionPreview::ShiftOver,
+                _ => InteractionPreview::Finished,
+            };
         }
 
         if let Some(active_toy) = self.active_toy() {
@@ -326,6 +329,7 @@ impl GameSession {
             return InteractionResult::NeedsRepair { toy_name };
         }
         let previous_completed_count = self.completed_display_count();
+        let previously_restored_zones = self.restored_zone_names(data);
 
         let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
         if is_wrong_display {
@@ -360,6 +364,10 @@ impl GameSession {
         } else {
             None
         };
+        let completed_zone = self
+            .restored_zone_names(data)
+            .into_iter()
+            .find(|zone| !previously_restored_zones.contains(zone));
         let available_tools = self.newly_available_upgrades(data, previous_completed_count);
         let finished = self
             .displays
@@ -374,6 +382,7 @@ impl GameSession {
             display_name: display.name.clone(),
             was_wrong: is_wrong_display,
             completed_display,
+            completed_zone,
             available_tools,
             finished,
         }

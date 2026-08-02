@@ -1,10 +1,10 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
 use crate::data::{GameData, UpgradeDef};
-use crate::state::{GamePhase, GameSession};
+use crate::state::GameSession;
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
+use macroquad_toolkit::ui::draw_ui_text_ex;
 
 mod ambience;
 mod benches;
@@ -17,6 +17,7 @@ mod hud_icons;
 mod minimap;
 mod scanner;
 mod scene3d;
+mod score;
 mod signs;
 mod space;
 mod title;
@@ -69,13 +70,15 @@ pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction>
 
     let actions = Vec::new();
 
-    draw_game_hud(&ctx);
-    minimap::draw_minimap(&ctx);
-    overlay.draw(&ctx, &stats);
-
+    // The score screen is the whole message once a run ends; leaving the HUD
+    // and minimap under it just crowds the panel with numbers it already shows.
     if ctx.session.phase.is_over() {
-        draw_finish_overlay(&ctx);
+        score::draw_score_screen(&ctx);
+    } else {
+        draw_game_hud(&ctx);
+        minimap::draw_minimap(&ctx);
     }
+    overlay.draw(&ctx, &stats);
 
     actions
 }
@@ -324,84 +327,4 @@ fn logical_mouse_position() -> Vec2 {
         screen_x * LOGICAL_WIDTH / screen_width().max(1.0),
         screen_y * LOGICAL_HEIGHT / screen_height().max(1.0),
     )
-}
-
-fn draw_finish_overlay(ctx: &UiContext<'_>) {
-    let rect = Rect::new(340.0, 190.0, 600.0, 190.0);
-    draw_rectangle(
-        0.0,
-        0.0,
-        LOGICAL_WIDTH,
-        LOGICAL_HEIGHT,
-        Color::new(0.02, 0.025, 0.03, 0.56),
-    );
-    draw_surface(
-        rect,
-        &SurfaceStyle::new(Color::new(0.08, 0.09, 0.105, 0.98))
-            .with_border(1.0, Color::new(0.96, 0.74, 0.38, 0.85)),
-    );
-    // Two endings reach this overlay and they are not the same news. Announcing
-    // "Store Restored" over a floor still covered in toys would be the panel
-    // telling the player they won when the clock beat them.
-    let ran_out = ctx.session.phase == GamePhase::TimeUp;
-    let (heading, heading_color) = if ran_out {
-        ("Doors Open", Color::new(0.98, 0.62, 0.42, 1.0))
-    } else {
-        ("Store Restored", dark::TEXT_BRIGHT)
-    };
-    draw_text_centered_in_box(
-        heading,
-        rect.x,
-        rect.y + 24.0,
-        rect.w,
-        36.0,
-        28.0,
-        heading_color,
-    );
-    let completion =
-        ctx.session.total_placed_toys() as f32 / ctx.data.config.toy_count.max(1) as f32 * 100.0;
-    let completed_displays = ctx.session.completed_display_count();
-    draw_text_centered_in_box(
-        &format!(
-            "{}   Time {}   Wrong attempts {}   Completion {:.0}%",
-            ctx.session.shift_mode.label(),
-            format_mmss(ctx.session.player.elapsed_seconds),
-            ctx.session.player.mistakes,
-            completion
-        ),
-        rect.x,
-        rect.y + 78.0,
-        rect.w,
-        28.0,
-        18.0,
-        dark::TEXT,
-    );
-    draw_text_centered_in_box(
-        &format!(
-            "Toys placed {}/{}   Full displays {}/{}",
-            ctx.session.total_placed_toys(),
-            ctx.data.config.toy_count,
-            completed_displays,
-            ctx.data.displays.len()
-        ),
-        rect.x,
-        rect.y + 118.0,
-        rect.w,
-        28.0,
-        16.0,
-        dark::TEXT,
-    );
-    draw_text_centered_in_box(
-        if ran_out {
-            "Opening time caught up with you. R starts another shift."
-        } else {
-            "The snow globe shop is ready for sunrise."
-        },
-        rect.x,
-        rect.y + 150.0,
-        rect.w,
-        28.0,
-        16.0,
-        dark::TEXT_DIM,
-    );
 }

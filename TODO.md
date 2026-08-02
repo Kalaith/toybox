@@ -9,7 +9,6 @@
 
 ## Game loop and progression
 
-- Rework the finish condition and finish screen around zone milestones now that per-zone completion exists (`GameSession::zone_progress`). Note a zone caps at ~88% until its broken toys are repaired.
 - **Run length is decided: 240 toys, 12 per display.** A shift is ~28 min bare-handed and ~17 min fully equipped, and 12 displays complete against the 11 credits all five tools cost — so the tool economy closes with a little room, and buying tools visibly shortens the run. Measured by `shop_scale_sets_the_length_of_a_shift` (`cargo test --release shop_scale -- --ignored --nocapture`), which sweeps capacity and is the thing to re-run before changing `toy_count` again:
 
   | capacity | toys | bare-handed | equipped | displays done |
@@ -22,7 +21,8 @@
 
   Cost per toy is ~7.6s bare-handed at every size, so length is linear in `toy_count`; what is *not* linear is completed displays, which collapse as capacity grows because one unrepaired toy holds a whole display open. The old 4000-toy shop completed a single display in nearly eight hours, which put every one of the five tools out of reach for the entire game.
 - **Deadline and relaxed mode are in.** `shift_seconds` (1800) ends a timed run at `GamePhase::TimeUp`; the title offers *Closing Shift* against the clock and *Relaxed Run* without one, `ShiftMode` persists in the save, and the HUD counts down (amber under 5 min, red under 1). The mistake penalty now bites, because pushing `elapsed_seconds` can end the shift outright — pinned by `state/tests/shift_clock.rs`.
-- The finish overlay tells the two endings apart but is still the old three-line panel. Rework it into a real score screen: toys shelved, repairs, mistakes, zones done, and a grade — and rework the *finish condition* around zone milestones (`GameSession::zone_progress`) so restoring the shop is not all-or-nothing. Note a zone caps at ~88% until its broken toys are repaired.
+- **The score screen is in** (`ui/score.rs`): grade badge, toys shelved, repairs, wrong shelves, time, and a per-aisle bar table, driven by `GameSession::shift_summary`. Finishing an aisle now announces itself mid-run via `InteractionResult::Placed.completed_zone`. The HUD hides behind the panel so the score is the whole message.
+- **The ~88% zone cap is now impossible to miss**, and it is the next thing to fix: `shift_over` stocks every plush display to the brim and the aisle still reads 43/48 with "0 of 5 aisles restored", because five of its toys are lying around in halves. Either the score screen should count a zone's repairable remainder separately, or breaks should not block a zone from reading restored. As it stands a player who shelves an entire aisle perfectly is told they finished nothing.
 - `shift_seconds` is set from replay minutes, which use an untuned 0.6s-per-interaction constant. Worth a real playthrough before trusting 30 minutes as the deadline.
 
 ## Polish

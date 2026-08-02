@@ -19,7 +19,7 @@ use collision::{keep_off_fixtures, position_blocked};
 use spawn::build_toys;
 
 pub use persistence::{migrate_save_value, SaveData};
-pub use progress::ZoneProgress;
+pub use progress::{ShiftSummary, ZoneProgress};
 pub use repair::{BenchStage, BenchStatus, CounterpartLocation};
 pub use spatial::ToySpatialGrid;
 
@@ -62,6 +62,10 @@ pub struct PlayerState {
     pub carried_toy_ids: Vec<String>,
     pub active_carry_index: usize,
     pub mistakes: u32,
+    /// Broken toys rejoined at a bench. Saves predating the score screen never
+    /// counted them, so they load as zero rather than refusing to load.
+    #[serde(default)]
+    pub repairs: u32,
     pub elapsed_seconds: f32,
 }
 
@@ -186,6 +190,10 @@ pub enum InteractionResult {
         display_name: String,
         was_wrong: bool,
         completed_display: Option<String>,
+        /// The aisle this placement finished off, if it finished one. Zones are
+        /// the milestone the run is paced around — four displays each, so one
+        /// landing is a bigger moment than a single shelf filling.
+        completed_zone: Option<String>,
         available_tools: Vec<String>,
         finished: bool,
     },
@@ -232,7 +240,11 @@ pub enum InteractionPreview {
     ShelfFull,
     LookAtEmptySlot,
     NothingNearby,
+    /// The shop was fully restored.
     Finished,
+    /// The doors opened with work left. Distinct from `Finished` because
+    /// "Shop restored" over a floor still covered in toys is a lie.
+    ShiftOver,
 }
 
 #[derive(Debug, Clone)]
@@ -297,6 +309,7 @@ impl GameSession {
                 carried_toy_ids: Vec::new(),
                 active_carry_index: 0,
                 mistakes: 0,
+                repairs: 0,
                 elapsed_seconds: 0.0,
             },
             toys,

@@ -314,6 +314,7 @@ impl GameSession {
             .carried_toy_ids
             .push(self.toys[survivor_index].id.clone());
         self.player.active_carry_index = 0;
+        self.player.repairs += 1;
 
         InteractionResult::Repaired {
             toy_name: repaired_name,
