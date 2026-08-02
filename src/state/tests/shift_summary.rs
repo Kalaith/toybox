@@ -143,3 +143,39 @@ fn the_grade_separates_perfect_from_merely_finished() {
     session.player.mistakes = 99;
     assert_ne!(session.shift_summary(&data).grade(), "S");
 }
+
+/// The shop can actually be won with the shipped data.
+///
+/// Grades and completion are otherwise only tested on summaries built by hand,
+/// which cannot notice a config where the win condition is unreachable — a
+/// display whose category has too few matching toys, or capacities that no
+/// longer sum to `toy_count`, would leave `GamePhase::Finished` unreachable and
+/// every test still green. This drives the same staging the `store_restored`
+/// capture uses, so the scene and the invariant cannot drift apart.
+#[test]
+fn the_shipped_shop_can_be_restored_completely() {
+    let data = GameData::load().unwrap();
+    let session = crate::capture_scenes::store_restored(&data);
+
+    assert_eq!(session.phase, GamePhase::Finished);
+
+    let summary = session.shift_summary(&data);
+    assert_eq!(summary.toys_shelved, data.config.toy_count);
+    assert_eq!(summary.completion(), 1.0);
+    assert_eq!(summary.grade(), "S", "a flawless clear is the top grade");
+    assert_eq!(
+        summary.zones_restored, summary.zones_with_shelves,
+        "every aisle with shelves should read restored"
+    );
+
+    // Nothing left loose on the floor: a toy that matches no display at all
+    // would leave the shop winnable but the floor never clear.
+    let stranded = session
+        .toys
+        .iter()
+        .filter(|toy| {
+            matches!(toy.repair_state, RepairState::Whole) && toy.placed_display_id.is_none()
+        })
+        .count();
+    assert_eq!(stranded, 0, "{stranded} whole toys had nowhere to go");
+}

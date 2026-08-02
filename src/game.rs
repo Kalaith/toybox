@@ -176,6 +176,20 @@ impl Game {
                 self.recorded_run = true;
                 self.screen = GameScreen::Playing;
             }
+            "store_restored" => {
+                self.session = capture_scenes::store_restored(&self.data);
+                self.best_runs = capture_scenes::previous_best();
+                // Submit in memory exactly as `record_finished_run` does, so
+                // the panel shows "New best" reporting *this* run rather than
+                // the record it just beat — in play the submit happens in
+                // `update`, before `draw` reads it back. Never saved: a capture
+                // must not touch a real player's records file.
+                let summary = self.session.shift_summary(&self.data);
+                let run = ShiftRecord::from_summary(&summary, true);
+                self.beat_record = self.best_runs.submit(self.session.shift_mode, run);
+                self.recorded_run = true;
+                self.screen = GameScreen::Playing;
+            }
             "carrying_armful" => {
                 self.session = capture_scenes::carrying_armful(&self.data);
                 self.screen = GameScreen::Playing;
@@ -481,14 +495,9 @@ impl Game {
                 // save slot — so leaving without saving threw the run away and
                 // then offered "Continue" backed by whatever older save
                 // happened to be on disk, with nothing to say the shift the
-                // player just left was gone.
-                //
-                // Only while the shift is still playable: writing a finished
-                // one would make "Continue" resume onto a score screen for a
-                // run that is already over and already recorded.
-                if self.session.phase.should_save_on_leaving() {
-                    self.save_game();
-                }
+                // player just left was gone. `save_game` holds the rule about
+                // which shifts are worth keeping.
+                self.save_game();
                 self.settings_from_game = false;
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::Title;
@@ -645,6 +654,18 @@ impl Game {
     }
 
     fn save_game(&mut self) {
+        // One rule, one place: the slot holds a shift you can come back to.
+        // `Ctrl+S` is still live at the score screen, so without this a player
+        // could write a finished run over a resumable one, and "Continue" would
+        // then drop them onto a score screen for a shift that already ended and
+        // was already recorded. Said out loud rather than silently ignored,
+        // because this path is an explicit keypress.
+        if !self.session.phase.should_save_on_leaving() {
+            self.notifications
+                .info("The shift is over - nothing left to save");
+            return;
+        }
+
         let save = self.session.to_save(&self.data.config.version);
         match save_to_slot_with_version(
             &self.data.config.game_name,

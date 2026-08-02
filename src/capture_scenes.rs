@@ -128,6 +128,60 @@ pub fn shift_over(data: &GameData) -> GameSession {
     session
 }
 
+/// The other ending: every display filled and the shop restored. `shift_over`
+/// is the clock beating the player, and the score screen branches on the two —
+/// a green accent, "Store Restored", a different footer, and every aisle row in
+/// its restored colour. Only the losing half had ever been rendered.
+///
+/// Won the honest way rather than by forcing the phase: a display cannot
+/// complete while its toys are lying about in halves, so every broken pair is
+/// mended first and then every display is stocked to capacity. The phase falls
+/// out of the last placement, exactly as it does in play.
+pub fn store_restored(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+
+    // Mend every break: the body survives whole under its repaired name and the
+    // head is consumed, which is what `repair_benched_toys` leaves behind.
+    for index in 0..session.toys.len() {
+        let RepairState::BrokenPart {
+            repair_id,
+            part,
+            repaired_name,
+        } = session.toys[index].repair_state.clone()
+        else {
+            continue;
+        };
+        match part {
+            RepairPartKind::Body => {
+                session.toys[index].name = repaired_name;
+                session.toys[index].repair_state = RepairState::Whole;
+            }
+            RepairPartKind::Head => {
+                session.toys[index].repair_state = RepairState::ConsumedPart { repair_id };
+            }
+        }
+        session.player.repairs += 1;
+    }
+    // One repair per pair, not per part.
+    session.player.repairs /= 2;
+
+    for display_index in 0..data.displays.len() {
+        stock_display(&mut session, data, display_index, 1.0);
+    }
+
+    // Flawless, so the badge shows `S`. That grade exists only for a clear with
+    // no wrong shelves and had never been rendered; `shift_over` already covers
+    // both a nonzero mistake count and the `A` band.
+    session.player.mistakes = 0;
+    session.player.elapsed_seconds = 1502.0;
+    assert_eq!(
+        session.phase,
+        GamePhase::Finished,
+        "the shop was not actually restored"
+    );
+    session
+}
+
 /// Carrying a full trolley: three toys, one of them active. The `Q` cycle hint
 /// and the row of carry pips only appear above a carry limit of one, so every
 /// other scene shows the card in its single-toy form.

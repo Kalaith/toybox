@@ -243,7 +243,11 @@ fn draw_best_run(best: Option<ShiftRecord>, beat_record: bool, accent: Color) {
 fn draw_footer(restored: bool) {
     draw_text_centered_in_box(
         if restored {
-            "The snow globe shop is ready for sunrise."
+            // This read "The snow globe shop is ready for sunrise" — stray text
+            // from another game, and the only occurrence of "snow" in the repo.
+            // It sat on the *win* screen, so a perfect twenty-five minute shift
+            // was congratulated on tidying a shop that does not exist here.
+            "Every toy is home before the doors open."
         } else {
             "Opening time caught up with you."
         },
