@@ -15,7 +15,6 @@
 
 ## Polish
 
-- The per-zone lamp tint is deliberately a 30% blend and is hard to see in a frame full of toys. Worth a side-by-side check of two zones' lamps at some point to confirm it is doing enough work to be worth having.
 - Refresh the README and controls once the full loop lands, and regenerate `catalog_thumbnail.png` if the title screen changes.
 
 ## Engineering

@@ -1,7 +1,6 @@
 <#
 .SYNOPSIS
-    Captures the whole-store screenshot scenes (gameplay, repair_bench,
-    mid_run, tool_shop).
+    Captures the whole-store screenshot scenes.
 
 .DESCRIPTION
     A thin wrapper over the shared ..\macroquad-toolkit\scripts\capture_ui.ps1,
@@ -21,7 +20,7 @@
     ./scripts/capture_scene.ps1 -SkipBuild               # reuse the last build
 #>
 param(
-    [string[]]$Scenes = @("gameplay", "repair_bench", "mid_run", "tool_shop"),
+    [string[]]$Scenes = @("gameplay", "repair_bench", "mid_run", "tool_shop", "checkout", "lamp_contrast"),
     [int]$Frames = 30,
     [string]$OutputDir = "docs\verification",
     [switch]$SkipBuild

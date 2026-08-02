@@ -14,6 +14,49 @@ use macroquad::prelude::*;
 /// stocked store visible behind it.
 const BENCH_CLEARANCE: f32 = 7.0;
 
+/// Two zones' lamp pools side by side across their shared boundary, floor
+/// swept clean. The per-zone accent blend is subtle by design, and a frame full
+/// of loose toys hides it entirely — this is the view that answers whether the
+/// tint is doing enough work to be worth having.
+pub fn lamp_contrast(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+
+    // Pick the two adjacent zones whose accents differ most, so the comparison
+    // is the fairest test the layout can offer rather than a flattering one.
+    let zones = &data.layout.zones;
+    let mut best = (0usize, 1usize, -1.0_f32);
+    for (left_index, left) in zones.iter().enumerate() {
+        for (right_index, right) in zones.iter().enumerate().skip(left_index + 1) {
+            let touching = (left.x + left.w - right.x).abs() < 0.01
+                || (right.x + right.w - left.x).abs() < 0.01;
+            if !touching || (left.y - right.y).abs() > 0.01 {
+                continue;
+            }
+            let separation: f32 = (0..3)
+                .map(|channel| (left.accent[channel] - right.accent[channel]).abs())
+                .sum();
+            if separation > best.2 {
+                best = (left_index, right_index, separation);
+            }
+        }
+    }
+    let right = &zones[best.1];
+    // Stand directly under one of that zone's two pendant lamps and look down
+    // at its floor pool. Anything further back and the pool is behind a
+    // display fixture, which is how three earlier framings showed nothing.
+    let stand = vec2(right.x + right.w * (0.5 - 0.26), right.y + right.h * 0.5);
+
+    session
+        .toys
+        .retain(|toy| toy.position.to_vec2().distance(stand) > 6.0);
+    let mut session = GameSession::from_save(session.to_save(&data.config.version), data);
+
+    session.player.position = WorldPoint::from_vec2_for_capture(stand);
+    session.player.yaw = -std::f32::consts::FRAC_PI_2;
+    session.player.pitch = -GameSession::MAX_LOOK_PITCH;
+    session
+}
+
 /// A run partway through: one aisle fully shelved, another half done, the rest
 /// untouched. A fresh shop reads 0% everywhere, which shows nothing about the
 /// per-zone HUD row or the minimap completion bars.

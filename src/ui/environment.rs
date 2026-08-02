@@ -187,9 +187,11 @@ fn draw_zone_lamps(data: &GameData) {
     let ceiling_y = data.layout.wall.height + 0.06;
 
     for (zone_index, zone) in data.layout.zones.iter().enumerate() {
-        // Each department's bulbs lean toward its own accent. Kept low so the
-        // shop still reads as one warm after-hours space.
-        let warm = zone_tint(zone, base_warm, 0.30);
+        // Each department's bulbs lean toward its own accent. Measured, not
+        // guessed: at the 0.30 this shipped with, over floor pools at alpha
+        // 0.07, an A/B capture from under a lamp was byte-identical to no tint
+        // at all. These values are the weakest that actually read.
+        let warm = zone_tint(zone, base_warm, 0.55);
         for (lamp_index, offset) in [-0.26_f32, 0.26].iter().enumerate() {
             let x = zone.x + zone.w * (0.5 + offset);
             let drift = ((zone_index * 3 + lamp_index * 5) % 5) as f32 * 0.3 - 0.6;
@@ -212,15 +214,15 @@ fn draw_zone_lamps(data: &GameData) {
             draw_cube(vec3(x, 1.91, z), vec3(0.09, 0.07, 0.09), None, warm);
 
             // Soft warm pool on the floor, brighter core inside a wide wash.
-            let wash = zone_tint(zone, Color::new(0.95, 0.82, 0.50, 0.07), 0.34);
+            let wash = zone_tint(zone, Color::new(0.95, 0.82, 0.50, 0.15), 0.62);
             draw_cube(vec3(x, 0.058, z), vec3(2.8, 0.006, 2.8), None, wash);
-            let core = zone_tint(zone, Color::new(0.96, 0.86, 0.55, 0.10), 0.26);
+            let core = zone_tint(zone, Color::new(0.96, 0.86, 0.55, 0.20), 0.52);
             draw_cube(vec3(x, 0.062, z), vec3(1.5, 0.006, 1.5), None, core);
 
             draw_dust_motes(
                 vec3(x, 0.0, z),
                 zone_index * 13 + lamp_index * 7,
-                zone_tint(zone, Color::new(0.98, 0.92, 0.70, 0.32), 0.30),
+                zone_tint(zone, Color::new(0.98, 0.92, 0.70, 0.32), 0.55),
             );
         }
     }
