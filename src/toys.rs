@@ -33,6 +33,7 @@ mod longtail_dragon;
 mod maze_box;
 mod octopus;
 mod owl;
+mod part_accents;
 mod penguin;
 mod planet_race;
 mod primitives;
@@ -101,12 +102,14 @@ pub fn draw_toy_lod_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
 }
 
 pub fn draw_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
+    let profile = toy_profile(toy.category, toy.slot_number);
     if let Some(part) = toy.repair_part_kind() {
-        repair_parts::draw(toy.category, part, center, color, scale);
+        // Parts keep the whole toy's category and slot number, so the identity
+        // that shaped the intact toy is still available to shape its halves.
+        repair_parts::draw(toy.category, profile.identity, part, center, color, scale);
         return;
     }
 
-    let profile = toy_profile(toy.category, toy.slot_number);
     match profile.identity {
         ToyIdentity::Bear => bear::draw(center, color, scale),
         ToyIdentity::Duck => duck::draw(center, color, scale),

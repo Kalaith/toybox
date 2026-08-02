@@ -4,8 +4,9 @@
 //! into. They are reachable only through the capture env vars, never during a
 //! real run.
 
-use crate::data::GameData;
-use crate::state::{GamePhase, GameSession, RepairPartKind, WorldPoint};
+use crate::data::{GameData, ToyCategory};
+use crate::state::{GamePhase, GameSession, RepairPartKind, RepairState, WorldPoint};
+use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
 
 /// How much shop floor to sweep around the bench. At 4000 loose toys the
@@ -136,6 +137,71 @@ pub fn carrying_a_half(data: &GameData) -> GameSession {
 pub fn carrying_a_half_scanned(data: &GameData) -> GameSession {
     let mut session = carrying_a_half(data);
     session.unlocked_upgrade_ids.push("toy_scanner".to_owned());
+    session
+}
+
+/// A row of broken heads from different identities, lined up at eye level in a
+/// swept aisle. Every other scene shows one part at a time, which cannot answer
+/// the question these accents exist for: does a broken Bear look different from
+/// a broken Rabbit, Owl, Elephant and Octopus standing beside it?
+///
+/// `TOYBOX_CAPTURE_PART_CATEGORY` picks which category's ten identities to line
+/// up (`plushies` by default), since a plush head and a block top share no
+/// features to compare.
+pub fn broken_lineup(data: &GameData) -> GameSession {
+    let wanted = std::env::var("TOYBOX_CAPTURE_PART_CATEGORY")
+        .unwrap_or_else(|_| "plushies".to_owned())
+        .to_lowercase();
+    let category = match wanted.as_str() {
+        "dragons" | "tiny_dragons" => ToyCategory::TinyDragons,
+        "robots" | "action_figures" => ToyCategory::ActionFigures,
+        "board_games" => ToyCategory::BoardGames,
+        "blocks" | "building_blocks" => ToyCategory::BuildingBlocks,
+        _ => ToyCategory::Plushies,
+    };
+
+    let mut session = GameSession::new(data);
+    // Stand in an open stretch of the block pit aisle, looking down its length.
+    let stand = vec2(data.config.room_width * 0.5, data.config.room_height * 0.5);
+    session
+        .toys
+        .retain(|toy| toy.position.to_vec2().distance(stand) > 9.0);
+
+    // Break toys on purpose rather than using whichever ones the shop happened
+    // to split. Only a handful of any category starts broken, and they rarely
+    // cover distinct identities — the first version of this scene lined up
+    // three heads, two of which shared a slot number's identity, which is
+    // exactly the comparison it exists to make impossible to fake.
+    const LINEUP: usize = 6;
+    let mut lined_up = 0usize;
+    for slot_number in 1..=LINEUP {
+        let Some(toy) = session.toys.iter_mut().find(|toy| {
+            toy.category == category
+                && toy.slot_number == slot_number
+                && toy.repair_part_kind().is_none()
+        }) else {
+            continue;
+        };
+        toy.repair_state = RepairState::BrokenPart {
+            repair_id: format!("lineup_{slot_number:02}"),
+            part: RepairPartKind::Head,
+            repaired_name: toy.name.clone(),
+        };
+        // Spacing and standoff chosen together: at 1.7m the outer two heads of
+        // six fell outside the frame, which loses exactly the comparison the
+        // scene exists for.
+        toy.position = WorldPoint::from_vec2_for_capture(vec2(
+            stand.x - 1.5 + lined_up as f32 * 0.60,
+            stand.y - 2.9,
+        ));
+        toy.spawn_pose = ToySpawnPose::default();
+        lined_up += 1;
+    }
+
+    let mut session = GameSession::from_save(session.to_save(&data.config.version), data);
+    session.player.position = WorldPoint::from_vec2_for_capture(stand);
+    session.player.yaw = -std::f32::consts::FRAC_PI_2;
+    session.player.pitch = -0.26;
     session
 }
 

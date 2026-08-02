@@ -159,6 +159,10 @@ impl Game {
                 self.session = capture_scenes::carrying_a_half_scanned(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            "broken_lineup" => {
+                self.session = capture_scenes::broken_lineup(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "closing_soon" => {
                 self.session = capture_scenes::closing_soon(&self.data);
                 self.screen = GameScreen::Playing;
