@@ -877,16 +877,16 @@ fn the_deadline_is_reachable_by_a_closer_who_buys_tools() {
 /// A display has to stay fillable to its back row.
 ///
 /// Slots are laid out five to a row, so capacity decides depth: 12 slots is
-/// three rows, 200 is forty. Shelf targeting picks the *nearest* slot in the
-/// crosshair, so once a front row fills, the rows behind it are shadowed —
-/// walking to a gap in row three still offers the taken slot in row one, and
-/// `E` refuses. The scaling sweep makes the cliff plain: at capacity 12 a run
-/// is turned away from a shelf 2 times against 214 shelved, at capacity 100 it
-/// is 7173 against 628, and at 200 the shop is essentially unfillable.
+/// three rows, 200 is forty. Shelf targeting used to take the nearest slot in
+/// the crosshair and only then ask whether it was free, so a full front row
+/// shadowed everything behind it — walking to a gap in row three still offered
+/// the taken slot in row one, and `E` refused. The sweep measured 2 refusals a
+/// run at capacity 12, 7173 at 100, and 15793 at 200 where the shop could not
+/// be filled at all.
 ///
-/// This is a second, independent reason the shop settled on twelve, and the
-/// one most easily broken by a later retune — nothing else would fail if
-/// displays got deeper, they would just quietly stop accepting toys.
+/// `targeted_empty_display_slot` searches free slots only now, and this watches
+/// that it stays that way. Nothing else would fail if the two came apart again:
+/// displays would just quietly stop accepting toys past their first row.
 #[test]
 fn a_display_stays_fillable_to_its_back_row() {
     let data = GameData::load().unwrap();

@@ -95,6 +95,92 @@ fn wrong_placement_still_places_toy_and_counts_mistake() {
     assert_eq!(placed.wrong_marker_seconds, 0.0);
 }
 
+/// A full front row must not shadow the rows behind it.
+///
+/// Slots are laid out five to a row, so a display's capacity is its depth. Slot
+/// targeting scores by distance, so the nearest slot wins — and once row one is
+/// full, standing at the shelf offers a taken slot and `E` refuses, with rows
+/// two and three empty a few centimetres further back. The scaling replay put
+/// numbers on it: 2 refusals per run at capacity 12, 1133 at 20, 15793 at 200,
+/// where the shop simply cannot be filled.
+///
+/// Holding a toy, the player's intent is unambiguous — they want somewhere to
+/// put it — so the search should only consider slots that can actually take it.
+#[test]
+fn a_full_front_row_does_not_block_the_rows_behind_it() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let display = &data.displays[0];
+    let columns = display.capacity.clamp(1, 5);
+    assert!(
+        display.capacity > columns,
+        "display 0 is a single row, so this proves nothing"
+    );
+
+    let matching: Vec<String> = session
+        .toys
+        .iter()
+        .filter(|toy| toy_matches_display(toy, display) && !toy.is_repair_part())
+        .take(columns + 1)
+        .map(|toy| toy.id.clone())
+        .collect();
+
+    // Fill the whole front row.
+    for (slot_index, toy_id) in matching.iter().take(columns).enumerate() {
+        let toy_index = session
+            .toys
+            .iter()
+            .position(|toy| &toy.id == toy_id)
+            .unwrap();
+        session.pick_up_toy(toy_index, &data);
+        session.place_active_toy(0, slot_index, &data);
+    }
+
+    // Stand at the front row holding one more, facing the shelf.
+    let front = display_slot_position(display, 2, data.config.room_width);
+    let spare = session
+        .toys
+        .iter()
+        .position(|toy| toy.id == matching[columns])
+        .unwrap();
+    session.pick_up_toy(spare, &data);
+    let spare_id = session.toys[spare].id.clone();
+    session.player.position = front;
+    session.player.yaw = 0.0;
+    session.player.pitch = 0.0;
+
+    assert!(
+        matches!(
+            session.interaction_preview(&data),
+            InteractionPreview::PlaceOnShelf
+        ),
+        "the shelf refused a toy while it still had {} free slots",
+        display.capacity - columns
+    );
+
+    let result = session.interact(&data);
+    assert!(
+        matches!(
+            result,
+            InteractionResult::Placed {
+                was_wrong: false,
+                ..
+            }
+        ),
+        "expected a placement, got {result:?}"
+    );
+
+    let placed = session.toys.iter().find(|toy| toy.id == spare_id).unwrap();
+    assert_eq!(
+        placed.placed_display_id.as_deref(),
+        Some(display.id.as_str())
+    );
+    assert!(
+        placed.placed_slot_index.is_some_and(|slot| slot >= columns),
+        "the toy went into the front row, which was already full"
+    );
+}
+
 #[test]
 fn cannot_place_into_filled_slot() {
     let data = GameData::load().unwrap();

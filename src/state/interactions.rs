@@ -221,15 +221,27 @@ impl GameSession {
         }
     }
 
+    /// The best free slot in view, for a player holding something to shelve.
+    ///
+    /// Searches only free slots rather than taking the best slot and asking
+    /// whether it happens to be free. Slots sit five to a row, so a display's
+    /// capacity is its depth, and scoring by distance means a full front row
+    /// shadows every row behind it: the player stands at a shelf with two empty
+    /// rows a few centimetres further back and `E` refuses. Holding a toy, the
+    /// intent is unambiguous — somewhere to put this — so an occupied slot is
+    /// not a candidate at all.
     pub fn targeted_empty_display_slot(&self, data: &GameData) -> Option<DisplaySlotTarget> {
-        let target = self.targeted_display_slot(data)?;
-        let display = &data.displays[target.display_index];
-        self.toy_index_at_display_slot(display, target.slot_index, data.config.room_width)
-            .is_none()
-            .then_some(target)
+        self.targeted_slot(data, true)
     }
 
+    /// The best slot in view regardless of what is in it. This is the retrieval
+    /// target: empty-handed, the player reaching at a shelf means the toy they
+    /// can see, so an occupied slot is exactly what they want.
     pub fn targeted_display_slot(&self, data: &GameData) -> Option<DisplaySlotTarget> {
+        self.targeted_slot(data, false)
+    }
+
+    fn targeted_slot(&self, data: &GameData, free_only: bool) -> Option<DisplaySlotTarget> {
         let player = self.player.position.to_vec2();
         let forward = vec2(self.player.yaw.cos(), self.player.yaw.sin()).normalize_or_zero();
         if forward.length_squared() <= f32::EPSILON {
@@ -242,6 +254,14 @@ impl GameSession {
             .filter(|(_, display)| self.display_is_near_player(display, &data.config))
             .flat_map(|(display_index, display)| {
                 (0..display.capacity).filter_map(move |slot_index| {
+                    if free_only
+                        && self
+                            .toy_index_at_display_slot(display, slot_index, data.config.room_width)
+                            .is_some()
+                    {
+                        return None;
+                    }
+
                     let slot = display_slot_position(display, slot_index, data.config.room_width)
                         .to_vec2();
                     let to_slot = slot - player;
