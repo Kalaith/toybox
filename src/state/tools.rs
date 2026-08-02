@@ -29,6 +29,25 @@ impl GameSession {
             .max(1)
     }
 
+    /// The tool currently granting the carry limit, or `None` bare-handed.
+    ///
+    /// Taken from `upgrades.json` rather than written out, because the message
+    /// that used it said "Sorting cart is full" — a name the game does not use
+    /// (it is the Sorting *Trolley*), and one that collides with the Cart
+    /// Blocks toy. Worse, `InventoryFull` fires at the *starting* limit of one,
+    /// so that message named a tool the player had never bought.
+    pub fn carry_tool_name<'a>(&self, data: &'a GameData) -> Option<&'a str> {
+        data.upgrades
+            .iter()
+            .filter(|upgrade| self.has_upgrade(&upgrade.id))
+            .filter_map(|upgrade| match upgrade.effect {
+                UpgradeEffect::CarryLimit { toys } => Some((toys, upgrade.name.as_str())),
+                _ => None,
+            })
+            .max_by_key(|(toys, _)| *toys)
+            .map(|(_, name)| name)
+    }
+
     pub fn speed_multiplier(&self, data: &GameData) -> f32 {
         self.owned_effects(data)
             .filter_map(|effect| match effect {

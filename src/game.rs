@@ -658,7 +658,15 @@ impl Game {
                 self.notifications
                     .warning(format!("Find the matching part for {}", toy_name));
             }
-            InteractionResult::InventoryFull => self.notifications.warning("Sorting cart is full"),
+            InteractionResult::InventoryFull => {
+                // Name whatever is actually full. Bare-handed the limit is one,
+                // so this fires long before any tool is bought.
+                let message = match self.session.carry_tool_name(&self.data) {
+                    Some(tool) => format!("{} is full", tool),
+                    None => "Hands full".to_owned(),
+                };
+                self.notifications.warning(message);
+            }
             InteractionResult::RepairBenchFull => {
                 self.notifications.warning("Repair bench is full")
             }

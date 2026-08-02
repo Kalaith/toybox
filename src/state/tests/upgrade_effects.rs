@@ -135,3 +135,43 @@ fn forgiveness_waives_the_clock_but_still_records_the_mistake() {
         "forgiveness should cost no time"
     );
 }
+
+/// What the "carry is full" message names is true, and comes from the data.
+///
+/// It used to read "Sorting cart is full" — a name the game does not use (the
+/// tool is the Sorting *Trolley*, and "Cart Blocks" is an unrelated toy), and
+/// it fired at the *starting* carry limit of one, so a player who had never
+/// bought a tool was told a tool of theirs was full. The HUD prompt for the
+/// same state said "Carry full" and was right all along; only the notification
+/// was wrong, and the two channels disagreed.
+#[test]
+fn the_carry_full_message_names_a_tool_the_player_owns() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    assert_eq!(
+        session.carry_tool_name(&data),
+        None,
+        "bare-handed, nothing but hands is full"
+    );
+    // ...and the limit really does bite there, which is why it mattered.
+    assert_eq!(session.carry_limit(&data), data.config.starting_carry_limit);
+
+    let trolley = data
+        .upgrades
+        .iter()
+        .find(|upgrade| {
+            matches!(
+                upgrade.effect,
+                crate::data::UpgradeEffect::CarryLimit { .. }
+            )
+        })
+        .expect("a carry tool");
+    session.unlocked_upgrade_ids.push(trolley.id.clone());
+
+    assert_eq!(
+        session.carry_tool_name(&data),
+        Some(trolley.name.as_str()),
+        "the message must use the name in upgrades.json, not a copy of it"
+    );
+}
