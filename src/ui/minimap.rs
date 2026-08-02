@@ -25,22 +25,47 @@ pub(crate) fn draw_minimap(ctx: &UiContext<'_>) {
     let scale = map_w / room_w.max(1.0);
     let to_map = |x: f32, y: f32| vec2(panel.x + x * scale, panel.y + y * scale);
 
-    for zone in &ctx.data.layout.zones {
+    // Zones fill in as their shelves fill up, and carry a completion bar along
+    // the bottom edge, so the map answers "where is there still work" without
+    // counting dots.
+    let progress = ctx.session.zone_progress(ctx.data);
+    for (zone_index, zone) in ctx.data.layout.zones.iter().enumerate() {
         let origin = to_map(zone.x, zone.y);
+        let size = vec2(zone.w * scale, zone.h * scale);
+        let here = progress[zone_index];
+        let fraction = here.fraction();
         draw_rectangle(
             origin.x,
             origin.y,
-            zone.w * scale,
-            zone.h * scale,
-            Color::new(zone.accent[0], zone.accent[1], zone.accent[2], 0.14),
+            size.x,
+            size.y,
+            Color::new(
+                zone.accent[0],
+                zone.accent[1],
+                zone.accent[2],
+                0.10 + 0.24 * fraction,
+            ),
         );
         draw_rectangle_lines(
             origin.x,
             origin.y,
-            zone.w * scale,
-            zone.h * scale,
+            size.x,
+            size.y,
             1.0,
             Color::new(zone.accent[0], zone.accent[1], zone.accent[2], 0.42),
+        );
+
+        if !here.has_displays() {
+            continue;
+        }
+        let bar = Rect::new(origin.x + 2.0, origin.y + size.y - 4.0, size.x - 4.0, 2.5);
+        draw_rectangle(bar.x, bar.y, bar.w, bar.h, Color::new(0.0, 0.0, 0.0, 0.45));
+        draw_rectangle(
+            bar.x,
+            bar.y,
+            bar.w * fraction,
+            bar.h,
+            Color::new(zone.accent[0], zone.accent[1], zone.accent[2], 0.95),
         );
     }
 

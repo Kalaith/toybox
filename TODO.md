@@ -7,7 +7,7 @@
 
 ## Game loop and progression
 
-- Per-zone and overall completion percentages on the HUD and minimap; rework the finish condition and finish screen around zone milestones and decide an intended run length.
+- Rework the finish condition and finish screen around zone milestones now that per-zone completion exists (`GameSession::zone_progress`), and decide an intended run length. Note a zone caps at ~88% until its broken toys are repaired — milestones need to account for that or no zone ever reads done.
 - Expand the tool shop — `upgrades.json` holds only `toy_scanner`. Add 4–6 tools (carry capacity, speed, part compass, sort hint, mistake forgiveness) with real implementations in `state/` and costs tuned to zone pacing.
 - Give a run a clear arc: an opening-time deadline with a score screen (toys shelved, repairs, mistakes, zones done) plus a relaxed untimed mode.
 

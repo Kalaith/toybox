@@ -137,6 +137,10 @@ impl Game {
                 self.session = GameSession::new(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            "mid_run" => {
+                self.session = capture_scenes::mid_run(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "repair_bench" => {
                 self.session = capture_scenes::repair_bench(&self.data);
                 self.screen = GameScreen::Playing;

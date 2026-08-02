@@ -7,7 +7,7 @@ use super::hud_chrome::{
 };
 use super::hud_icons::{draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind};
 use crate::state::{
-    toy_matches_display, CounterpartLocation, GamePhase, InteractionPreview, ToyState,
+    toy_matches_display, CounterpartLocation, GamePhase, InteractionPreview, ToyState, ZoneProgress,
 };
 use crate::ui::widgets::draw_fitted_text;
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
@@ -45,7 +45,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     let placed = ctx.session.total_placed_toys();
     let toy_count = ctx.data.config.toy_count.max(1);
     draw_status_row(
-        vec2(rect.x + 18.0, rect.y + 82.0),
+        vec2(rect.x + 18.0, rect.y + 80.0),
         IconKind::Star,
         "Toys Put Away",
         &format!("{placed} / {toy_count}"),
@@ -56,12 +56,41 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     let carry_limit = ctx.session.carry_limit(&ctx.data.config).max(1);
     let carried = ctx.session.player.carried_toy_ids.len();
     draw_status_row(
-        vec2(rect.x + 18.0, rect.y + 126.0),
+        vec2(rect.x + 18.0, rect.y + 128.0),
         IconKind::Crate,
         "Carry",
         &format!("{carried} / {carry_limit}"),
         carried as f32 / carry_limit as f32,
         Color::new(0.93, 0.48, 0.18, 1.0),
+    );
+
+    draw_zone_row(ctx, vec2(rect.x + 18.0, rect.y + 176.0));
+}
+
+/// Completion of the aisle the player is standing in. At 4000 toys the overall
+/// count barely moves, so the zone figure is what tells them the last hour was
+/// worth anything — and which aisle to work next.
+fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
+    let Some(zone_index) = ctx.session.current_zone_index(ctx.data) else {
+        return;
+    };
+    let progress = ctx.session.zone_progress(ctx.data);
+    let zone = &ctx.data.layout.zones[zone_index];
+    let here: ZoneProgress = progress[zone_index];
+    let accent = Color::new(zone.accent[0], zone.accent[1], zone.accent[2], 1.0);
+
+    let value = if here.has_displays() {
+        format!("{:.0}%", here.fraction() * 100.0)
+    } else {
+        "no shelves".to_owned()
+    };
+    draw_status_row(
+        origin,
+        IconKind::Star,
+        &zone.name,
+        &value,
+        here.fraction(),
+        accent,
     );
 }
 
@@ -86,8 +115,10 @@ fn draw_status_row(
         origin.y + 32.0,
         TextStyle::new(18.0, dark::TEXT_BRIGHT).params(),
     );
+    // Underline rather than sit beside the value: at 4000 toys the counter
+    // reads "1105 / 4000" and ran straight into a bar placed to its right.
     draw_progress_bar(
-        Rect::new(origin.x + 104.0, origin.y + 22.0, 54.0, 6.0),
+        Rect::new(origin.x + 36.0, origin.y + 37.0, 122.0, 5.0),
         progress,
         accent,
     );
@@ -445,7 +476,7 @@ fn draw_crosshair(ctx: &UiContext<'_>) {
 }
 
 fn status_panel_rect() -> Rect {
-    Rect::new(18.0, 16.0, 190.0, 166.0)
+    Rect::new(18.0, 16.0, 190.0, 226.0)
 }
 
 fn carried_card_rect() -> Rect {

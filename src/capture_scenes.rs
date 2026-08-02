@@ -14,6 +14,56 @@ use macroquad::prelude::*;
 /// stocked store visible behind it.
 const BENCH_CLEARANCE: f32 = 7.0;
 
+/// A run partway through: one aisle fully shelved, another half done, the rest
+/// untouched. A fresh shop reads 0% everywhere, which shows nothing about the
+/// per-zone HUD row or the minimap completion bars.
+pub fn mid_run(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+
+    // Displays 0-3 are the plush wall/bin/table; 4-7 the dragon alcove.
+    for display_index in 0..4 {
+        stock_display(&mut session, data, display_index, 1.0);
+    }
+    for display_index in 4..8 {
+        stock_display(&mut session, data, display_index, 0.5);
+    }
+
+    // Stand in the plush corner so the HUD row reports a finished aisle.
+    let zone = &data.layout.zones[0];
+    session.player.position = WorldPoint {
+        x: zone.x + zone.w * 0.5,
+        y: zone.y + zone.h * 0.62,
+    };
+    session.player.yaw = -std::f32::consts::FRAC_PI_2;
+    session.player.pitch = -0.08;
+    session
+}
+
+/// Shelve `share` of one display's matching toys, straight into their slots.
+fn stock_display(session: &mut GameSession, data: &GameData, display_index: usize, share: f32) {
+    let display = &data.displays[display_index];
+    let wanted = (display.capacity as f32 * share) as usize;
+    let mut matching: Vec<(usize, String)> = session
+        .toys
+        .iter()
+        .filter(|toy| {
+            crate::state::toy_matches_display(toy, display)
+                && toy.placed_display_id.is_none()
+                && !toy.is_held
+        })
+        .map(|toy| (toy.slot_number, toy.id.clone()))
+        .collect();
+    matching.sort_by_key(|(slot_number, _)| *slot_number);
+
+    for (slot_index, (_, toy_id)) in matching.into_iter().take(wanted).enumerate() {
+        let Some(toy_index) = session.toys.iter().position(|toy| toy.id == toy_id) else {
+            continue;
+        };
+        session.pick_up_toy(toy_index);
+        session.place_active_toy(display_index, slot_index, data);
+    }
+}
+
 /// A bench holding one half of a broken toy, framed from the front — the view
 /// that shows the status beacon's `AwaitingMatch` state.
 pub fn repair_bench(data: &GameData) -> GameSession {

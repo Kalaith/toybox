@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 mod collision;
 mod interactions;
 mod persistence;
+mod progress;
 mod repair;
 mod spatial;
 mod spawn;
@@ -17,6 +18,7 @@ use collision::{keep_off_fixtures, position_blocked};
 use spawn::build_toys;
 
 pub use persistence::{migrate_save_value, SaveData};
+pub use progress::ZoneProgress;
 pub use repair::{BenchStage, BenchStatus, CounterpartLocation};
 pub use spatial::ToySpatialGrid;
 

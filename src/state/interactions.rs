@@ -270,7 +270,7 @@ impl GameSession {
         InteractionResult::PickedUp { toy_name }
     }
 
-    pub(super) fn place_active_toy(
+    pub(crate) fn place_active_toy(
         &mut self,
         display_index: usize,
         slot_index: usize,
