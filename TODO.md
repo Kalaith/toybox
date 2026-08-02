@@ -4,7 +4,7 @@
 
 - The cross-zone scatter is **deliberate** — hunting scattered halves and rejoining them is a pillar of the game alongside sorting, and must not be shortened to make repairs cheaper. Measured on its own terms in `state/tests/replay.rs` (`Strategy::Restorer`), the errand is fully winnable: at the 240-toy shop that is all 28 broken pairs in 56 actions with nothing deferred, ~18s per pair. Cost per pair is unchanged by the shop retune; there are simply fewer pairs. The earlier "zero repairs" figure came from a nearest-first closer, which measures the sorting loop and never runs the errand at all.
 - **The scanner gate is softened, not removed.** A carried half now always names the aisle its counterpart landed in ("Other half: head in Checkout"); the scanner upgrades that to distance plus the beacon column ("Scanner: head in Checkout, 17m"). Unaided the errand is a real search of one zone rather than a sweep of the whole shop for one object among hundreds, which was a wall rather than a journey. The scanner's `upgrades.json` description was rewritten to sell what it now actually adds.
-- Mistake penalty and timer are still untuned against `assets/data/*.json`.
+- **Mistake penalty and timer are measured now, and neither number needed changing.** A wrong shelf costs 8.0s against a measured 7.7s per toy — a ratio of 1.03, i.e. exactly one more toy's work, which is also the natural cost of having to collect and re-shelve it. `a_wrong_shelf_costs_about_one_toys_worth_of_time` pins the *relationship* rather than the constant, so a retune of shop size, walking speed or tools shows up instead of quietly making the penalty trivial or savage.
 - Repair parts render per *category* but not per *identity* — every plush head is the same model, so a broken Bear and a broken Octopus are indistinguishable while split. Decide whether identity-level parts are worth 50×2 renderers or whether identity-derived detail on the existing 10 is enough.
 
 ## Game loop and progression
@@ -23,11 +23,11 @@
 - **Deadline and relaxed mode are in.** `shift_seconds` (1800) ends a timed run at `GamePhase::TimeUp`; the title offers *Closing Shift* against the clock and *Relaxed Run* without one, `ShiftMode` persists in the save, and the HUD counts down (amber under 5 min, red under 1). The mistake penalty now bites, because pushing `elapsed_seconds` can end the shift outright — pinned by `state/tests/shift_clock.rs`.
 - **The score screen is in** (`ui/score.rs`): grade badge, toys shelved, repairs, wrong shelves, time, and a per-aisle bar table, driven by `GameSession::shift_summary`. Finishing an aisle now announces itself mid-run via `InteractionResult::Placed.completed_zone`. The HUD hides behind the panel so the score is the whole message.
 - **The ~88% zone cap is now legible rather than weakened.** `ZoneProgress::broken` counts an aisle's toys currently in halves and `still_to_find()` the rest of its shortfall, so the score screen reads "41 to find - 5 to mend" and the HUD "Plush Corner - 5 to mend / 90%". An aisle with toys in pieces is genuinely not restored, so `is_restored` was left alone; what was wrong was that a player who had shelved every whole toy in an aisle had no way to tell the remainder from toys they had missed. Pinned by `every_aisle_slot_is_accounted_for_as_shelved_broken_or_missing`.
-- `shift_seconds` is set from replay minutes, which use an untuned 0.6s-per-interaction constant. Worth a real playthrough before trusting 30 minutes as the deadline.
+- **The deadline is reachable.** `the_deadline_is_reachable_by_a_closer_who_buys_tools` adds `Strategy::Earner` — the only loadout a timed run ever really has, since tools do not carry between shifts — and it clears the shop in 19.9 min against the 30 min deadline, versus 28.0 bare-handed. Ten minutes of slack for a near-optimal closer that teleports in straight lines and never backtracks, so a real player should find 30 minutes comfortable played well and tight played carelessly. Still worth a human playthrough, since the replay's 0.6s-per-interaction constant is untuned.
 
 ## Polish
 
-- Refresh the README and controls once the full loop lands, and regenerate `catalog_thumbnail.png` if the title screen changes.
+- README refreshed for the 240-toy shop, both shift modes, the tool table and the `Q` key. `catalog_thumbnail.png` needed no regeneration: it is a crop of the title art, not a screenshot of the menu, so the new buttons do not appear in it.
 
 ## Engineering
 

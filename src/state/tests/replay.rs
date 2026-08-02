@@ -26,6 +26,12 @@ enum Strategy {
     /// wherever in the shop it landed, rejoin them, then shelve the result.
     /// This measures the repair loop, which the scatter is designed around.
     Restorer,
+    /// Sort like `NearestFirst`, but spend credits the moment they arrive.
+    ///
+    /// This is the only loadout a real timed run ever has: tools do not carry
+    /// between shifts, so nobody starts equipped and nobody stays bare-handed.
+    /// The other two scenarios bracket the run; this one is the run.
+    Earner,
 }
 
 /// A starting loadout and a way of playing, to measure together.
@@ -55,6 +61,11 @@ const FULLY_EQUIPPED: Scenario = Scenario {
         "managers_nod",
     ],
     strategy: Strategy::NearestFirst,
+};
+const EARNER: Scenario = Scenario {
+    name: "earns tools",
+    tools: &[],
+    strategy: Strategy::Earner,
 };
 const RESTORER: Scenario = Scenario {
     name: "restorer",
@@ -453,6 +464,38 @@ fn restore_one_pair(
     None
 }
 
+/// Spend credits as soon as they cover the next unlocked tool, cheapest first.
+///
+/// A player opens the tool screen when the HUD tells them something is
+/// affordable, so buying eagerly is the faithful behaviour. Cheapest first
+/// matters: the Toy Scanner at one credit arrives on the first completed
+/// display, and holding out for a three-credit tool would leave the closer
+/// unequipped through the part of the run where help compounds most.
+fn buy_what_it_can_afford(session: &mut GameSession, data: &GameData) {
+    loop {
+        let mut affordable: Vec<&crate::data::UpgradeDef> = data
+            .upgrades
+            .iter()
+            .filter(|upgrade| {
+                !session.has_upgrade(&upgrade.id)
+                    && session.completed_display_count() >= upgrade.unlock_completed_displays
+                    && session.available_tool_credits(data) >= upgrade.cost
+            })
+            .collect();
+        affordable.sort_by_key(|upgrade| upgrade.cost);
+
+        let Some(upgrade) = affordable.first() else {
+            return;
+        };
+        if !matches!(
+            session.purchase_tool(data, &upgrade.id),
+            ToolPurchaseResult::Purchased { .. }
+        ) {
+            return;
+        }
+    }
+}
+
 fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport {
     let mut session = GameSession::new(data);
     for tool in scenario.tools {
@@ -472,6 +515,9 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
     let mut deferred: HashSet<usize> = HashSet::new();
 
     while actions < action_budget {
+        if scenario.strategy == Strategy::Earner {
+            buy_what_it_can_afford(&mut session, data);
+        }
         if scenario.strategy == Strategy::Restorer {
             // Hunt a pair. On success the closer is holding a repaired toy and
             // falls through to shelving it like any other.
@@ -719,6 +765,76 @@ fn the_restoration_errand_is_winnable() {
             "every repaired toy should reach its shelf"
         );
     }
+}
+
+/// Can a shift actually be finished before the doors open?
+///
+/// `shift_seconds` was set from the bare-handed replay, but nobody plays a
+/// bare-handed run: tools do not carry between shifts, so every timed run
+/// starts with nothing and earns its way up. This measures that run, and the
+/// two bracketing loadouts alongside it, against the real deadline.
+#[test]
+fn the_deadline_is_reachable_by_a_closer_who_buys_tools() {
+    let data = GameData::load().unwrap();
+    let budget = data.config.toy_count * 4;
+    let limit = data.config.shift_seconds / 60.0;
+
+    let reports: Vec<(&str, RunReport)> = [BEGINNER, EARNER, FULLY_EQUIPPED]
+        .iter()
+        .map(|scenario| (scenario.name, run(scenario, &data, budget)))
+        .collect();
+
+    for (name, report) in &reports {
+        println!(
+            "{}   [deadline {limit:.0} min, {:+.1}]",
+            report.line(name),
+            limit - report.minutes
+        );
+    }
+
+    let earner = reports[1].1;
+    assert!(
+        earner.minutes < limit,
+        "a closer that buys tools as it earns them cannot clear the shop before \
+         opening: {:.1} min against a {limit:.0} min shift. Either shift_seconds \
+         is too tight or the tools are too weak.",
+        earner.minutes
+    );
+    assert!(
+        earner.minutes < reports[0].1.minutes,
+        "buying tools did not beat staying bare-handed"
+    );
+}
+
+/// What a wrong shelf should cost, expressed in the only unit the player
+/// experiences: another toy's worth of work.
+///
+/// A mis-shelving already costs real time — the toy sits in a slot without
+/// counting, so it blocks its display and has to be collected and re-shelved.
+/// `mistake_penalty_seconds` is the surcharge on top, and the rule it encodes
+/// is "one more toy". That is a number nobody can eyeball, because seconds per
+/// toy falls out of shop size, walking speed and tools all at once; this ties
+/// the two together so a retune of any of them shows up here instead of
+/// silently making the penalty trivial or savage.
+#[test]
+fn a_wrong_shelf_costs_about_one_toys_worth_of_time() {
+    let data = GameData::load().unwrap();
+    let report = run(&BEGINNER, &data, data.config.toy_count * 4);
+
+    let seconds_per_toy = report.minutes * 60.0 / report.shelved as f32;
+    let penalty = data.config.mistake_penalty_seconds;
+    let ratio = penalty / seconds_per_toy;
+
+    println!(
+        "{:.1}s per toy, {penalty:.1}s penalty, ratio {ratio:.2}",
+        seconds_per_toy
+    );
+    assert!(
+        (0.5..=2.0).contains(&ratio),
+        "a wrong shelf costs {ratio:.2} toys' worth of time ({penalty:.1}s against \
+         {seconds_per_toy:.1}s per toy). Below 0.5 the penalty is not felt; above \
+         2.0 a single slip outweighs the work it interrupted."
+    );
 }
 
 /// The comparison the balance TODO needs: same shop, same script, different
