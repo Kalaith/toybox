@@ -13,7 +13,7 @@ use crate::ui::widgets::draw_fitted_text;
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
-use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
+use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss, measure_ui_text};
 
 pub(super) fn draw_game_hud(ctx: &UiContext<'_>) {
     draw_status_panel(ctx);
@@ -37,6 +37,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     let counts_down = ctx.session.shift_mode.shows_countdown();
     let remaining = ctx.session.shift_remaining(ctx.data);
     let (time, clock_color) = if counts_down {
+        // Amber under five minutes, red under one.
         let colour = if remaining <= 60.0 {
             Color::new(0.98, 0.42, 0.36, 1.0)
         } else if remaining <= 300.0 {
@@ -57,6 +58,26 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
         rect.x + 64.0,
         rect.y + 51.0,
         TextStyle::new(31.0, clock_color).params(),
+    );
+
+    // Say which way the number runs. The two modes drew the identical panel —
+    // same stopwatch, same colour, same place — so "07:11" meant seven minutes
+    // gone in a relaxed run and seven minutes left in a timed one, with nothing
+    // on screen to tell them apart. The mode was named once, in a notification
+    // at the start of the run, which fades; and now that quitting saves, a
+    // player can resume a shift days later having forgotten which it was.
+    //
+    // Right-aligned off the measured width rather than placed after the digits,
+    // since the countdown is five characters and the elapsed clock passes six
+    // at an hour.
+    let caption = ctx.session.shift_mode.clock_caption();
+    let caption_size = 12.0;
+    let caption_width = measure_ui_text(caption, None, caption_size as u16, 1.0).width;
+    draw_ui_text_ex(
+        caption,
+        rect.right() - 14.0 - caption_width,
+        rect.y + 51.0,
+        TextStyle::new(caption_size, Color::new(0.72, 0.70, 0.66, 1.0)).params(),
     );
 
     draw_divider(rect.x, rect.y + 69.0, rect.w);

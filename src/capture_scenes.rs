@@ -86,6 +86,16 @@ pub fn mid_run(data: &GameData) -> GameSession {
     session
 }
 
+/// The same moment in a relaxed run. Every other scene is a timed shift, so the
+/// other half of the mode switch — the clock counting up with no deadline to
+/// count toward — had never been rendered.
+pub fn relaxed_run(data: &GameData) -> GameSession {
+    let mut session = mid_run(data);
+    session.shift_mode = ShiftMode::Relaxed;
+    session.player.elapsed_seconds = 431.0;
+    session
+}
+
 /// A shift with under a minute left. The HUD clock counts *down* in a timed
 /// run and reddens as opening approaches, none of which a fresh shop shows.
 pub fn closing_soon(data: &GameData) -> GameSession {

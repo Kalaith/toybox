@@ -196,6 +196,10 @@ impl Game {
                 self.session = capture_scenes::closing_soon(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            "relaxed_run" => {
+                self.session = capture_scenes::relaxed_run(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "tool_shop" => {
                 self.session = capture_scenes::tool_shop(&self.data);
                 self.screen = GameScreen::ToolShop;

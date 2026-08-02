@@ -34,7 +34,7 @@ param(
         "gameplay", "title", "mid_run", "closing_soon", "shift_over",
         "tool_shop", "tool_shop_early", "checkout", "lamp_contrast", "repair_bench",
         "carrying_a_half", "carrying_a_half_scanned", "carrying_armful",
-        "broken_lineup", "settings", "paused"
+        "broken_lineup", "settings", "paused", "relaxed_run"
     ),
     [double]$MaxDiffPercent = 0.10,
     # The toy gallery is byte-reproducible, unlike two of the scenes, so it gets

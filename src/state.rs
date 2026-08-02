@@ -160,6 +160,18 @@ impl ShiftMode {
         matches!(self, ShiftMode::Timed)
     }
 
+    /// What the HUD clock is measuring. Lives beside `shows_countdown` so the
+    /// two cannot drift: the caption exists precisely because the panel is
+    /// otherwise identical in both modes, and a caption that disagreed with the
+    /// direction would be worse than none.
+    pub fn clock_caption(self) -> &'static str {
+        if self.shows_countdown() {
+            "LEFT"
+        } else {
+            "ELAPSED"
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             ShiftMode::Timed => "Closing Shift",

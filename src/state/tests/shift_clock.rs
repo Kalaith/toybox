@@ -123,3 +123,29 @@ fn a_mistake_near_closing_can_cost_the_shift() {
     assert!(session.update_timer(0.016, &data));
     assert_eq!(session.phase, GamePhase::TimeUp);
 }
+
+/// The HUD clock says which way it runs, and says it correctly.
+///
+/// The two modes draw an identical status panel — same stopwatch, same colour,
+/// same position — so an unlabelled "07:11" meant seven minutes gone in a
+/// relaxed run and seven minutes left in a timed one. A caption that disagreed
+/// with the direction would be worse than none, so it is derived from
+/// `shows_countdown` rather than written out beside it.
+#[test]
+fn the_clock_caption_says_which_way_the_clock_runs() {
+    for mode in [ShiftMode::Timed, ShiftMode::Relaxed] {
+        let caption = mode.clock_caption();
+        assert_eq!(
+            caption == "LEFT",
+            mode.shows_countdown(),
+            "{mode:?} counts {} but its clock is captioned {caption:?}",
+            if mode.shows_countdown() { "down" } else { "up" },
+        );
+    }
+
+    // Distinct, or the caption tells the player nothing they did not have.
+    assert_ne!(
+        ShiftMode::Timed.clock_caption(),
+        ShiftMode::Relaxed.clock_caption()
+    );
+}
