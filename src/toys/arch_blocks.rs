@@ -1,4 +1,4 @@
-use super::library::{brighten, darken, draw_cube_with_edges, draw_studded_block};
+use super::primitives::{brighten, darken, draw_cube_with_edges, draw_studded_block};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

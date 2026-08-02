@@ -10,6 +10,7 @@ mod debug_overlay;
 mod environment;
 mod fixtures;
 mod hud;
+mod hud_chrome;
 mod hud_icons;
 mod minimap;
 mod scene3d;

@@ -1,4 +1,4 @@
-use super::library::{darken, draw_cube_with_edges, draw_robot_core, draw_toy_sphere};
+use super::primitives::{darken, draw_cube_with_edges, draw_robot_core, draw_toy_sphere};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

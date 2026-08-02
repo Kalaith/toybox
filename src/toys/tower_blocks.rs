@@ -1,4 +1,4 @@
-use super::library::{draw_studded_block, shift_block_color};
+use super::primitives::{draw_studded_block, shift_block_color};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

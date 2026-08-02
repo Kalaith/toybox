@@ -1,4 +1,4 @@
-use super::library::{
+use super::primitives::{
     brighten, darken, draw_cube_with_edges, draw_studded_block, shift_block_color,
 };
 use macroquad::prelude::*;

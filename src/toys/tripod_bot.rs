@@ -1,4 +1,4 @@
-use super::library::{brighten, darken, draw_robot_core, draw_toy_sphere, draw_wheel};
+use super::primitives::{brighten, darken, draw_robot_core, draw_toy_sphere, draw_wheel};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

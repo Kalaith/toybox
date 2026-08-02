@@ -35,6 +35,7 @@ mod octopus;
 mod owl;
 mod penguin;
 mod planet_race;
+mod primitives;
 mod pudgy_dragon;
 mod puppy;
 mod puzzle_cube;
@@ -58,7 +59,8 @@ mod twin_dragon;
 mod word_tiles;
 mod wyrm_dragon;
 
-pub use library::{brighten, spawn_pose_for_toy, toy_color, toy_name, toy_profile, ToySpawnPose};
+pub use library::{spawn_pose_for_toy, toy_color, toy_name, toy_profile, ToySpawnPose};
+pub use primitives::brighten;
 
 pub fn draw_loose_toy_3d(toy: &ToyState, center: Vec3, color: Color, scale: f32) {
     let matrix = glam::Mat4::from_translation(center)

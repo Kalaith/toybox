@@ -1,4 +1,4 @@
-use super::library::{draw_cube_with_edges, draw_dragon_base};
+use super::primitives::{draw_cube_with_edges, draw_dragon_base};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

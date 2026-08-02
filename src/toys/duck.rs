@@ -1,5 +1,5 @@
-use super::library::draw_toy_sphere;
-use super::library::{brighten, darken, draw_eye_pair};
+use super::primitives::draw_toy_sphere;
+use super::primitives::{brighten, darken, draw_eye_pair};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

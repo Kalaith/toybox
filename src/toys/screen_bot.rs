@@ -1,4 +1,4 @@
-use super::library::{
+use super::primitives::{
     darken, draw_cube_with_edges, draw_robot_arms, draw_robot_core, draw_toy_sphere,
 };
 use macroquad::prelude::*;

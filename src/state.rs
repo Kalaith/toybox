@@ -1,20 +1,22 @@
 //! Runtime toy-store state, save data, and save migration helpers.
 
-use crate::data::{DisplayDef, GameConfig, GameData, ToyCategory};
-use crate::toys::{spawn_pose_for_toy, ToySpawnPose};
+use crate::data::{DisplayDef, GameData, ToyCategory};
+use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 mod collision;
 mod interactions;
+mod persistence;
 mod repair;
 mod spatial;
 mod spawn;
+mod tools;
 
 use collision::{keep_off_fixtures, position_blocked};
 use spawn::build_toys;
 
+pub use persistence::{migrate_save_value, SaveData};
 pub use spatial::ToySpatialGrid;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -110,16 +112,6 @@ pub enum GamePhase {
     Finished,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SaveData {
-    pub version: String,
-    pub player: PlayerState,
-    pub toys: Vec<ToyState>,
-    pub displays: Vec<DisplayState>,
-    pub unlocked_upgrade_ids: Vec<String>,
-    pub phase: GamePhase,
-}
-
 #[derive(Debug, Clone)]
 pub struct GameSession {
     pub player: PlayerState,
@@ -211,8 +203,6 @@ pub struct DisplaySlotTarget {
     pub slot_index: usize,
 }
 
-const TOY_SCANNER_ID: &str = "toy_scanner";
-const LEGACY_TAG_LANTERN_ID: &str = "tag_lantern";
 const SINGLE_CARRY_LIMIT: usize = 1;
 
 impl GameSession {
@@ -256,35 +246,6 @@ impl GameSession {
             unlocked_upgrade_ids: Vec::new(),
             phase: GamePhase::Playing,
             spatial,
-        }
-    }
-
-    pub fn from_save(save: SaveData, data: &GameData) -> Self {
-        let config = &data.config;
-        let mut session = Self {
-            player: save.player,
-            toys: save.toys,
-            displays: save.displays,
-            unlocked_upgrade_ids: save.unlocked_upgrade_ids,
-            phase: save.phase,
-            spatial: ToySpatialGrid::new(
-                config.room_width,
-                config.room_height,
-                config.spatial_cell_size,
-            ),
-        };
-        session.repair_after_load(data);
-        session
-    }
-
-    pub fn to_save(&self, version: &str) -> SaveData {
-        SaveData {
-            version: version.to_owned(),
-            player: self.player.clone(),
-            toys: self.toys.clone(),
-            displays: self.displays.clone(),
-            unlocked_upgrade_ids: self.unlocked_upgrade_ids.clone(),
-            phase: self.phase,
         }
     }
 
@@ -350,81 +311,6 @@ impl GameSession {
             next.y = candidate_y.y;
         }
         self.player.position = WorldPoint::from_vec2(next);
-    }
-
-    pub fn carry_limit(&self, _config: &GameConfig) -> usize {
-        SINGLE_CARRY_LIMIT
-    }
-
-    pub fn has_upgrade(&self, upgrade_id: &str) -> bool {
-        let has_exact_match = self
-            .unlocked_upgrade_ids
-            .iter()
-            .any(|existing_id| existing_id == upgrade_id);
-        has_exact_match
-            || upgrade_id == TOY_SCANNER_ID
-                && self
-                    .unlocked_upgrade_ids
-                    .iter()
-                    .any(|existing_id| existing_id == LEGACY_TAG_LANTERN_ID)
-    }
-
-    pub fn scanner_enabled(&self) -> bool {
-        self.has_upgrade(TOY_SCANNER_ID)
-    }
-
-    pub fn available_tool_credits(&self, data: &GameData) -> usize {
-        self.completed_display_count()
-            .saturating_sub(self.spent_tool_credits(data))
-    }
-
-    pub fn next_available_upgrade<'a>(
-        &self,
-        data: &'a GameData,
-    ) -> Option<&'a crate::data::UpgradeDef> {
-        let completed_count = self.completed_display_count();
-        data.upgrades.iter().find(|upgrade| {
-            completed_count >= upgrade.unlock_completed_displays && !self.has_upgrade(&upgrade.id)
-        })
-    }
-
-    pub fn purchase_tool(&mut self, data: &GameData, upgrade_id: &str) -> ToolPurchaseResult {
-        let Some(upgrade) = data
-            .upgrades
-            .iter()
-            .find(|upgrade| upgrade.id == upgrade_id)
-        else {
-            return ToolPurchaseResult::NoToolsAvailable;
-        };
-        if self.has_upgrade(&upgrade.id) {
-            return ToolPurchaseResult::AlreadyOwned {
-                tool_name: upgrade.name.clone(),
-            };
-        }
-
-        let completed_displays = self.completed_display_count();
-        if completed_displays < upgrade.unlock_completed_displays {
-            return ToolPurchaseResult::Locked {
-                tool_name: upgrade.name.clone(),
-                required_displays: upgrade.unlock_completed_displays,
-                completed_displays,
-            };
-        }
-
-        let available_credits = self.available_tool_credits(data);
-        if available_credits < upgrade.cost {
-            return ToolPurchaseResult::NeedMoreCredits {
-                tool_name: upgrade.name.clone(),
-                cost: upgrade.cost,
-                available_credits,
-            };
-        }
-
-        self.unlocked_upgrade_ids.push(upgrade.id.clone());
-        ToolPurchaseResult::Purchased {
-            tool_name: upgrade.name.clone(),
-            remaining_credits: self.available_tool_credits(data),
-        }
     }
 
     pub fn active_toy(&self) -> Option<&ToyState> {
@@ -507,39 +393,6 @@ impl GameSession {
             .unwrap_or(false)
     }
 
-    fn repair_after_load(&mut self, data: &GameData) {
-        for display in &data.displays {
-            if !self.displays.iter().any(|state| state.id == display.id) {
-                self.displays.push(DisplayState {
-                    id: display.id.clone(),
-                    placed_toy_ids: Vec::new(),
-                    is_complete: false,
-                });
-            }
-        }
-
-        self.player.carried_toy_ids.retain(|toy_id| {
-            self.toys
-                .iter()
-                .any(|toy| &toy.id == toy_id && !toy.is_consumed_repair_part())
-        });
-        for (toy_index, toy) in self.toys.iter_mut().enumerate() {
-            if toy.spawn_pose.is_uninitialized() {
-                toy.spawn_pose = spawn_pose_for_toy(
-                    toy_index,
-                    toy.color_index,
-                    toy.slot_number.saturating_sub(1),
-                );
-            }
-        }
-        self.repair_display_slots(data);
-        self.repair_bench_slots(data);
-        self.normalize_active_carry();
-        self.repair_player_view();
-        self.refresh_display_completion(data);
-        self.spatial.rebuild(&self.toys);
-    }
-
     fn refresh_display_completion(&mut self, data: &GameData) {
         for display_state in &mut self.displays {
             if let Some(display) = data.display_by_id(&display_state.id) {
@@ -564,44 +417,6 @@ impl GameSession {
                 });
             }
         }
-    }
-
-    fn newly_available_upgrades(
-        &self,
-        data: &GameData,
-        previous_completed_count: usize,
-    ) -> Vec<String> {
-        let completed_count = self.completed_display_count();
-        data.upgrades
-            .iter()
-            .filter(|upgrade| {
-                previous_completed_count < upgrade.unlock_completed_displays
-                    && completed_count >= upgrade.unlock_completed_displays
-                    && !self.has_upgrade(&upgrade.id)
-            })
-            .map(|upgrade| upgrade.name.clone())
-            .collect()
-    }
-
-    fn spent_tool_credits(&self, data: &GameData) -> usize {
-        self.unlocked_upgrade_ids
-            .iter()
-            .filter_map(|upgrade_id| {
-                data.upgrades
-                    .iter()
-                    .find(|upgrade| &upgrade.id == upgrade_id)
-                    .or_else(|| {
-                        if upgrade_id == LEGACY_TAG_LANTERN_ID {
-                            data.upgrades
-                                .iter()
-                                .find(|upgrade| upgrade.id == TOY_SCANNER_ID)
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .map(|upgrade| upgrade.cost)
-            .sum()
     }
 
     fn normalize_active_carry(&mut self) {
@@ -656,43 +471,6 @@ pub fn toy_matches_display(toy: &ToyState, display: &DisplayDef) -> bool {
     matches!(toy.repair_state, RepairState::Whole)
         && toy.category == display.category
         && toy.theme == display.theme
-}
-
-pub fn migrate_save_value(
-    detected_version: Option<String>,
-    value: Value,
-    data: &GameData,
-) -> Result<SaveData, String> {
-    let payload = value.get("data").cloned().unwrap_or(value);
-
-    if let Ok(mut current) = serde_json::from_value::<SaveData>(payload) {
-        // A save from an older store stocks the wrong toy count entirely
-        // (e.g. the 100-toy prototype); restock fresh instead of loading a
-        // near-empty shop.
-        let live_toys = current
-            .toys
-            .iter()
-            .filter(|toy| {
-                !toy.is_consumed_repair_part()
-                    && toy.repair_part_kind() != Some(RepairPartKind::Head)
-            })
-            .count();
-        if live_toys != data.config.toy_count {
-            eprintln!(
-                "Save stocks {} toys but the store now holds {}; restocking fresh",
-                live_toys, data.config.toy_count
-            );
-            return Ok(GameSession::new(data).to_save(&data.config.version));
-        }
-        current.version = data.config.version.clone();
-        return Ok(current);
-    }
-
-    eprintln!(
-        "Unsupported save format {:?}; starting a clean Toybox session",
-        detected_version
-    );
-    Ok(GameSession::new(data).to_save(&data.config.version))
 }
 
 fn default_player_yaw() -> f32 {

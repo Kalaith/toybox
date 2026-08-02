@@ -1,4 +1,4 @@
-use super::library::{
+use super::primitives::{
     brighten, darken, draw_cube_with_edges, draw_studded_block, draw_toy_sphere, draw_wheel,
     shift_block_color,
 };

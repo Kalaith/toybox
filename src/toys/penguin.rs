@@ -1,4 +1,4 @@
-use super::library::{darken, draw_toy_sphere};
+use super::primitives::{darken, draw_toy_sphere};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

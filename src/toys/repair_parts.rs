@@ -2,7 +2,7 @@
 //! same gold break ring at the split line so parts read as "broken" at a
 //! glance regardless of which toy they came from.
 
-use super::library::{
+use super::primitives::{
     brighten, darken, draw_cube_with_edges, draw_eye_pair, draw_studded_block, draw_toy_sphere,
 };
 use crate::data::ToyCategory;

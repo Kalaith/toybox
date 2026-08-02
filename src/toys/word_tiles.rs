@@ -1,4 +1,4 @@
-use super::library::draw_game_box;
+use super::primitives::draw_game_box;
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {

@@ -26,4 +26,3 @@
 - Scenario fixtures for beginner, mid-upgrade, and high-pressure sorting runs.
 - Validate upgrade availability and challenge metadata before a run starts so new toy types cannot break progression.
 - Separate 3D scene rendering from session mutation so camera and visual effects cannot affect scoring.
-- `src/toys/library.rs`, `src/ui/hud.rs`, and `src/state.rs` all sit above 700 lines; split them before the next feature lands in any of them.

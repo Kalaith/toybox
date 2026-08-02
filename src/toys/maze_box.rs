@@ -1,5 +1,5 @@
-use super::library::draw_toy_sphere;
-use super::library::{darken, draw_game_box};
+use super::primitives::draw_toy_sphere;
+use super::primitives::{darken, draw_game_box};
 use macroquad::prelude::*;
 
 pub fn draw(center: Vec3, color: Color, scale: f32) {
