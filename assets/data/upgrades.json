@@ -2,7 +2,7 @@
   {
     "id": "toy_scanner",
     "name": "Toy Scanner",
-    "description": "Names the display a held toy belongs to, highlights it across the shop, and pins the exact spot of a carried part's other half instead of just its aisle.",
+    "description": "Haloes the display a held toy belongs to, and pins a carried part's other half exactly, not just to its aisle.",
     "unlock_completed_displays": 1,
     "cost": 1,
     "effect": { "kind": "scanner" }

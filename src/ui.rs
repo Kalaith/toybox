@@ -29,7 +29,7 @@ use hud::{draw_game_hud, pointer_blocking_rects};
 use scene3d::draw_shop_scene;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
 pub(crate) use title::{draw_settings_screen, draw_title_screen};
-use widgets::draw_fitted_text;
+use widgets::{draw_fitted_text, draw_wrapped_text, WrapStyle};
 
 pub const LOGICAL_WIDTH: f32 = 1280.0;
 pub const LOGICAL_HEIGHT: f32 = 720.0;
@@ -97,7 +97,9 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
 
     let mut actions = Vec::new();
     let mouse = logical_mouse_position();
-    let panel = Rect::new(330.0, 74.0, 620.0, 572.0);
+    // Tall enough for two description lines per row: at one line, four of the
+    // five tools ended mid-word and the player was buying blind.
+    let panel = Rect::new(330.0, 40.0, 620.0, 648.0);
     draw_surface(
         panel,
         &SurfaceStyle::new(Color::new(0.060, 0.068, 0.078, 0.98))
@@ -133,9 +135,9 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
     for (index, upgrade) in ctx.data.upgrades.iter().enumerate() {
         let row = Rect::new(
             panel.x + 24.0,
-            panel.y + 104.0 + index as f32 * 92.0,
+            panel.y + 104.0 + index as f32 * 104.0,
             panel.w - 48.0,
-            80.0,
+            92.0,
         );
         draw_tool_row(row, upgrade, &ctx, mouse, &mut actions);
     }
@@ -225,26 +227,30 @@ fn draw_tool_row(
         rect.y + 26.0,
         TextStyle::new(19.0, dark::TEXT_BRIGHT).params(),
     );
-    draw_fitted_text(
+    let last_line = draw_wrapped_text(
         &upgrade.description,
         rect.x + 16.0,
-        rect.y + 54.0,
+        rect.y + 48.0,
         rect.w - 156.0,
-        14.0,
-        dark::TEXT,
+        WrapStyle {
+            size: 14.0,
+            line_height: 18.0,
+            max_lines: 2,
+            color: dark::TEXT,
+        },
     );
 
     let (status, status_color, can_buy) = tool_status(upgrade, ctx);
     draw_fitted_text(
         &status,
         rect.x + 16.0,
-        rect.y + 76.0,
+        last_line + 20.0,
         rect.w - 156.0,
         13.0,
         status_color,
     );
 
-    let button = Rect::new(rect.right() - 104.0, rect.y + 28.0, 82.0, 32.0);
+    let button = Rect::new(rect.right() - 104.0, rect.y + 30.0, 82.0, 32.0);
     if tool_shop_button(button, "Buy", can_buy, mouse) {
         actions.push(UiAction::BuyTool(upgrade.id.clone()));
     }

@@ -234,6 +234,9 @@ mod tests {
     /// once but owned twice — `has_upgrade` matches by id.
     #[test]
     fn every_tool_is_reachable_and_uniquely_named() {
+        /// Roughly two wrapped lines at the shop's 14px description size.
+        const DESCRIPTION_BUDGET: usize = 125;
+
         let data = GameData::load().unwrap();
         assert!(!data.upgrades.is_empty());
 
@@ -251,6 +254,19 @@ mod tests {
                 upgrade.id,
                 upgrade.unlock_completed_displays,
                 data.displays.len()
+            );
+            // The shop row gives a description two wrapped lines. Rendered width
+            // cannot be measured without a GL context, so this guards the
+            // proxy — but it is the measure that broke: four of five tools once
+            // ended mid-word, and the Sorting Trolley lost the half explaining
+            // how to load it, which the shop is the only place to learn.
+            // Re-capture `tool_shop` after changing any of these.
+            assert!(
+                upgrade.description.len() <= DESCRIPTION_BUDGET,
+                "{} has a {}-character description; the shop row fits about {}",
+                upgrade.id,
+                upgrade.description.len(),
+                DESCRIPTION_BUDGET
             );
             total_cost += upgrade.cost;
         }

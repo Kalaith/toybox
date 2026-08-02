@@ -34,6 +34,7 @@
 
 ## Polish
 
+- **The tool shop was truncating four of its five descriptions**, each mid-word, because the row gave the text one `draw_fitted_text` line. The shop is the only place a tool is explained, so a player was buying blind — and the worst loss was the Sorting Trolley's "press E to load it, Q to cycle", the sole place the game teaches how to use the carry limit it just sold. Rows now wrap to two lines (`draw_wrapped_text`), the panel grew to suit, and the Toy Scanner's text was tightened to fit rather than a feature dropped from it. `every_tool_is_reachable_and_uniquely_named` guards a character budget as a proxy — rendered width needs a GL context, so re-capture `tool_shop` after editing any description.
 - README refreshed for the 240-toy shop, both shift modes, the tool table and the `Q` key. `catalog_thumbnail.png` needed no regeneration: it is a crop of the title art, not a screenshot of the menu, so the new buttons do not appear in it.
 
 ## Engineering
