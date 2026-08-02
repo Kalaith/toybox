@@ -118,6 +118,32 @@ pub fn shift_over(data: &GameData) -> GameSession {
     session
 }
 
+/// Carrying a full trolley: three toys, one of them active. The `Q` cycle hint
+/// and the row of carry pips only appear above a carry limit of one, so every
+/// other scene shows the card in its single-toy form.
+pub fn carrying_armful(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    session
+        .unlocked_upgrade_ids
+        .push("sorting_trolley".to_owned());
+
+    let wanted: Vec<usize> = session
+        .toys
+        .iter()
+        .enumerate()
+        .filter(|(_, toy)| !toy.is_repair_part() && toy.placed_display_id.is_none())
+        .map(|(index, _)| index)
+        .take(3)
+        .collect();
+    for index in wanted {
+        session.pick_up_toy(index, data);
+    }
+    // Middle of the armful, so the ring is visibly not just the first pip.
+    session.player.active_carry_index = 1;
+    session.player.pitch = -0.10;
+    session
+}
+
 /// A previous best for the `shift_over` capture, so the score screen shows the
 /// record line it would show a returning player. Deliberately a little better
 /// than that scene's run, so the "best so far" wording is the one captured.

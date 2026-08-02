@@ -324,24 +324,27 @@ fn draw_carried_card(ctx: &UiContext<'_>) {
         Rect::new(rect.x + 14.0, rect.y + 14.0, 58.0, 58.0),
         active_toy,
     );
+    // Name on its own line above the controls. The pips used to sit beside it
+    // and the two overlapped; with a full trolley the name ran straight through
+    // three pips and the cycle key.
     draw_fitted_text(
         &active_toy.name,
         rect.x + 88.0,
-        rect.y + 42.0,
-        rect.w - 122.0,
+        rect.y + 38.0,
+        rect.w - 106.0,
         20.0,
         dark::TEXT_BRIGHT,
     );
 
     draw_keycap(
-        Rect::new(rect.right() - 70.0, rect.y + 49.0, 25.0, 22.0),
+        Rect::new(rect.right() - 70.0, rect.y + 52.0, 25.0, 22.0),
         "G",
         false,
     );
     draw_ui_text_ex(
         "Drop",
         rect.right() - 38.0,
-        rect.y + 65.0,
+        rect.y + 68.0,
         TextStyle::new(12.0, dark::TEXT_DIM).params(),
     );
 
@@ -378,8 +381,21 @@ fn draw_empty_hands_card(rect: Rect) {
 }
 
 fn draw_carry_pips(ctx: &UiContext<'_>, rect: Rect, active_toy: &ToyState) {
-    let mut x = rect.right() - 110.0;
-    let y = rect.y + 18.0;
+    let carried = ctx.session.player.carried_toy_ids.len();
+    // The controls row, left of the drop hint: [Q] then one pip per toy.
+    let mut x = rect.x + 88.0;
+    let y = rect.y + 54.0;
+
+    // The key that moves the ring, next to the ring it moves. Only once there
+    // is more than one toy to cycle between: bare-handed the carry limit is
+    // one, and a dead key on screen is worse than no key. Until now `Q` was
+    // named exactly once, in the Sorting Trolley's shop description, which the
+    // player reads at the moment of purchase and never again — the same shape
+    // of gap as the trolley having no input path at all.
+    if carried > 1 {
+        draw_keycap(Rect::new(x, y - 3.0, 23.0, 21.0), "Q", false);
+        x += 32.0;
+    }
 
     for (index, toy_id) in ctx.session.player.carried_toy_ids.iter().enumerate() {
         let Some(toy) = ctx

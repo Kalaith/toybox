@@ -176,6 +176,10 @@ impl Game {
                 self.recorded_run = true;
                 self.screen = GameScreen::Playing;
             }
+            "carrying_armful" => {
+                self.session = capture_scenes::carrying_armful(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "carrying_a_half" => {
                 self.session = capture_scenes::carrying_a_half(&self.data);
                 self.screen = GameScreen::Playing;

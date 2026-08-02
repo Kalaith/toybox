@@ -33,7 +33,8 @@ param(
     [string[]]$Scenes = @(
         "gameplay", "title", "mid_run", "closing_soon", "shift_over",
         "tool_shop", "checkout", "lamp_contrast", "repair_bench",
-        "carrying_a_half", "carrying_a_half_scanned", "broken_lineup"
+        "carrying_a_half", "carrying_a_half_scanned", "carrying_armful",
+        "broken_lineup"
     ),
     [double]$MaxDiffPercent = 0.10,
     # The toy gallery is byte-reproducible, unlike two of the scenes, so it gets
