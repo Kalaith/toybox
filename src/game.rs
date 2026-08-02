@@ -145,6 +145,10 @@ impl Game {
                 self.session = capture_scenes::tool_shop(&self.data);
                 self.screen = GameScreen::ToolShop;
             }
+            "checkout" => {
+                self.session = capture_scenes::checkout(&self.data);
+                self.screen = GameScreen::Playing;
+            }
             "repair_bench" => {
                 self.session = capture_scenes::repair_bench(&self.data);
                 self.screen = GameScreen::Playing;

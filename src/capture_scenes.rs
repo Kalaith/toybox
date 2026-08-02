@@ -76,6 +76,34 @@ pub fn tool_shop(data: &GameData) -> GameSession {
     session
 }
 
+/// The checkout, framed on the counter with the shopfront window behind it —
+/// the view that shows the till clutter and the night sky through the glass.
+pub fn checkout(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    let counter = data.layout.counters.first().expect("a checkout counter");
+    // Stand between the counter and the shopfront window so one frame carries
+    // both: the till clutter on the left, the night sky through the glass on
+    // the right.
+    // Between the counter and the shopfront so one frame carries both the till
+    // clutter and the night sky through the glass.
+    let stand = vec2(
+        (counter.x + counter.w * 0.5 + data.layout.window.x) * 0.5,
+        counter.y + counter.h + 1.6,
+    );
+
+    // Sweep the floor so the counter is not buried under 4000 loose toys.
+    session
+        .toys
+        .retain(|toy| toy.position.to_vec2().distance(stand) > 6.0);
+    let mut session = GameSession::from_save(session.to_save(&data.config.version), data);
+
+    session.player.position = WorldPoint::from_vec2_for_capture(stand);
+    // Face the shopfront wall, angled a little toward the window.
+    session.player.yaw = -std::f32::consts::FRAC_PI_2 + 0.16;
+    session.player.pitch = 0.06;
+    session
+}
+
 /// A bench holding one half of a broken toy, framed from the front — the view
 /// that shows the status beacon's `AwaitingMatch` state.
 pub fn repair_bench(data: &GameData) -> GameSession {

@@ -1,4 +1,5 @@
 use crate::data::GameData;
+use crate::ui::ambience::{draw_checkout_clutter, draw_window_night_sky, zone_tint};
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube, wood_tone};
 use macroquad::prelude::*;
 
@@ -11,7 +12,9 @@ pub(crate) fn draw_shop_environment(data: &GameData) {
     draw_ceiling(data);
     draw_skylights(data);
     draw_front_window(data);
+    draw_window_night_sky(data);
     draw_backroom_props(data);
+    draw_checkout_clutter(data);
 }
 
 /// Stockroom dressing placed relative to the Backroom zone: a wall clock
@@ -180,10 +183,13 @@ fn draw_skylights(data: &GameData) {
 /// lit, not fluorescent-bright. Offsets keep them clear of the zone signs.
 fn draw_zone_lamps(data: &GameData) {
     let shade = Color::new(0.15, 0.18, 0.17, 1.0);
-    let warm = Color::new(0.95, 0.84, 0.55, 1.0);
+    let base_warm = Color::new(0.95, 0.84, 0.55, 1.0);
     let ceiling_y = data.layout.wall.height + 0.06;
 
     for (zone_index, zone) in data.layout.zones.iter().enumerate() {
+        // Each department's bulbs lean toward its own accent. Kept low so the
+        // shop still reads as one warm after-hours space.
+        let warm = zone_tint(zone, base_warm, 0.30);
         for (lamp_index, offset) in [-0.26_f32, 0.26].iter().enumerate() {
             let x = zone.x + zone.w * (0.5 + offset);
             let drift = ((zone_index * 3 + lamp_index * 5) % 5) as f32 * 0.3 - 0.6;
@@ -206,23 +212,15 @@ fn draw_zone_lamps(data: &GameData) {
             draw_cube(vec3(x, 1.91, z), vec3(0.09, 0.07, 0.09), None, warm);
 
             // Soft warm pool on the floor, brighter core inside a wide wash.
-            draw_cube(
-                vec3(x, 0.058, z),
-                vec3(2.8, 0.006, 2.8),
-                None,
-                Color::new(0.95, 0.82, 0.50, 0.07),
-            );
-            draw_cube(
-                vec3(x, 0.062, z),
-                vec3(1.5, 0.006, 1.5),
-                None,
-                Color::new(0.96, 0.86, 0.55, 0.10),
-            );
+            let wash = zone_tint(zone, Color::new(0.95, 0.82, 0.50, 0.07), 0.34);
+            draw_cube(vec3(x, 0.058, z), vec3(2.8, 0.006, 2.8), None, wash);
+            let core = zone_tint(zone, Color::new(0.96, 0.86, 0.55, 0.10), 0.26);
+            draw_cube(vec3(x, 0.062, z), vec3(1.5, 0.006, 1.5), None, core);
 
             draw_dust_motes(
                 vec3(x, 0.0, z),
                 zone_index * 13 + lamp_index * 7,
-                Color::new(0.98, 0.92, 0.70, 0.32),
+                zone_tint(zone, Color::new(0.98, 0.92, 0.70, 0.32), 0.30),
             );
         }
     }
@@ -473,7 +471,8 @@ fn draw_front_window(data: &GameData) {
         center + vec3(0.0, 0.0, -0.045),
         vec3(window.width - 0.30, window.height - 0.28, 0.04),
         None,
-        Color::new(0.07, 0.11, 0.19, 0.92),
+        // Translucent: the night sky behind this pane has to read through it.
+        Color::new(0.07, 0.11, 0.19, 0.34),
     );
     draw_dark_trim(
         center + vec3(0.0, 0.0, -0.07),

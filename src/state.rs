@@ -42,6 +42,11 @@ impl WorldPoint {
         Self::from_vec2(position)
     }
 
+    /// Staging helper for the screenshot scenes in `capture_scenes`.
+    pub(crate) fn from_vec2_for_capture(position: Vec2) -> Self {
+        Self::from_vec2(position)
+    }
+
     pub fn to_vec2(self) -> Vec2 {
         vec2(self.x, self.y)
     }

@@ -6,6 +6,7 @@ use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
 
+mod ambience;
 mod benches;
 mod debug_overlay;
 mod environment;
