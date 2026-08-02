@@ -68,7 +68,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
         IconKind::Star,
         "Toys Put Away",
         &format!("{placed} / {toy_count}"),
-        placed as f32 / toy_count as f32,
+        Some(placed as f32 / toy_count as f32),
         Color::new(1.0, 0.72, 0.16, 1.0),
     );
 
@@ -79,7 +79,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
         IconKind::Crate,
         "Carry",
         &format!("{carried} / {carry_limit}"),
-        carried as f32 / carry_limit as f32,
+        Some(carried as f32 / carry_limit as f32),
         Color::new(0.93, 0.48, 0.18, 1.0),
     );
 
@@ -112,12 +112,16 @@ fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
     } else {
         zone.name.clone()
     };
+    // No bar for a zone with no shelves. `fraction()` reports 1.0 there so that
+    // aggregates do not count an empty zone as outstanding work — but rendered
+    // as a full meter beside the words "no shelves" it reads as a finished
+    // aisle, which is a claim about work that does not exist.
     draw_status_row(
         origin,
         IconKind::Star,
         &label,
         &value,
-        here.fraction(),
+        here.has_displays().then(|| here.fraction()),
         accent,
     );
 }
@@ -127,15 +131,20 @@ fn draw_status_row(
     icon: IconKind,
     label: &str,
     value: &str,
-    progress: f32,
+    progress: Option<f32>,
     accent: Color,
 ) {
     draw_icon(icon, vec2(origin.x + 13.0, origin.y + 13.0), 14.0, accent);
-    draw_ui_text_ex(
+    // Fitted, not free-drawn: zone names are data and a longer one added later
+    // would silently spill out of the panel again. Truncating is the failure
+    // that stays inside the box.
+    draw_fitted_text(
         label,
         origin.x + 36.0,
         origin.y + 12.0,
-        TextStyle::new(13.0, Color::new(0.88, 0.86, 0.80, 1.0)).params(),
+        status_panel_rect().right() - (origin.x + 36.0) - 12.0,
+        13.0,
+        Color::new(0.88, 0.86, 0.80, 1.0),
     );
     draw_ui_text_ex(
         value,
@@ -145,11 +154,13 @@ fn draw_status_row(
     );
     // Underline rather than sit beside the value: at 4000 toys the counter
     // reads "1105 / 4000" and ran straight into a bar placed to its right.
-    draw_progress_bar(
-        Rect::new(origin.x + 36.0, origin.y + 37.0, 122.0, 5.0),
-        progress,
-        accent,
-    );
+    if let Some(progress) = progress {
+        draw_progress_bar(
+            Rect::new(origin.x + 36.0, origin.y + 37.0, 122.0, 5.0),
+            progress,
+            accent,
+        );
+    }
 }
 
 fn draw_notice_panel(ctx: &UiContext<'_>) {
@@ -534,7 +545,10 @@ fn draw_crosshair(ctx: &UiContext<'_>) {
 }
 
 fn status_panel_rect() -> Rect {
-    Rect::new(18.0, 16.0, 190.0, 226.0)
+    // 190 wide fitted "Plush Corner" and nothing longer: once the zone row
+    // started carrying a repair count, "Dragon Alcove - 7 to mend" drew past
+    // the panel edge and onto the shop floor behind it.
+    Rect::new(18.0, 16.0, 250.0, 226.0)
 }
 
 fn carried_card_rect() -> Rect {
