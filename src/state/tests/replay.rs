@@ -1021,3 +1021,53 @@ fn shop_scale_sets_the_length_of_a_shift() {
         }
     }
 }
+
+/// The crosshair hands over the toy you aimed at.
+///
+/// Two different failures used to be added together and reported as "the
+/// crosshair misses half the time", so they are counted apart:
+///
+/// - *whiffed* — the crosshair delivered nothing at all. This is the cone
+///   being wrong, and it should be nearly zero.
+/// - *neighbour* — it delivered a different toy than the one aimed at, because
+///   something in the pile sat nearer the centre of the view. Not lost work
+///   (the closer still walks away holding a toy) but not what was asked for.
+///
+/// Both were once justified by "a floor buried in toys", measured when the shop
+/// held 4000 of them: neighbour grabs ran at roughly 45% of pickups. The shop
+/// ships 240 now and the rate collapsed to a few per run, which makes that
+/// justification obsolete rather than merely dated — and left the recorded
+/// figures wrong by an order of magnitude with nothing to notice. These gates
+/// sit well above the shipped rates and well below the old ones, so density
+/// creeping back up shows here instead of in prose nobody re-measures.
+#[test]
+fn the_crosshair_hands_over_the_toy_you_aimed_at() {
+    let data = GameData::load().unwrap();
+
+    for scenario in [BEGINNER, FULLY_EQUIPPED] {
+        let report = run(&scenario, &data, data.config.toy_count * 4);
+        println!("{}", report.line(scenario.name));
+        assert!(report.shelved > 0, "{} shelved nothing", scenario.name);
+
+        assert!(
+            report.whiffs * 20 < report.shelved,
+            "{}: the crosshair delivered nothing {} times against {} toys \
+             shelved. Bare-handed this should be zero — a nonzero rate means \
+             the pick-up cone is not finding what is in front of it.",
+            scenario.name,
+            report.whiffs,
+            report.shelved
+        );
+        assert!(
+            report.grabbed_neighbour * 5 < report.shelved,
+            "{}: the crosshair handed over a different toy than the one aimed \
+             at {} times against {} toys shelved. At 4000 toys this ran near \
+             45% and was called pile texture; at the shipped shop size it is a \
+             few per run, so this rate climbing back means the floor got denser \
+             or the targeting got worse.",
+            scenario.name,
+            report.grabbed_neighbour,
+            report.shelved
+        );
+    }
+}
