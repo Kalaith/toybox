@@ -158,7 +158,7 @@ fn draw_bench_status_beacon(center: Vec3, bench: &BenchDef, status: BenchStatus)
     );
     draw_cube(
         base + vec3(0.0, 0.40, 0.0),
-        vec3(0.035, 0.75, 0.035),
+        vec3(0.05, 0.75, 0.05),
         None,
         metal,
     );
@@ -168,11 +168,11 @@ fn draw_bench_status_beacon(center: Vec3, bench: &BenchDef, status: BenchStatus)
     let head = base + vec3(0.0, 0.86, 0.0);
     draw_cube(
         head,
-        vec3(0.17, 0.13, 0.17),
+        vec3(0.24, 0.20, 0.24),
         None,
-        Color::new(0.14, 0.15, 0.17, 1.0),
+        Color::new(0.09, 0.10, 0.12, 1.0),
     );
-    draw_cube(head, vec3(0.19, 0.055, 0.19), None, lamp);
+    draw_cube(head, vec3(0.27, 0.10, 0.27), None, lamp);
     let breath = if pulses {
         0.55 + 0.45 * ((get_time() as f32 * 2.2).sin() * 0.5 + 0.5)
     } else {
@@ -180,19 +180,19 @@ fn draw_bench_status_beacon(center: Vec3, bench: &BenchDef, status: BenchStatus)
     };
     draw_cube(
         head,
-        vec3(0.30, 0.30, 0.30),
+        vec3(0.34, 0.34, 0.34),
         None,
-        Color::new(lamp.r, lamp.g, lamp.b, 0.20 * breath),
+        Color::new(lamp.r, lamp.g, lamp.b, 0.12 * breath),
     );
 
     // One pip per bench slot on the front face, lit left to right.
-    let pip_span = 0.09;
+    let pip_span = 0.115;
     let first = -(status.capacity.saturating_sub(1) as f32) * pip_span * 0.5;
     for slot in 0..status.capacity {
         let lit = slot < status.filled;
         draw_cube(
-            head + vec3(first + slot as f32 * pip_span, -0.09, -0.085),
-            vec3(0.055, 0.055, 0.02),
+            head + vec3(first + slot as f32 * pip_span, -0.135, -0.125),
+            vec3(0.075, 0.075, 0.025),
             None,
             if lit {
                 lamp

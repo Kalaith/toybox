@@ -369,10 +369,10 @@ fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
         InteractionPreview::AwaitingRepairMatch {
             toy_name,
             missing_part,
-        } => PromptVisual::neutral(format!(
-            "Bench waits for the {toy_name} {}",
-            missing_part.label()
-        )),
+            // Missing half first: the prompt is width-fitted and long toy names
+            // ("Cozy Critters Bear #03") truncate, so the one fact the player
+            // needs must survive the ellipsis.
+        } => PromptVisual::neutral(format!("Needs the {} - {toy_name}", missing_part.label())),
         InteractionPreview::NeedsRepair => PromptVisual::warning("Repair at the bench first"),
         InteractionPreview::PutDown => PromptVisual::action("E", "Place on floor"),
         InteractionPreview::Pickup { toy_name } => {
