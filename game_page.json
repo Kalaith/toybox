@@ -25,7 +25,11 @@
     },
     {
       "key": "E / Space",
-      "desc": "Pick up, shelf, place on the bench, or place on the floor"
+      "desc": "Pick up, load another toy onto the trolley, shelf, place on the bench, or place on the floor"
+    },
+    {
+      "key": "Q",
+      "desc": "Cycle which carried toy is active"
     },
     {
       "key": "G",

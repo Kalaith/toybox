@@ -45,6 +45,77 @@ fn cannot_pick_up_second_toy_while_holding_one() {
     assert!(!session.toys[1].is_held);
 }
 
+/// The Sorting Trolley sells "wheel three toys at once", so pressing `E` on a
+/// second toy while already holding one has to load it rather than drop what is
+/// in hand. Without this the trolley is unreachable through real input: every
+/// gathering attempt drops the armful instead of adding to it, and a replay
+/// measured the trolley *losing* to bare hands because of it.
+#[test]
+fn crosshair_loads_a_second_toy_when_the_trolley_gives_room() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    session
+        .unlocked_upgrade_ids
+        .push("sorting_trolley".to_owned());
+
+    let carried_id = session.toys[0].id.clone();
+    let aimed_id = session.toys[1].id.clone();
+    session.pick_up_toy(0, &data);
+
+    stand_in_the_open_looking_at(&mut session, 1);
+
+    assert!(matches!(
+        session.interaction_preview(&data),
+        InteractionPreview::Pickup { .. }
+    ));
+    let result = session.interact(&data);
+
+    assert!(
+        matches!(result, InteractionResult::PickedUp { .. }),
+        "aiming at a loose toy with room on the trolley dropped instead: {result:?}"
+    );
+    assert_eq!(session.player.carried_toy_ids, vec![carried_id, aimed_id]);
+}
+
+/// The bare-handed carry limit is 1, so the same aim must still drop. A player
+/// without the trolley never loses the ability to put a toy down by looking at
+/// the floor where another toy happens to lie.
+#[test]
+fn crosshair_still_drops_when_the_carry_is_already_full() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    session.pick_up_toy(0, &data);
+    stand_in_the_open_looking_at(&mut session, 1);
+
+    assert!(matches!(
+        session.interaction_preview(&data),
+        InteractionPreview::PutDown
+    ));
+    assert!(matches!(
+        session.interact(&data),
+        InteractionResult::Dropped { .. }
+    ));
+    assert!(session.player.carried_toy_ids.is_empty());
+}
+
+/// Put the player in open floor, well clear of any display, aimed squarely at
+/// one loose toy with every other toy swept out of the crosshair.
+fn stand_in_the_open_looking_at(session: &mut GameSession, toy_index: usize) {
+    session.player.position = WorldPoint { x: 9.0, y: 10.8 };
+    session.player.yaw = 0.0;
+    session.player.pitch = -0.50;
+
+    for toy in session.toys.iter_mut() {
+        toy.position = WorldPoint { x: 16.8, y: 20.4 };
+        toy.placed_display_id = None;
+        toy.placed_slot_index = None;
+    }
+    session.toys[toy_index].position = WorldPoint { x: 9.55, y: 10.8 };
+    session.toys[toy_index].is_held = false;
+    session.spatial.rebuild(&session.toys);
+}
+
 #[test]
 fn interact_places_held_toy_on_floor_when_no_target_is_active() {
     let data = GameData::load().unwrap();

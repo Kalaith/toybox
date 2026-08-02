@@ -83,8 +83,14 @@ struct RunReport {
     shelved: usize,
     repaired: usize,
     mistakes: u32,
-    /// Times the crosshair did not deliver the toy the closer walked to.
-    aim_misses: usize,
+    /// Times the crosshair delivered nothing at all — the closer walked to a
+    /// toy, aimed at it, and `E` did not pick anything up.
+    whiffs: usize,
+    /// Times the crosshair delivered a *different* toy than the one aimed at,
+    /// because a neighbour in the pile sat nearer the centre of the view. The
+    /// closer still walks away holding something, so this is pile texture, not
+    /// lost work.
+    grabbed_neighbour: usize,
     deferred_parts: usize,
     displays_complete: usize,
     walked_metres: f32,
@@ -95,12 +101,13 @@ impl RunReport {
     fn line(&self, name: &str) -> String {
         format!(
             "{name:>15}: {:>5} shelved  {:>3} repaired  {:>2} mistakes  \
-             {:>3} deferred  {:>4} aim misses  {:>2} displays  {:>6.0}m walked               {:>5.1} min",
+             {:>3} deferred  {:>4} whiffed  {:>4} neighbour  {:>2} displays  {:>6.0}m walked               {:>5.1} min",
             self.shelved,
             self.repaired,
             self.mistakes,
             self.deferred_parts,
-            self.aim_misses,
+            self.whiffs,
+            self.grabbed_neighbour,
             self.displays_complete,
             self.walked_metres,
             self.minutes
@@ -157,7 +164,8 @@ fn aim_and_pick_up(
     session: &mut GameSession,
     data: &GameData,
     intended: usize,
-    misses: &mut usize,
+    whiffs: &mut usize,
+    neighbours: &mut usize,
 ) -> Option<usize> {
     // Look down at the floor, not out across it. A fixed shallow pitch aims
     // over the top of a toy standing at arm's length and misses almost every
@@ -177,19 +185,19 @@ fn aim_and_pick_up(
         session.interaction_preview(data),
         InteractionPreview::Pickup { .. }
     ) {
-        *misses += 1;
+        *whiffs += 1;
         return None;
     }
 
     if !matches!(session.interact(data), InteractionResult::PickedUp { .. }) {
-        *misses += 1;
+        *whiffs += 1;
         return None;
     }
 
     let held = session.active_toy()?.id.clone();
     let got = session.toys.iter().position(|toy| toy.id == held)?;
     if got != intended {
-        *misses += 1;
+        *neighbours += 1;
     }
     Some(got)
 }
@@ -420,7 +428,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
     let mut next_slot = vec![0usize; data.displays.len()];
     let mut walked = 0.0;
     let (mut shelved, mut repaired, mut actions) = (0usize, 0usize, 0usize);
-    let mut misses = 0usize;
+    let (mut whiffs, mut neighbours) = (0usize, 0usize);
     // Parts the closer gave up on. Two mismatched halves fill a bench and
     // every later part then cycles pick-up, walk, refuse, drop forever, with
     // the closer parked at the bench so the dropped part is always the nearest
@@ -450,7 +458,13 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let target = session.toys[first_index].position;
             walk_to(&mut session, data, target, &mut walked);
-            let Some(held) = aim_and_pick_up(&mut session, data, first_index, &mut misses) else {
+            let Some(held) = aim_and_pick_up(
+                &mut session,
+                data,
+                first_index,
+                &mut whiffs,
+                &mut neighbours,
+            ) else {
                 deferred.insert(first_index);
                 continue;
             };
@@ -487,7 +501,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let extra_position = session.toys[extra].position;
             walk_to(&mut session, data, extra_position, &mut walked);
-            if aim_and_pick_up(&mut session, data, extra, &mut misses).is_none() {
+            if aim_and_pick_up(&mut session, data, extra, &mut whiffs, &mut neighbours).is_none() {
                 break;
             }
         }
@@ -501,7 +515,15 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         );
         while !session.player.carried_toy_ids.is_empty() {
             let slot = next_slot[display_index];
-            if slot >= display.capacity {
+            // An armful gathered for one display can still contain a stray: the
+            // crosshair hands over whatever sat nearest the centre of the view,
+            // not always the toy aimed at. A player checks what is in hand
+            // before shelving it. Forcing it here would manufacture mistakes
+            // and blind the run's mistake count to real placement bugs.
+            let belongs = session
+                .active_toy()
+                .is_some_and(|toy| toy_matches_display(toy, display));
+            if !belongs || slot >= display.capacity {
                 session.drop_active(data);
                 continue;
             }
@@ -524,7 +546,8 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         shelved,
         repaired,
         mistakes: session.player.mistakes,
-        aim_misses: misses,
+        whiffs,
+        grabbed_neighbour: neighbours,
         deferred_parts: deferred.len(),
         displays_complete: session.completed_display_count(),
         walked_metres: walked,
@@ -648,6 +671,14 @@ fn tools_pay_for_themselves_over_the_same_work() {
 
     for (name, report) in &reports {
         println!("{}", report.line(name));
+    }
+
+    for (name, report) in &reports {
+        assert_eq!(
+            report.mistakes, 0,
+            "{name} mis-shelved something: the closer only ever shelves a toy on \
+             its own display, so a mistake here is a bug in placement or matching"
+        );
     }
 
     let beginner = reports[0].1;

@@ -29,10 +29,19 @@ impl GameSession {
                         toy_name: active_toy.name.clone(),
                     };
                 }
+                if let Some(toy_index) = self.targeted_pickup_addition(data) {
+                    return self.pick_up_toy(toy_index, data);
+                }
                 return self.drop_active_as_interaction(data);
             }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 return self.place_active_toy(target.display_index, target.slot_index, data);
+            }
+            // Loading the armful outranks reporting a full or occupied shelf,
+            // which is a no-op the player gains nothing from. Shelving still
+            // wins outright above, so aiming at a free slot always places.
+            if let Some(toy_index) = self.targeted_pickup_addition(data) {
+                return self.pick_up_toy(toy_index, data);
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
@@ -99,11 +108,21 @@ impl GameSession {
                 if self.targeted_display_slot(data).is_some() || self.is_near_display(data) {
                     return InteractionPreview::NeedsRepair;
                 }
+                if let Some(toy_index) = self.targeted_pickup_addition(data) {
+                    return InteractionPreview::Pickup {
+                        toy_name: self.toys[toy_index].name.clone(),
+                    };
+                }
                 return InteractionPreview::PutDown;
             }
             if let Some(target) = self.targeted_empty_display_slot(data) {
                 let _display = &data.displays[target.display_index];
                 return InteractionPreview::PlaceOnShelf;
+            }
+            if let Some(toy_index) = self.targeted_pickup_addition(data) {
+                return InteractionPreview::Pickup {
+                    toy_name: self.toys[toy_index].name.clone(),
+                };
             }
             if let Some(target) = self.targeted_display_slot(data) {
                 let display = &data.displays[target.display_index];
@@ -459,6 +478,19 @@ impl GameSession {
                 toy.placed_display_id.as_deref() == Some(display.id.as_str())
                     && toy.placed_slot_index == Some(slot_index)
             })
+    }
+
+    /// The loose toy the crosshair would *add* to an armful that still has room.
+    ///
+    /// Always `None` at a carry limit of one, so a bare-handed player's `E`
+    /// keeps meaning "put this down" no matter what is lying at their feet.
+    /// Above one it is the only way to fill the Sorting Trolley: every other
+    /// branch of `interact` either shelves the held toy or drops it.
+    fn targeted_pickup_addition(&self, data: &GameData) -> Option<usize> {
+        if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
+            return None;
+        }
+        self.targeted_loose_toy_index(data)
     }
 
     fn targeted_loose_toy_index(&self, data: &GameData) -> Option<usize> {
