@@ -4,6 +4,7 @@ use crate::data::{DisplayDef, GameData, ToyCategory};
 use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 mod collision;
 mod interactions;
@@ -404,29 +405,52 @@ impl GameSession {
             .unwrap_or(false)
     }
 
+    /// Recompute which displays are full. Runs after every placement.
+    ///
+    /// One pass over the toys, bucketed by display. The obvious shape — rescan
+    /// every toy once per display, and again once per slot to ask "is anything
+    /// in this slot" — is O(displays x capacity x toys): at this shop's 20
+    /// displays, 200 slots each and 4500 toys that was ~18 million iterations
+    /// and thousands of String clones for every single toy shelved.
     fn refresh_display_completion(&mut self, data: &GameData) {
-        for display_state in &mut self.displays {
-            if let Some(display) = data.display_by_id(&display_state.id) {
-                display_state.placed_toy_ids = self
-                    .toys
-                    .iter()
-                    .filter(|toy| {
-                        toy.placed_display_id
-                            .as_deref()
-                            .is_some_and(|placed_id| placed_id == display.id)
-                    })
-                    .map(|toy| toy.id.clone())
-                    .collect();
-                display_state.is_complete = (0..display.capacity).all(|slot_index| {
-                    self.toys.iter().any(|toy| {
-                        toy.placed_display_id
-                            .as_deref()
-                            .is_some_and(|placed_id| placed_id == display.id)
-                            && toy.placed_slot_index == Some(slot_index)
-                            && toy_matches_display(toy, display)
-                    })
-                });
+        let mut index_of: HashMap<&str, usize> = HashMap::with_capacity(data.displays.len());
+        for (display_index, display) in data.displays.iter().enumerate() {
+            index_of.insert(display.id.as_str(), display_index);
+        }
+
+        let mut placed: Vec<Vec<String>> = vec![Vec::new(); data.displays.len()];
+        let mut matched_slots: Vec<Vec<bool>> = data
+            .displays
+            .iter()
+            .map(|display| vec![false; display.capacity])
+            .collect();
+
+        for toy in &self.toys {
+            let Some(display_id) = toy.placed_display_id.as_deref() else {
+                continue;
+            };
+            let Some(&display_index) = index_of.get(display_id) else {
+                continue;
+            };
+            placed[display_index].push(toy.id.clone());
+
+            let display = &data.displays[display_index];
+            // A mis-shelved toy occupies the slot without completing it.
+            if let Some(slot_index) = toy.placed_slot_index {
+                if slot_index < display.capacity && toy_matches_display(toy, display) {
+                    matched_slots[display_index][slot_index] = true;
+                }
             }
+        }
+
+        for display_state in &mut self.displays {
+            // A display in the save that the data no longer defines keeps
+            // whatever it had, exactly as the per-display lookup used to.
+            let Some(&display_index) = index_of.get(display_state.id.as_str()) else {
+                continue;
+            };
+            display_state.placed_toy_ids = std::mem::take(&mut placed[display_index]);
+            display_state.is_complete = matched_slots[display_index].iter().all(|filled| *filled);
         }
     }
 
