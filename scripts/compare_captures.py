@@ -52,7 +52,7 @@ def main() -> int:
     if len(sys.argv) < 4:
         print(
             "usage: compare_captures.py <reference_dir> <candidate_dir> "
-            "<max_percent> [name ...]",
+            "<max_percent> [relative_png ...]",
             file=sys.stderr,
         )
         return 2
@@ -60,31 +60,34 @@ def main() -> int:
     reference_dir = Path(sys.argv[1])
     candidate_dir = Path(sys.argv[2])
     max_percent = float(sys.argv[3])
+    # Relative paths rather than bare names, so the same comparison serves the
+    # whole-store scenes (`ui_mid_run.png`) and the toy gallery
+    # (`toys/bear.png`) without either script knowing the other's layout.
     names = sys.argv[4:]
 
     drifted: list[str] = []
     missing: list[str] = []
 
-    for name in names:
-        filename = f"ui_{name}.png"
+    for filename in names:
+        label = filename.removeprefix("ui_").removesuffix(".png")
         reference = reference_dir / filename
         candidate = candidate_dir / filename
         if not candidate.exists():
-            print(f"  ??  {name:<24} capture missing")
-            missing.append(name)
+            print(f"  ??    {label:<24} capture missing")
+            missing.append(label)
             continue
         if not reference.exists():
-            print(f"  NEW {name:<24} no committed reference")
-            drifted.append(name)
+            print(f"  NEW   {label:<24} no committed reference")
+            drifted.append(label)
             continue
 
         fraction, worst = differing_fraction(reference, candidate)
         percent = fraction * 100.0
         if percent > max_percent:
-            print(f"  DRIFT {name:<22} {percent:6.3f}% of pixels (max delta {worst})")
-            drifted.append(name)
+            print(f"  DRIFT {label:<24} {percent:6.3f}% of pixels (max delta {worst})")
+            drifted.append(label)
         else:
-            print(f"  ok    {name:<22} {percent:6.3f}% of pixels")
+            print(f"  ok    {label:<24} {percent:6.3f}% of pixels")
 
     if missing:
         print(f"\ncapture failed for: {', '.join(missing)}", file=sys.stderr)
