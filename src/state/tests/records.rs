@@ -93,6 +93,86 @@ fn records_survive_a_save_and_a_missing_mode() {
     assert_eq!(partial.best_for(ShiftMode::Timed), None);
 }
 
+/// The paths that only bite a real player: a records file that is not there
+/// yet, and one that will not parse.
+///
+/// Slot saves land in the OS app-data directory with no override, so these use
+/// a game name of their own and delete it afterwards rather than touching
+/// anything the real game owns. Worth the awkwardness: everything else about
+/// records is exercised in memory, and "does it survive a round trip through a
+/// file" was the one link reasoned about rather than observed.
+mod on_disk {
+    use super::*;
+    use macroquad_toolkit::persistence::get_app_data_path;
+    use std::fs;
+
+    /// A game name nobody else uses, so the directory can be removed whole.
+    fn scratch_game(tag: &str) -> String {
+        format!("toybox_records_test_{tag}")
+    }
+
+    fn remove_scratch(game_name: &str) {
+        if let Some(path) = get_app_data_path(game_name, "x") {
+            if let Some(dir) = path.parent() {
+                let _ = fs::remove_dir_all(dir);
+            }
+        }
+    }
+
+    #[test]
+    fn a_record_survives_a_round_trip_through_a_file() {
+        let game = scratch_game("roundtrip");
+        remove_scratch(&game);
+
+        let mut written = BestRuns::default();
+        written.submit(ShiftMode::Timed, run(212, 3, 1655.0));
+        written.submit(ShiftMode::Relaxed, run(240, 0, 3120.0));
+        written
+            .save(&game, "records", "1.0.0")
+            .expect("save records");
+
+        let read = BestRuns::load(&game, "records", "1.0.0");
+        assert_eq!(read, written);
+        assert_eq!(read.best_for(ShiftMode::Timed).unwrap().toys_shelved, 212);
+
+        remove_scratch(&game);
+    }
+
+    #[test]
+    fn a_missing_records_file_is_the_first_run_not_an_error() {
+        let game = scratch_game("missing");
+        remove_scratch(&game);
+
+        assert_eq!(
+            BestRuns::load(&game, "records", "1.0.0"),
+            BestRuns::default()
+        );
+    }
+
+    /// A corrupt file costs the player their records and nothing else. Refusing
+    /// to start a shift because a leaderboard will not parse would be a far
+    /// worse trade than losing the leaderboard.
+    #[test]
+    fn a_corrupt_records_file_degrades_to_no_records() {
+        let game = scratch_game("corrupt");
+        remove_scratch(&game);
+
+        let mut seed = BestRuns::default();
+        seed.submit(ShiftMode::Timed, run(100, 0, 900.0));
+        seed.save(&game, "records", "1.0.0").expect("seed records");
+
+        let path = get_app_data_path(&game, "save_records.json").expect("records path");
+        fs::write(&path, "{ this is not json").expect("corrupt the file");
+
+        assert_eq!(
+            BestRuns::load(&game, "records", "1.0.0"),
+            BestRuns::default()
+        );
+
+        remove_scratch(&game);
+    }
+}
+
 /// The record is built from the same summary the score screen shows, so the
 /// two can never disagree about what the run was worth.
 #[test]

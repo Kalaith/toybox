@@ -11,6 +11,9 @@
 //! must survive.
 
 use super::{ShiftMode, ShiftSummary};
+use macroquad_toolkit::persistence::{
+    load_from_slot_with_migration, save_to_slot_with_version, slot_exists,
+};
 use serde::{Deserialize, Serialize};
 
 /// What a finished shift is worth, flattened out of `ShiftSummary` so a record
@@ -92,5 +95,36 @@ impl BestRuns {
             *slot = Some(run);
         }
         improved
+    }
+
+    /// Read the records, treating every problem as "none yet".
+    ///
+    /// A missing slot is the ordinary first-run case. A corrupt one should cost
+    /// the player their records and nothing else — refusing to start a shift
+    /// because a leaderboard file will not parse would be a far worse trade
+    /// than losing the leaderboard.
+    pub fn load(game_name: &str, slot: &str, version: &str) -> Self {
+        if !slot_exists(game_name, slot) {
+            return Self::default();
+        }
+        load_from_slot_with_migration(game_name, slot, version, |_, value| {
+            // The callback is handed the whole save wrapper, `{slot, data}`,
+            // not the inner payload. Deserialising that straight into `Self`
+            // does not fail — every field here is `serde(default)`, so serde
+            // ignores the two unknown keys and hands back an empty record. That
+            // shipped: records were written correctly and silently read back as
+            // none, every launch. Unwrap the envelope first, as
+            // `migrate_save_value` does for the session save.
+            let payload = value.get("data").cloned().unwrap_or(value);
+            serde_json::from_value::<Self>(payload).map_err(|err| err.to_string())
+        })
+        .unwrap_or_else(|err| {
+            eprintln!("Could not read best runs ({err}); starting with none");
+            Self::default()
+        })
+    }
+
+    pub fn save(&self, game_name: &str, slot: &str, version: &str) -> Result<(), String> {
+        save_to_slot_with_version(game_name, slot, self, version)
     }
 }

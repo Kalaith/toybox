@@ -115,7 +115,11 @@ impl Game {
             GameScreen::Title
         };
 
-        let best_runs = load_best_runs(&data.config.game_name, &data.config.records_slot);
+        let best_runs = BestRuns::load(
+            &data.config.game_name,
+            &data.config.records_slot,
+            &data.config.version,
+        );
         let session = GameSession::new(&data);
         Self {
             data,
@@ -308,10 +312,9 @@ impl Game {
             return;
         }
 
-        if let Err(err) = save_to_slot_with_version(
+        if let Err(err) = self.best_runs.save(
             &self.data.config.game_name,
             &self.data.config.records_slot,
-            &self.best_runs,
             &self.data.config.version,
         ) {
             // Worth saying out loud: the player just set a record and it did not
@@ -654,21 +657,4 @@ impl Game {
 
 fn is_control_down() -> bool {
     is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl)
-}
-
-/// Read the best runs, treating any problem as "no records yet".
-///
-/// A missing slot is the normal first-run case, and a corrupt one should cost
-/// the player their records rather than the ability to start a shift.
-fn load_best_runs(game_name: &str, slot: &str) -> BestRuns {
-    if !slot_exists(game_name, slot) {
-        return BestRuns::default();
-    }
-    load_from_slot_with_migration(game_name, slot, "", |_, value| {
-        serde_json::from_value::<BestRuns>(value).map_err(|err| err.to_string())
-    })
-    .unwrap_or_else(|err| {
-        eprintln!("Could not read best runs ({err}); starting with none");
-        BestRuns::default()
-    })
 }
