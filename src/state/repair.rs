@@ -35,6 +35,25 @@ impl ToyState {
     }
 }
 
+impl RepairPartKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            RepairPartKind::Head => "head",
+            RepairPartKind::Body => "body",
+        }
+    }
+
+    /// Breaks always produce exactly one head and one body per `repair_id`
+    /// (see [`split_initial_broken_toys`]), so the counterpart of a part is
+    /// simply the other kind — no scan over the toy list needed.
+    fn counterpart(self) -> Self {
+        match self {
+            RepairPartKind::Head => RepairPartKind::Body,
+            RepairPartKind::Body => RepairPartKind::Head,
+        }
+    }
+}
+
 impl GameSession {
     pub fn is_near_repair_bench(&self, data: &GameData) -> bool {
         self.nearest_bench(data).is_some()
@@ -81,6 +100,39 @@ impl GameSession {
                 .unwrap_or(&first_part.name)
                 .to_owned()
         })
+    }
+
+    /// A part left waiting on the nearest bench whose counterpart is still out
+    /// in the store, as `(repaired name, missing part)`. `None` once the bench
+    /// is empty or every slot is filled.
+    pub(super) fn lone_benched_part(&self, data: &GameData) -> Option<(String, RepairPartKind)> {
+        let bench = self.nearest_bench(data)?;
+        let part_indices = self.benched_repair_part_indices(bench);
+        if part_indices.len() != 1 {
+            return None;
+        }
+
+        let waiting = &self.toys[part_indices[0]];
+        let missing = waiting.repair_part_kind()?.counterpart();
+        Some((
+            waiting.repaired_name().unwrap_or(&waiting.name).to_owned(),
+            missing,
+        ))
+    }
+
+    /// Whether `carried` belongs to the same broken toy as everything already
+    /// waiting on the nearest bench. True for an empty bench, so the caller
+    /// only has to check it before offering a place-on-bench prompt.
+    pub(super) fn carried_part_matches_bench(&self, data: &GameData, carried: &ToyState) -> bool {
+        let Some(bench) = self.nearest_bench(data) else {
+            return true;
+        };
+        let Some(carried_repair_id) = carried.repair_id() else {
+            return true;
+        };
+        self.benched_repair_part_indices(bench)
+            .iter()
+            .all(|&toy_index| self.toys[toy_index].repair_id() == Some(carried_repair_id))
     }
 
     pub(super) fn place_active_on_repair_bench(&mut self, data: &GameData) -> InteractionResult {

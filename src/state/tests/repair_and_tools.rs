@@ -153,6 +153,103 @@ fn parts_bench_at_the_nearest_bench() {
 }
 
 #[test]
+fn a_lone_benched_part_names_the_counterpart_still_missing() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let bench = data.primary_bench();
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
+
+    let body_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+        .unwrap();
+    let repaired_name = match &session.toys[body_index].repair_state {
+        RepairState::BrokenPart { repaired_name, .. } => repaired_name.clone(),
+        _ => unreachable!("selected a broken part"),
+    };
+    session.pick_up_toy(body_index);
+    session.interact(&data);
+
+    assert_eq!(
+        session.lone_benched_part(&data),
+        Some((repaired_name, RepairPartKind::Head))
+    );
+
+    // Aiming at the waiting part still offers to take it back off the bench;
+    // the guidance fills the prompt only when nothing else is targeted.
+    session.player.yaw = 0.0;
+    assert!(matches!(
+        session.interaction_preview(&data),
+        InteractionPreview::AwaitingRepairMatch {
+            missing_part: RepairPartKind::Head,
+            ..
+        }
+    ));
+
+    // Once both halves are on the bench there is nothing left to hunt for.
+    let head_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+        .unwrap();
+    session.pick_up_toy(head_index);
+    session.interact(&data);
+    assert_eq!(session.lone_benched_part(&data), None);
+}
+
+#[test]
+fn carrying_an_unrelated_part_warns_before_it_is_benched() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+    let bench = data.primary_bench();
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
+
+    let body_index = session
+        .toys
+        .iter()
+        .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+        .unwrap();
+    let benched_repair_id = session.toys[body_index].repair_state.clone();
+    session.pick_up_toy(body_index);
+    session.interact(&data);
+
+    // A head from a different break shares no repair_id with the benched body.
+    let stranger_index = session
+        .toys
+        .iter()
+        .position(|toy| {
+            toy.repair_part_kind() == Some(RepairPartKind::Head)
+                && !matches!(
+                    (&toy.repair_state, &benched_repair_id),
+                    (
+                        RepairState::BrokenPart { repair_id: left, .. },
+                        RepairState::BrokenPart { repair_id: right, .. },
+                    ) if left == right
+                )
+        })
+        .unwrap();
+    session.pick_up_toy(stranger_index);
+
+    assert!(matches!(
+        session.interaction_preview(&data),
+        InteractionPreview::RepairMismatch
+    ));
+
+    // The warning is guidance only — placing it is still allowed.
+    assert!(matches!(
+        session.interact(&data),
+        InteractionResult::PlacedOnRepairBench { .. }
+    ));
+}
+
+#[test]
 fn tool_purchases_use_completed_display_credits() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);

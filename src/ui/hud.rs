@@ -331,6 +331,13 @@ fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
         }
         InteractionPreview::RepairBenchFull => PromptVisual::warning("Bench full"),
         InteractionPreview::RepairMismatch => PromptVisual::warning("Parts do not match"),
+        InteractionPreview::AwaitingRepairMatch {
+            toy_name,
+            missing_part,
+        } => PromptVisual::neutral(format!(
+            "Bench waits for the {toy_name} {}",
+            missing_part.label()
+        )),
         InteractionPreview::NeedsRepair => PromptVisual::warning("Repair at the bench first"),
         InteractionPreview::PutDown => PromptVisual::action("E", "Place on floor"),
         InteractionPreview::Pickup { toy_name } => {

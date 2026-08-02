@@ -162,12 +162,21 @@ pub enum InteractionResult {
 pub enum InteractionPreview {
     PlaceOnShelf,
     PlaceOnRepairBench,
-    RepairReady { toy_name: String },
+    RepairReady {
+        toy_name: String,
+    },
     RepairBenchFull,
     RepairMismatch,
+    /// A part waits on the bench and its counterpart is still out in the store.
+    AwaitingRepairMatch {
+        toy_name: String,
+        missing_part: RepairPartKind,
+    },
     NeedsRepair,
     PutDown,
-    Pickup { toy_name: String },
+    Pickup {
+        toy_name: String,
+    },
     InventoryFull,
     ShelfFull,
     LookAtEmptySlot,

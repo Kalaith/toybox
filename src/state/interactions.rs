@@ -86,6 +86,11 @@ impl GameSession {
         if let Some(active_toy) = self.active_toy() {
             if active_toy.is_repair_part() {
                 if self.is_near_repair_bench(data) {
+                    // Warn before the placement rather than after the failed
+                    // repair: the part already waiting belongs to another toy.
+                    if !self.carried_part_matches_bench(data, active_toy) {
+                        return InteractionPreview::RepairMismatch;
+                    }
                     if self.repair_bench_has_room(data) {
                         return InteractionPreview::PlaceOnRepairBench;
                     }
@@ -143,8 +148,18 @@ impl GameSession {
             };
         }
 
-        if self.is_near_repair_bench(data) && self.repair_bench_is_full(data) {
-            return InteractionPreview::RepairMismatch;
+        if self.is_near_repair_bench(data) {
+            if self.repair_bench_is_full(data) {
+                return InteractionPreview::RepairMismatch;
+            }
+            // Lower priority than picking something up, so standing at a bench
+            // never hides a nearby toy's prompt.
+            if let Some((toy_name, missing_part)) = self.lone_benched_part(data) {
+                return InteractionPreview::AwaitingRepairMatch {
+                    toy_name,
+                    missing_part,
+                };
+            }
         }
 
         InteractionPreview::NothingNearby
