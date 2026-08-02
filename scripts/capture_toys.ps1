@@ -35,11 +35,20 @@ try {
     if (-not (Test-Path $exe)) { throw "exe not found: $exe (build first?)" }
 
     if ($Toys.Count -eq 0) {
-        $shared = @("library", "repair_parts")
-        $Toys = Get-ChildItem "src\toys\*.rs" |
-            ForEach-Object { $_.BaseName } |
-            Where-Object { $shared -notcontains $_ } |
-            Sort-Object
+        # The draw dispatch in src\toys.rs is the source of truth for what is a
+        # toy: "ToyIdentity::Bear => bear::draw(...)". Listing src\toys\*.rs and
+        # subtracting a hardcoded set of helpers went stale the moment one was
+        # added — part_accents.rs was swept as a toy, the harness rendered a
+        # bear captioned UNKNOWN TOY, and this script reported it as "ok".
+        # Deriving from the dispatch means a new helper is excluded for free and
+        # a new toy is picked up the moment it can actually be drawn.
+        $dispatch = Get-Content "src\toys.rs" -Raw
+        $Toys = [regex]::Matches($dispatch, 'ToyIdentity::\w+\s*=>\s*(\w+)::draw') |
+            ForEach-Object { $_.Groups[1].Value } |
+            Sort-Object -Unique
+        if ($Toys.Count -eq 0) {
+            throw "no toy modules found in the src\toys.rs draw dispatch"
+        }
     }
 
     New-Item -ItemType Directory -Force $OutputDir | Out-Null
