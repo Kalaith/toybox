@@ -10,6 +10,7 @@ mod collision;
 mod interactions;
 mod persistence;
 mod progress;
+mod records;
 mod repair;
 mod spatial;
 mod spawn;
@@ -20,6 +21,7 @@ use spawn::build_toys;
 
 pub use persistence::{migrate_save_value, SaveData};
 pub use progress::{ShiftSummary, ZoneProgress};
+pub use records::{BestRuns, ShiftRecord};
 pub use repair::{BenchStage, BenchStatus, CounterpartLocation};
 pub use spatial::ToySpatialGrid;
 

@@ -6,7 +6,7 @@
 //! telling the player what to do next.
 
 use super::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
-use crate::state::{GamePhase, ShiftSummary, ZoneProgress};
+use crate::state::{GamePhase, ShiftRecord, ShiftSummary, ZoneProgress};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
@@ -62,6 +62,7 @@ pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
     );
 
     draw_zone_table(&summary, PANEL.y + 226.0, accent);
+    draw_best_run(ctx.best_run, ctx.beat_record, accent);
     draw_footer(restored);
 }
 
@@ -212,6 +213,31 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
             Color::new(0.96, 0.74, 0.38, 0.86)
         },
     );
+}
+
+/// The line that turns a grade into something to beat.
+///
+/// Nothing carries between shifts by design — tools are earned and lost inside
+/// one run — so without this the game scores you and forgets. A record is the
+/// only thread between runs, which is why it is worth the separate save slot.
+fn draw_best_run(best: Option<ShiftRecord>, beat_record: bool, accent: Color) {
+    let y = PANEL.y + PANEL.h - 96.0;
+    let text = match best {
+        Some(record) if beat_record => format!(
+            "New best: {} toys in {}",
+            record.toys_shelved,
+            format_mmss(record.elapsed_seconds)
+        ),
+        Some(record) => format!(
+            "Best so far: {} toys, {} wrong, {}",
+            record.toys_shelved,
+            record.mistakes,
+            format_mmss(record.elapsed_seconds)
+        ),
+        None => "No record kept for this mode yet.".to_owned(),
+    };
+    let colour = if beat_record { accent } else { dark::TEXT_DIM };
+    draw_text_centered_in_box(&text, PANEL.x, y, PANEL.w, 24.0, 16.0, colour);
 }
 
 fn draw_footer(restored: bool) {

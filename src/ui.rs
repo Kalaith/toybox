@@ -1,7 +1,7 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
 use crate::data::{GameData, UpgradeDef};
-use crate::state::GameSession;
+use crate::state::{GameSession, ShiftRecord};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
@@ -85,6 +85,10 @@ pub struct UiContext<'a> {
     pub session: &'a GameSession,
     pub mouse_locked: bool,
     pub fov_degrees: f32,
+    /// The best run recorded for the mode being played, if there is one, and
+    /// whether the run now finishing beat it. Only the score screen reads them.
+    pub best_run: Option<ShiftRecord>,
+    pub beat_record: bool,
 }
 
 pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction> {

@@ -4,7 +4,8 @@ use crate::capture_scenes;
 use crate::data::GameData;
 use crate::gallery::GalleryScene;
 use crate::state::{
-    migrate_save_value, GameSession, InteractionResult, SaveData, ShiftMode, ToolPurchaseResult,
+    migrate_save_value, BestRuns, GamePhase, GameSession, InteractionResult, SaveData, ShiftMode,
+    ShiftRecord, ToolPurchaseResult,
 };
 use crate::ui::{self, DebugOverlay, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
@@ -45,6 +46,13 @@ pub struct Game {
     debug_overlay: DebugOverlay,
     bench: Option<BenchMode>,
     gallery: Option<GalleryScene>,
+    best_runs: BestRuns,
+    /// Whether the run now on screen has already been submitted. A finished
+    /// shift keeps drawing every frame, so without this the record would be
+    /// resubmitted sixty times a second.
+    recorded_run: bool,
+    /// Set when the finished run beat its mode's record, for the score screen.
+    beat_record: bool,
 }
 
 /// Headless-ish perf probe: set TOYBOX_BENCH_SECONDS=<n> to boot straight
@@ -107,6 +115,7 @@ impl Game {
             GameScreen::Title
         };
 
+        let best_runs = load_best_runs(&data.config.game_name, &data.config.records_slot);
         let session = GameSession::new(&data);
         Self {
             data,
@@ -123,6 +132,9 @@ impl Game {
             debug_overlay: DebugOverlay::new(),
             bench,
             gallery: None,
+            best_runs,
+            recorded_run: false,
+            beat_record: false,
         }
     }
 
@@ -149,6 +161,12 @@ impl Game {
             }
             "shift_over" => {
                 self.session = capture_scenes::shift_over(&self.data);
+                // A record to beat, so the score screen's best-run line is
+                // exercised rather than reading "no record kept yet". Set here
+                // rather than saved, so a capture never touches a real player's
+                // records file.
+                self.best_runs = capture_scenes::previous_best();
+                self.recorded_run = true;
                 self.screen = GameScreen::Playing;
             }
             "carrying_a_half" => {
@@ -265,6 +283,39 @@ impl Game {
         }
 
         self.apply_queued_actions();
+        self.record_finished_run();
+    }
+
+    /// Submit the run to the records once it ends.
+    ///
+    /// One place rather than two: a shift can end by the clock in
+    /// `update_timer` or by the last toy landing in `place_active_toy`, and
+    /// hooking both invites one of them being forgotten later.
+    fn record_finished_run(&mut self) {
+        if self.recorded_run || !self.session.phase.is_over() {
+            return;
+        }
+        self.recorded_run = true;
+
+        let summary = self.session.shift_summary(&self.data);
+        let restored = self.session.phase == GamePhase::Finished;
+        let run = ShiftRecord::from_summary(&summary, restored);
+        self.beat_record = self.best_runs.submit(self.session.shift_mode, run);
+        if !self.beat_record {
+            return;
+        }
+
+        if let Err(err) = save_to_slot_with_version(
+            &self.data.config.game_name,
+            &self.data.config.records_slot,
+            &self.best_runs,
+            &self.data.config.version,
+        ) {
+            // Worth saying out loud: the player just set a record and it did not
+            // stick, which they would otherwise discover only on the next run.
+            self.notifications
+                .danger(format!("Could not save your best run: {}", err));
+        }
     }
 
     pub fn draw(&mut self) {
@@ -291,6 +342,8 @@ impl Game {
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
                     fov_degrees: self.fov_degrees,
+                    best_run: self.best_runs.best_for(self.session.shift_mode),
+                    beat_record: self.beat_record,
                 };
                 ui::draw_tool_shop_screen(ctx)
             }
@@ -300,6 +353,8 @@ impl Game {
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
                     fov_degrees: self.fov_degrees,
+                    best_run: self.best_runs.best_for(self.session.shift_mode),
+                    beat_record: self.beat_record,
                 };
                 ui::draw_game_ui(ctx, &self.debug_overlay)
             }
@@ -353,6 +408,8 @@ impl Game {
     fn start_shift(&mut self, mode: ShiftMode) {
         self.session = GameSession::new(&self.data);
         self.session.shift_mode = mode;
+        self.recorded_run = false;
+        self.beat_record = false;
         self.screen = GameScreen::Playing;
         match mode {
             ShiftMode::Timed => self.notifications.info(format!(
@@ -568,6 +625,8 @@ impl Game {
         match loaded {
             Ok(save) => {
                 self.session = GameSession::from_save(save, &self.data);
+                self.recorded_run = false;
+                self.beat_record = false;
                 self.has_save_file = true;
                 self.notifications.success("Loaded cleanup save");
                 true
@@ -590,4 +649,21 @@ impl Game {
 
 fn is_control_down() -> bool {
     is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl)
+}
+
+/// Read the best runs, treating any problem as "no records yet".
+///
+/// A missing slot is the normal first-run case, and a corrupt one should cost
+/// the player their records rather than the ability to start a shift.
+fn load_best_runs(game_name: &str, slot: &str) -> BestRuns {
+    if !slot_exists(game_name, slot) {
+        return BestRuns::default();
+    }
+    load_from_slot_with_migration(game_name, slot, "", |_, value| {
+        serde_json::from_value::<BestRuns>(value).map_err(|err| err.to_string())
+    })
+    .unwrap_or_else(|err| {
+        eprintln!("Could not read best runs ({err}); starting with none");
+        BestRuns::default()
+    })
 }

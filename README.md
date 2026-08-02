@@ -21,6 +21,11 @@ tools as it earns them, so the deadline is comfortable played well and tight
 played carelessly. Shelving the store perfectly ends the run early with a
 "Store Restored" score screen.
 
+Each mode keeps its own best run — most toys shelved, then fewest wrong
+shelves, then fastest — and the score screen shows it so there is something to
+beat. Tools do not carry between shifts; the record is the only thread from one
+run to the next.
+
 ## The Store
 
 - A multi-zone toy store (34×22 m): Plush Corner, Checkout, Dragon Alcove,

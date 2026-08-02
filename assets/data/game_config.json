@@ -2,6 +2,7 @@
   "game_name": "toybox_after_hours",
   "display_name": "Toybox After Hours: Closing Shift",
   "save_slot": "closing_shift_autosave",
+  "records_slot": "closing_shift_records",
   "version": "3.0.0",
   "room_width": 34.0,
   "room_height": 22.0,

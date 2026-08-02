@@ -15,6 +15,9 @@ pub struct GameConfig {
     pub game_name: String,
     pub display_name: String,
     pub save_slot: String,
+    /// Best-run records live in their own slot. "New Game" overwrites the
+    /// session slot, which is exactly when a record has to survive.
+    pub records_slot: String,
     pub version: String,
     pub room_width: f32,
     pub room_height: f32,

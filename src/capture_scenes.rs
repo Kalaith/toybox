@@ -5,7 +5,10 @@
 //! real run.
 
 use crate::data::{GameData, ToyCategory};
-use crate::state::{GamePhase, GameSession, RepairPartKind, RepairState, WorldPoint};
+use crate::state::{
+    BestRuns, GamePhase, GameSession, RepairPartKind, RepairState, ShiftMode, ShiftRecord,
+    WorldPoint,
+};
 use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
 
@@ -113,6 +116,26 @@ pub fn shift_over(data: &GameData) -> GameSession {
     session.player.elapsed_seconds = data.config.shift_seconds;
     session.phase = GamePhase::TimeUp;
     session
+}
+
+/// A previous best for the `shift_over` capture, so the score screen shows the
+/// record line it would show a returning player. Deliberately a little better
+/// than that scene's run, so the "best so far" wording is the one captured.
+pub fn previous_best() -> BestRuns {
+    let mut best = BestRuns::default();
+    best.submit(
+        ShiftMode::Timed,
+        ShiftRecord {
+            toys_shelved: 154,
+            toy_count: 240,
+            repairs: 11,
+            mistakes: 2,
+            zones_restored: 1,
+            elapsed_seconds: 1712.0,
+            restored: false,
+        },
+    );
+    best
 }
 
 /// Carrying one half of a broken toy with no tools bought. The unaided hint

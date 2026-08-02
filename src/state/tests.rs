@@ -2,6 +2,7 @@ use super::*;
 
 mod pickup_and_movement;
 mod placement;
+mod records;
 mod repair_and_tools;
 mod replay;
 mod save_migration;
