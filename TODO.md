@@ -2,11 +2,8 @@
 
 ## Repair flow at scale
 
-- **Repairs are close to unreachable as tuned.** A replay closer working nearest-first still completes *zero* repairs in 400 actions and defers 58-103 parts. Benches no longer brick, and the closer now routes a carried part to whichever bench already holds its other half, but neither helps: heads scatter into a *different zone* from their body, so over a 400-action sample of a 4000-toy shop the two halves are essentially never both to hand. This needs a design decision, not another fix:
-  - shorten the scatter (keep a head in the body's zone, or an adjacent one), **or**
-  - let one bench hold parts from several breaks (raise `capacity` in `layout.json`), **or**
-  - have the scanner route the player to a pair rather than only reporting where the far half is.
-  Until one is chosen, ~12% of the shop cannot be shelved at all.
+- The cross-zone scatter is **deliberate** — hunting scattered halves and rejoining them is a pillar of the game alongside sorting, and must not be shortened to make repairs cheaper. Measured on its own terms in `state/tests/replay.rs` (`Strategy::Restorer`), the errand is fully winnable: 100 repairs in 200 actions with nothing deferred, at ~55m walked and ~19s per pair. The earlier "zero repairs" figure came from a nearest-first closer, which measures the sorting loop and never runs the errand at all.
+- Repairs are gated on owning the Toy Scanner in practice — without it there is no way to learn where a carried part's other half went, so the errand is a blind search. Decide whether that gate is intended, or whether an unaided player needs some weaker signal.
 - Mistake penalty and timer are still untuned against `assets/data/*.json`.
 - Repair parts render per *category* but not per *identity* — every plush head is the same model, so a broken Bear and a broken Octopus are indistinguishable while split. Decide whether identity-level parts are worth 50×2 renderers or whether identity-derived detail on the existing 10 is enough.
 

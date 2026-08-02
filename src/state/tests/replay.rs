@@ -16,19 +16,34 @@ use crate::state::WorldPoint;
 use macroquad::prelude::Vec2;
 use std::collections::HashSet;
 
-/// A starting loadout to measure.
+/// How the closer decides what to do next.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Strategy {
+    /// Shelve whatever is nearest, benching repair parts only when one happens
+    /// to be underfoot. This measures the sorting loop.
+    NearestFirst,
+    /// Hunt broken pairs on purpose: take a half, go fetch its other half from
+    /// wherever in the shop it landed, rejoin them, then shelve the result.
+    /// This measures the repair loop, which the scatter is designed around.
+    Restorer,
+}
+
+/// A starting loadout and a way of playing, to measure together.
 struct Scenario {
     name: &'static str,
     tools: &'static [&'static str],
+    strategy: Strategy,
 }
 
 const BEGINNER: Scenario = Scenario {
     name: "beginner",
     tools: &[],
+    strategy: Strategy::NearestFirst,
 };
 const MID_UPGRADE: Scenario = Scenario {
     name: "mid-upgrade",
     tools: &["toy_scanner", "sorting_trolley"],
+    strategy: Strategy::NearestFirst,
 };
 const FULLY_EQUIPPED: Scenario = Scenario {
     name: "fully equipped",
@@ -39,6 +54,22 @@ const FULLY_EQUIPPED: Scenario = Scenario {
         "long_handled_grabber",
         "managers_nod",
     ],
+    strategy: Strategy::NearestFirst,
+};
+const RESTORER: Scenario = Scenario {
+    name: "restorer",
+    tools: &["toy_scanner"],
+    strategy: Strategy::Restorer,
+};
+const RESTORER_EQUIPPED: Scenario = Scenario {
+    name: "restorer+tools",
+    tools: &[
+        "toy_scanner",
+        "sorting_trolley",
+        "grippy_sneakers",
+        "long_handled_grabber",
+    ],
+    strategy: Strategy::Restorer,
 };
 
 /// Seconds of fiddling per interaction, on top of the walk. Not tuned against
@@ -148,6 +179,42 @@ fn nearest_matching_toy(
     None
 }
 
+/// The nearest loose repair part, wherever in the shop it is. The restorer
+/// searches the whole room rather than a local radius: the errand is the point.
+fn nearest_loose_part(session: &GameSession, from: Vec2, skip: &HashSet<usize>) -> Option<usize> {
+    session
+        .toys
+        .iter()
+        .enumerate()
+        .filter(|(index, toy)| {
+            !skip.contains(index)
+                && toy.is_repair_part()
+                && !toy.is_held
+                && toy.bench_slot_index.is_none()
+        })
+        .min_by(|(_, left), (_, right)| {
+            let left_distance = left.position.to_vec2().distance_squared(from);
+            let right_distance = right.position.to_vec2().distance_squared(from);
+            left_distance.total_cmp(&right_distance)
+        })
+        .map(|(index, _)| index)
+}
+
+/// The other half of a broken toy: the part sharing its `repair_id`.
+fn counterpart_index(session: &GameSession, toy_index: usize) -> Option<usize> {
+    let RepairState::BrokenPart { repair_id, .. } = &session.toys[toy_index].repair_state else {
+        return None;
+    };
+    let own_id = &session.toys[toy_index].id;
+    session.toys.iter().position(|toy| {
+        &toy.id != own_id
+            && matches!(
+                &toy.repair_state,
+                RepairState::BrokenPart { repair_id: other, .. } if other == repair_id
+            )
+    })
+}
+
 fn home_display_index(data: &GameData, toy: &ToyState) -> Option<usize> {
     data.displays
         .iter()
@@ -189,6 +256,55 @@ fn resolve_repair_part(session: &mut GameSession, data: &GameData, walked: &mut 
     false
 }
 
+/// One full restoration errand: take a half, cross the shop for its other half,
+/// rejoin them at a bench. Returns the toy index of the repaired toy, now in
+/// the closer's hands and ready to shelve.
+fn restore_one_pair(
+    session: &mut GameSession,
+    data: &GameData,
+    walked: &mut f32,
+    actions: &mut usize,
+    deferred: &mut HashSet<usize>,
+) -> Option<usize> {
+    let from = session.player.position.to_vec2();
+    let first = nearest_loose_part(session, from, deferred)?;
+    let mate = counterpart_index(session, first)?;
+    if session.toys[mate].bench_slot_index.is_some() || session.toys[mate].is_held {
+        deferred.insert(first);
+        return None;
+    }
+
+    // Half one: fetch it and park it on a bench.
+    *actions += 1;
+    let first_position = session.toys[first].position;
+    walk_to(session, data, first_position, walked);
+    session.pick_up_toy(first, data);
+    if resolve_repair_part(session, data, walked) {
+        return Some(first);
+    }
+    if session.toys[first].bench_slot_index.is_none() {
+        // The bench would not take it — nothing more to try this errand.
+        deferred.insert(first);
+        return None;
+    }
+
+    // Half two: cross the shop for it, then carry it to the bench holding the
+    // first half. `resolve_repair_part` routes there via the scanner.
+    *actions += 1;
+    let mate_position = session.toys[mate].position;
+    walk_to(session, data, mate_position, walked);
+    session.pick_up_toy(mate, data);
+    if resolve_repair_part(session, data, walked) {
+        // The survivor of a repair is the body, whichever index that is.
+        return session
+            .active_toy()
+            .and_then(|toy| session.toys.iter().position(|other| other.id == toy.id));
+    }
+    deferred.insert(first);
+    deferred.insert(mate);
+    None
+}
+
 fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport {
     let mut session = GameSession::new(data);
     for tool in scenario.tools {
@@ -207,22 +323,37 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
     let mut deferred: HashSet<usize> = HashSet::new();
 
     while actions < action_budget {
-        let Some(first_index) =
-            nearest_loose_toy(&session, session.player.position.to_vec2(), &deferred)
-        else {
-            break;
-        };
-        actions += 1;
-        let target = session.toys[first_index].position;
-        walk_to(&mut session, data, target, &mut walked);
-        session.pick_up_toy(first_index, data);
+        if scenario.strategy == Strategy::Restorer {
+            // Hunt a pair. On success the closer is holding a repaired toy and
+            // falls through to shelving it like any other.
+            let before = actions;
+            match restore_one_pair(&mut session, data, &mut walked, &mut actions, &mut deferred) {
+                Some(_) => repaired += 1,
+                None => {
+                    if actions == before {
+                        break; // no pairs left to chase
+                    }
+                    continue;
+                }
+            }
+        } else {
+            let Some(first_index) =
+                nearest_loose_toy(&session, session.player.position.to_vec2(), &deferred)
+            else {
+                break;
+            };
+            actions += 1;
+            let target = session.toys[first_index].position;
+            walk_to(&mut session, data, target, &mut walked);
+            session.pick_up_toy(first_index, data);
 
-        if session.toys[first_index].is_repair_part() {
-            if resolve_repair_part(&mut session, data, &mut walked) {
-                repaired += 1;
-            } else {
-                deferred.insert(first_index);
-                continue;
+            if session.toys[first_index].is_repair_part() {
+                if resolve_repair_part(&mut session, data, &mut walked) {
+                    repaired += 1;
+                } else {
+                    deferred.insert(first_index);
+                    continue;
+                }
             }
         }
 
@@ -314,6 +445,28 @@ fn the_closer_makes_real_progress_without_misshelving() {
          a bug in placement or matching"
     );
     assert!(report.walked_metres > 0.0);
+}
+
+/// The repair loop is the half of the game the scatter is built around: cross
+/// the shop for a missing head, rejoin it, shelve the whole toy. A nearest-first
+/// closer never runs that errand, so it needs measuring on its own terms.
+#[test]
+fn the_restoration_errand_is_winnable() {
+    let data = GameData::load().unwrap();
+
+    for scenario in [RESTORER, RESTORER_EQUIPPED] {
+        let report = run(&scenario, &data, 200);
+        println!("{}", report.line(scenario.name));
+        assert!(
+            report.repaired > 0,
+            "{} completed no repairs: the hunt-and-rejoin loop is unplayable,              not merely slow",
+            scenario.name
+        );
+        assert!(
+            report.shelved >= report.repaired,
+            "every repaired toy should reach its shelf"
+        );
+    }
 }
 
 /// The comparison the balance TODO needs: same shop, same script, different
