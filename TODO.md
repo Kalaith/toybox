@@ -22,4 +22,3 @@
 
 - Balance the five tools against measured pacing. `state/tests/replay.rs` now prints a per-loadout table; over 400 actions the Sorting Trolley halves both walking (6482m -> 2662m) and clock (39.8 -> 18.8 min), and Grippy Sneakers takes another 18% off. The trolley may be too strong for 2 credits.
 - The replay closer drives the simulation API (`pick_up_toy`, `place_active_toy`) rather than pressing E, because `interact` is context-sensitive and routing scripted intent through it produces actions the script never meant. So the pacing numbers assume pickups always succeed and cost no aiming. Extending the harness to real input would make them more honest.
-- Fold the release-build capture path back into the shared `macroquad-toolkit/scripts/capture_ui.ps1` (a `-Release` switch) so other large games do not each need a local `capture_scene.ps1`.
