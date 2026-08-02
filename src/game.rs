@@ -150,9 +150,12 @@ impl Game {
                 self.session = GameSession::new(&self.data);
                 self.screen = GameScreen::Playing;
             }
-            // The two start buttons and the caption that tells them apart.
+            // The two start buttons, the caption that tells them apart, and a
+            // record to chase. Set in memory, never saved: a capture must not
+            // touch a real player's records file.
             "title" => {
                 self.has_save_file = true;
+                self.best_runs = capture_scenes::previous_best();
                 self.screen = GameScreen::Title;
             }
             "mid_run" => {
@@ -327,9 +330,11 @@ impl Game {
 
         ui::begin_ui_frame();
         let actions = match self.screen {
-            GameScreen::Title => {
-                ui::draw_title_screen(self.title_texture.as_ref(), self.has_save_file)
-            }
+            GameScreen::Title => ui::draw_title_screen(
+                self.title_texture.as_ref(),
+                self.has_save_file,
+                &self.best_runs,
+            ),
             GameScreen::Settings => ui::draw_settings_screen(
                 self.title_texture.as_ref(),
                 self.settings.fullscreen,

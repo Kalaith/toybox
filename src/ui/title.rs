@@ -1,10 +1,12 @@
 use super::{logical_mouse_position, UiAction, LOGICAL_HEIGHT, LOGICAL_WIDTH};
+use crate::state::{BestRuns, ShiftMode};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 
 pub(crate) fn draw_title_screen(
     title_texture: Option<&Texture2D>,
     continue_enabled: bool,
+    best_runs: &BestRuns,
 ) -> Vec<UiAction> {
     draw_title_background(title_texture);
     draw_title_scrim();
@@ -60,15 +62,53 @@ pub(crate) fn draw_title_screen(
         "Closing Shift runs against opening time. Relaxed Run never ends the shift.",
         y + button_h + 22.0,
     );
+    draw_best_runs(best_runs, y - 18.0);
 
     actions
 }
 
+/// The player's best run for each mode, above the buttons that pick one.
+///
+/// The score screen already reports a record once a shift ends, but by then the
+/// choice has been made. Sitting at the title deciding between a timed run and
+/// a relaxed one, what you are chasing is the thing worth knowing — and with
+/// nothing carrying between shifts, the record is the only reason to pick the
+/// clock at all.
+fn draw_best_runs(best: &BestRuns, y: f32) {
+    let parts: Vec<String> = [ShiftMode::Timed, ShiftMode::Relaxed]
+        .into_iter()
+        .filter_map(|mode| {
+            best.best_for(mode)
+                .map(|record| format!("{}: {} toys", mode.label(), record.toys_shelved))
+        })
+        .collect();
+
+    if parts.is_empty() {
+        return;
+    }
+    draw_title_caption(&format!("Best - {}", parts.join("   ")), y);
+}
+
+/// A centred line of small text over the title art, on a plate.
+///
+/// The art behind it is a lit shop full of bright toys, so unbacked 15px text
+/// lands on whatever colour happens to be there and is barely readable over the
+/// pale ones. The plate is the same idiom as the HUD panels: dark, mostly
+/// transparent, sized to the text rather than the screen.
 fn draw_title_caption(text: &str, y: f32) {
     let size = 15.0_f32;
-    let style = TextStyle::new(size, Color::new(0.78, 0.80, 0.84, 0.80));
     let width = measure_ui_text(text, None, size as u16, 1.0).width;
-    draw_ui_text_ex(text, (LOGICAL_WIDTH - width) * 0.5, y, style.params());
+    let x = (LOGICAL_WIDTH - width) * 0.5;
+
+    draw_rectangle(
+        x - 14.0,
+        y - size - 4.0,
+        width + 28.0,
+        size + 12.0,
+        Color::new(0.02, 0.025, 0.03, 0.62),
+    );
+    let style = TextStyle::new(size, Color::new(0.90, 0.91, 0.94, 0.95));
+    draw_ui_text_ex(text, x, y, style.params());
 }
 
 pub(crate) fn draw_settings_screen(
