@@ -3,15 +3,33 @@
 Used by scripts/check-captures.ps1. Prints one line per scene and exits
 non-zero if any scene drifted.
 
-Why a percentage rather than a hash: two of the nine scenes are not quite
-byte-reproducible. Rendering no longer reads the wall clock (see
-`rendering_animates_off_the_simulation_clock`), which fixed seven of them, but
-`mid_run` and `carrying_a_half_scanned` still wobble by ~109 pixels of 860,784
-— 0.013% — clustered on anti-aliased text edges, with channel deltas as high as
-39. That rules out a delta tolerance and leaves a count tolerance, which works
-because the two failure modes are far apart: font-edge noise moves a hundred
-pixels, while a moved label, a resized panel or a changed colour moves tens of
-thousands.
+Why a percentage rather than a hash: the scenes are not quite byte-reproducible.
+Rendering no longer reads the wall clock (see
+`rendering_animates_off_the_simulation_clock`), which settled almost all of it,
+but `carrying_armful` still wobbles a few pixels per capture and occasionally
+~300, clustered on anti-aliased text edges.
+
+Why `--min-delta` on top of that: a plain count could not separate the two
+failure modes after all. That wobble reaches 0.035% at its worst, while a real
+change of the kind that matters — adding a 12px caption to the HUD — measured
+0.019% and slipped straight through a 0.1% gate. No single any-pixel threshold
+sits between them.
+
+Channel *contrast* does separate them, cleanly. Measured over five repeat
+captures, the noise never exceeds a channel delta of 39 and vanishes entirely
+above 64. A real HUD text change (mid_run vs relaxed_run, which differ only in
+the clock digits and the LEFT/ELAPSED caption) puts **838 pixels** past delta
+64. Counting only pixels above `--min-delta` therefore drops the scene noise
+floor to a flat 0.000% and lets the threshold come down an order of magnitude.
+
+An earlier version of this file claimed the 39-delta noise "rules out a delta
+tolerance". That was drawn from measuring the noise alone; the signal sits far
+above it, which is exactly what makes the tolerance work.
+
+The toy gallery deliberately keeps `--min-delta 0`. Those captures are exact, so
+any-pixel counting is the most sensitive test available, and a subtle geometry
+shift moves a smooth-shaded edge by *small* deltas that a contrast gate would
+discard.
 """
 
 from __future__ import annotations
@@ -26,8 +44,14 @@ except ImportError:  # pragma: no cover - environment problem, not a drift
     raise SystemExit(2)
 
 
-def differing_fraction(reference: Path, candidate: Path) -> tuple[float, int]:
-    """Fraction of pixels that differ at all, and the worst channel delta."""
+def differing_fraction(
+    reference: Path, candidate: Path, min_delta: int
+) -> tuple[float, int]:
+    """Fraction of pixels differing by more than `min_delta` on any channel.
+
+    Also returns the worst delta seen anywhere, including below the gate, so a
+    scene sitting just under it still says so in the report.
+    """
     with Image.open(reference) as ref_img, Image.open(candidate) as new_img:
         ref = ref_img.convert("RGB")
         new = new_img.convert("RGB")
@@ -42,28 +66,38 @@ def differing_fraction(reference: Path, candidate: Path) -> tuple[float, int]:
             for x in range(width):
                 a = ref_px[x, y]
                 b = new_px[x, y]
-                if a != b:
+                if a == b:
+                    continue
+                delta = max(abs(a[c] - b[c]) for c in range(3))
+                worst = max(worst, delta)
+                if delta > min_delta:
                     differing += 1
-                    worst = max(worst, max(abs(a[c] - b[c]) for c in range(3)))
     return differing / (width * height), worst
 
 
 def main() -> int:
-    if len(sys.argv) < 4:
+    argv = sys.argv[1:]
+    min_delta = 0
+    if "--min-delta" in argv:
+        index = argv.index("--min-delta")
+        min_delta = int(argv[index + 1])
+        del argv[index : index + 2]
+
+    if len(argv) < 3:
         print(
-            "usage: compare_captures.py <reference_dir> <candidate_dir> "
-            "<max_percent> [relative_png ...]",
+            "usage: compare_captures.py [--min-delta N] <reference_dir> "
+            "<candidate_dir> <max_percent> [relative_png ...]",
             file=sys.stderr,
         )
         return 2
 
-    reference_dir = Path(sys.argv[1])
-    candidate_dir = Path(sys.argv[2])
-    max_percent = float(sys.argv[3])
+    reference_dir = Path(argv[0])
+    candidate_dir = Path(argv[1])
+    max_percent = float(argv[2])
     # Relative paths rather than bare names, so the same comparison serves the
     # whole-store scenes (`ui_mid_run.png`) and the toy gallery
     # (`toys/bear.png`) without either script knowing the other's layout.
-    names = sys.argv[4:]
+    names = argv[3:]
 
     drifted: list[str] = []
     missing: list[str] = []
@@ -81,7 +115,7 @@ def main() -> int:
             drifted.append(label)
             continue
 
-        fraction, worst = differing_fraction(reference, candidate)
+        fraction, worst = differing_fraction(reference, candidate, min_delta)
         percent = fraction * 100.0
         if percent > max_percent:
             print(f"  DRIFT {label:<24} {percent:6.3f}% of pixels (max delta {worst})")

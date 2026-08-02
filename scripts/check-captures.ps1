@@ -37,11 +37,21 @@ param(
         "broken_lineup", "settings", "paused", "relaxed_run", "store_restored",
         "title_first_run", "repair_bench_ready"
     ),
-    [double]$MaxDiffPercent = 0.10,
-    # The toy gallery is byte-reproducible, unlike two of the scenes, so it gets
-    # a threshold ten times tighter. Spending the scenes' noise allowance on it
-    # would waste real sensitivity: moving one primitive in the bear by 0.06
-    # registers as 0.179%, which a 0.1% gate only just catches.
+    # Counted over pixels differing by more than $SceneMinDelta on a channel,
+    # which drops the scene noise floor to a flat 0.000% and so lets this sit an
+    # order of magnitude below the old 0.1%. That 0.1% was not merely generous:
+    # a real 12px HUD caption measured 0.019% and went straight through it,
+    # while the noise reaches 0.035%, so no any-pixel threshold could separate
+    # them. Contrast can — see compare_captures.py.
+    [double]$MaxDiffPercent = 0.01,
+    # Above the 39 the anti-aliased text wobble reaches, far below the ~838
+    # pixels a real HUD text change puts past it.
+    [int]$SceneMinDelta = 64,
+    # The toy gallery is byte-reproducible, so it is compared with no contrast
+    # gate at all (any differing pixel counts). That is the most sensitive test
+    # available and the right one here: a subtle geometry shift moves a
+    # smooth-shaded edge by *small* deltas, which $SceneMinDelta would discard.
+    # Moving one primitive in the bear by 0.06 registers as 0.179%.
     [double]$ToyMaxDiffPercent = 0.01,
     [switch]$ScenesOnly,
     [switch]$SkipBuild
@@ -81,8 +91,8 @@ try {
         }
 
         Write-Host ""
-        Write-Host "Scenes (threshold $MaxDiffPercent%):"
-        & python $compare $reference $candidate $MaxDiffPercent @sceneFiles
+        Write-Host "Scenes (threshold $MaxDiffPercent%, channel delta > $SceneMinDelta):"
+        & python $compare --min-delta $SceneMinDelta $reference $candidate $MaxDiffPercent @sceneFiles
         if ($LASTEXITCODE -ne 0) { $failed = 1 }
         $checked += $sceneFiles.Count
 
