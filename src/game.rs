@@ -75,7 +75,20 @@ struct BenchMode {
     elapsed_seconds: f32,
     frames: u32,
     worst_frame_seconds: f32,
+    slow_frames: u32,
+    measured_frames: u32,
 }
+
+/// Frames to let settle before the stutter counters start.
+///
+/// Shader compilation, texture upload and the first draw of every model land in
+/// the opening frames. They are real costs, but they are startup, not stutter —
+/// and one 90ms first frame otherwise sets `worst_frame_ms` for the whole run
+/// and hides everything that happens afterwards.
+const BENCH_WARMUP_FRAMES: u32 = 60;
+
+/// A frame slower than this is one the player can feel at 60Hz.
+const BENCH_SLOW_FRAME_SECONDS: f32 = 1.0 / 60.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GameScreen {
@@ -116,6 +129,8 @@ impl Game {
             elapsed_seconds: 0.0,
             frames: 0,
             worst_frame_seconds: 0.0,
+            slow_frames: 0,
+            measured_frames: 0,
         });
         let screen = if bench.is_some() {
             GameScreen::Playing
@@ -448,19 +463,37 @@ impl Game {
         };
         bench.frames += 1;
         bench.elapsed_seconds += dt;
-        bench.worst_frame_seconds = bench.worst_frame_seconds.max(dt);
+
+        // `dt` arrives clamped to 0.1s so one long frame cannot teleport the
+        // simulation — which meant `worst_frame_ms` could never report worse
+        // than 100.00 and a two-second stall read the same as a hitch. The
+        // unclamped frame time is what the player actually waited.
+        let frame_seconds = get_frame_time();
+        if bench.frames > BENCH_WARMUP_FRAMES {
+            bench.measured_frames += 1;
+            bench.worst_frame_seconds = bench.worst_frame_seconds.max(frame_seconds);
+            if frame_seconds > BENCH_SLOW_FRAME_SECONDS {
+                bench.slow_frames += 1;
+            }
+        }
+
         // Slow sweep so the run exercises culling across view directions.
         self.session.update_player_look(0.55 * dt, 0.0);
 
         if bench.elapsed_seconds >= bench.duration_seconds {
             let average_fps = bench.frames as f32 / bench.elapsed_seconds.max(f32::EPSILON);
             println!(
-                "BENCH toys={} frames={} seconds={:.2} avg_fps={:.1} worst_frame_ms={:.2}",
+                "BENCH toys={} frames={} seconds={:.2} avg_fps={:.1} \
+                 worst_frame_ms={:.2} slow_frames={}/{} (>{:.1}ms, after {} warm-up)",
                 self.session.toys.len(),
                 bench.frames,
                 bench.elapsed_seconds,
                 average_fps,
-                bench.worst_frame_seconds * 1000.0
+                bench.worst_frame_seconds * 1000.0,
+                bench.slow_frames,
+                bench.measured_frames,
+                BENCH_SLOW_FRAME_SECONDS * 1000.0,
+                BENCH_WARMUP_FRAMES,
             );
             quit();
         }
