@@ -123,7 +123,43 @@ pub struct DisplayState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GamePhase {
     Playing,
+    /// The shop was fully restored — every display stocked, every break mended.
     Finished,
+    /// The doors opened with work still on the floor. A separate variant rather
+    /// than a flag on `Finished` so the existing `phase != Playing` guards stop
+    /// movement and interaction for free, and so a score screen can tell the
+    /// two endings apart without a second field to keep in sync.
+    TimeUp,
+}
+
+impl GamePhase {
+    pub fn is_over(self) -> bool {
+        !matches!(self, GamePhase::Playing)
+    }
+}
+
+impl ShiftMode {
+    pub fn shows_countdown(self) -> bool {
+        matches!(self, ShiftMode::Timed)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ShiftMode::Timed => "Closing Shift",
+            ShiftMode::Relaxed => "Relaxed Run",
+        }
+    }
+}
+
+/// Whether the shift runs against the clock.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ShiftMode {
+    /// Opening time is a deadline; the run ends when it arrives.
+    #[default]
+    Timed,
+    /// No deadline. The clock still counts, so a relaxed run can be compared
+    /// against a timed one, but it never ends the shift.
+    Relaxed,
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +169,7 @@ pub struct GameSession {
     pub displays: Vec<DisplayState>,
     pub unlocked_upgrade_ids: Vec<String>,
     pub phase: GamePhase,
+    pub shift_mode: ShiftMode,
     spatial: ToySpatialGrid,
 }
 
@@ -266,6 +303,7 @@ impl GameSession {
             displays,
             unlocked_upgrade_ids: Vec::new(),
             phase: GamePhase::Playing,
+            shift_mode: ShiftMode::default(),
             spatial,
         }
     }
@@ -274,13 +312,28 @@ impl GameSession {
         &self.spatial
     }
 
-    pub fn update_timer(&mut self, dt: f32) {
+    /// Advance the shift clock. Returns true on the frame the doors open, so
+    /// the caller can announce it once rather than every frame afterwards.
+    pub fn update_timer(&mut self, dt: f32, data: &GameData) -> bool {
+        let mut just_ran_out = false;
         if self.phase == GamePhase::Playing {
             self.player.elapsed_seconds += dt;
+            if self.shift_mode == ShiftMode::Timed && self.shift_remaining(data) <= 0.0 {
+                self.phase = GamePhase::TimeUp;
+                just_ran_out = true;
+            }
         }
         for toy in &mut self.toys {
             toy.wrong_marker_seconds = (toy.wrong_marker_seconds - dt).max(0.0);
         }
+        just_ran_out
+    }
+
+    /// Seconds left before opening, clamped at zero. Always zero in a relaxed
+    /// run, where callers should show elapsed time instead — see
+    /// `ShiftMode::shows_countdown`.
+    pub fn shift_remaining(&self, data: &GameData) -> f32 {
+        (data.config.shift_seconds - self.player.elapsed_seconds).max(0.0)
     }
 
     pub fn update_player_look(&mut self, yaw_delta: f32, pitch_delta: f32) {

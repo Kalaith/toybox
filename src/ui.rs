@@ -36,6 +36,8 @@ pub const LOGICAL_HEIGHT: f32 = 720.0;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiAction {
     NewGame,
+    /// A shift with the deadline switched off.
+    NewRelaxedGame,
     Continue,
     Settings,
     CloseSettings,
@@ -71,7 +73,7 @@ pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction>
     minimap::draw_minimap(&ctx);
     overlay.draw(&ctx, &stats);
 
-    if ctx.session.phase == GamePhase::Finished {
+    if ctx.session.phase.is_over() {
         draw_finish_overlay(&ctx);
     }
 
@@ -338,21 +340,31 @@ fn draw_finish_overlay(ctx: &UiContext<'_>) {
         &SurfaceStyle::new(Color::new(0.08, 0.09, 0.105, 0.98))
             .with_border(1.0, Color::new(0.96, 0.74, 0.38, 0.85)),
     );
+    // Two endings reach this overlay and they are not the same news. Announcing
+    // "Store Restored" over a floor still covered in toys would be the panel
+    // telling the player they won when the clock beat them.
+    let ran_out = ctx.session.phase == GamePhase::TimeUp;
+    let (heading, heading_color) = if ran_out {
+        ("Doors Open", Color::new(0.98, 0.62, 0.42, 1.0))
+    } else {
+        ("Store Restored", dark::TEXT_BRIGHT)
+    };
     draw_text_centered_in_box(
-        "Store Restored",
+        heading,
         rect.x,
         rect.y + 24.0,
         rect.w,
         36.0,
         28.0,
-        dark::TEXT_BRIGHT,
+        heading_color,
     );
     let completion =
         ctx.session.total_placed_toys() as f32 / ctx.data.config.toy_count.max(1) as f32 * 100.0;
     let completed_displays = ctx.session.completed_display_count();
     draw_text_centered_in_box(
         &format!(
-            "Time {}   Wrong attempts {}   Completion {:.0}%",
+            "{}   Time {}   Wrong attempts {}   Completion {:.0}%",
+            ctx.session.shift_mode.label(),
             format_mmss(ctx.session.player.elapsed_seconds),
             ctx.session.player.mistakes,
             completion
@@ -380,7 +392,11 @@ fn draw_finish_overlay(ctx: &UiContext<'_>) {
         dark::TEXT,
     );
     draw_text_centered_in_box(
-        "The snow globe shop is ready for sunrise.",
+        if ran_out {
+            "Opening time caught up with you. R starts another shift."
+        } else {
+            "The snow globe shop is ready for sunrise."
+        },
         rect.x,
         rect.y + 150.0,
         rect.w,

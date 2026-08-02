@@ -31,13 +31,32 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     let rect = status_panel_rect();
     draw_hud_panel(rect, Color::new(0.025, 0.026, 0.032, 0.86), hud_border());
 
-    let time = format_mmss(ctx.session.player.elapsed_seconds);
-    draw_stopwatch_icon(vec2(rect.x + 33.0, rect.y + 38.0), 15.0, dark::TEXT_BRIGHT);
+    // A timed shift counts down to opening, because what the player needs to
+    // know is how much is left, not how much is gone. A relaxed run has nothing
+    // to count down to, so it shows elapsed time instead.
+    let counts_down = ctx.session.shift_mode.shows_countdown();
+    let remaining = ctx.session.shift_remaining(ctx.data);
+    let (time, clock_color) = if counts_down {
+        let colour = if remaining <= 60.0 {
+            Color::new(0.98, 0.42, 0.36, 1.0)
+        } else if remaining <= 300.0 {
+            Color::new(0.99, 0.76, 0.34, 1.0)
+        } else {
+            dark::TEXT_BRIGHT
+        };
+        (format_mmss(remaining), colour)
+    } else {
+        (
+            format_mmss(ctx.session.player.elapsed_seconds),
+            dark::TEXT_BRIGHT,
+        )
+    };
+    draw_stopwatch_icon(vec2(rect.x + 33.0, rect.y + 38.0), 15.0, clock_color);
     draw_ui_text_ex(
         &time,
         rect.x + 64.0,
         rect.y + 51.0,
-        TextStyle::new(31.0, dark::TEXT_BRIGHT).params(),
+        TextStyle::new(31.0, clock_color).params(),
     );
 
     draw_divider(rect.x, rect.y + 69.0, rect.w);

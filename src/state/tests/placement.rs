@@ -90,7 +90,7 @@ fn wrong_placement_still_places_toy_and_counts_mistake() {
     assert!(placed.wrong_marker_seconds > 0.0);
     assert_eq!(session.player.mistakes, 1);
 
-    session.update_timer(GameSession::WRONG_MARKER_SECONDS + 0.1);
+    session.update_timer(GameSession::WRONG_MARKER_SECONDS + 0.1, &data);
     let placed = session.toys.iter().find(|toy| toy.id == toy_id).unwrap();
     assert_eq!(placed.wrong_marker_seconds, 0.0);
 }

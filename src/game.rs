@@ -4,7 +4,7 @@ use crate::capture_scenes;
 use crate::data::GameData;
 use crate::gallery::GalleryScene;
 use crate::state::{
-    migrate_save_value, GameSession, InteractionResult, SaveData, ToolPurchaseResult,
+    migrate_save_value, GameSession, InteractionResult, SaveData, ShiftMode, ToolPurchaseResult,
 };
 use crate::ui::{self, DebugOverlay, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
@@ -19,6 +19,7 @@ use macroquad_toolkit::persistence::{
 };
 use macroquad_toolkit::prelude::dark;
 use macroquad_toolkit::settings::GameSettings;
+use macroquad_toolkit::ui::format_mmss;
 
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
 const ASSET_PACK_PATH: &str = "assets.zip";
@@ -137,8 +138,17 @@ impl Game {
                 self.session = GameSession::new(&self.data);
                 self.screen = GameScreen::Playing;
             }
+            // The two start buttons and the caption that tells them apart.
+            "title" => {
+                self.has_save_file = true;
+                self.screen = GameScreen::Title;
+            }
             "mid_run" => {
                 self.session = capture_scenes::mid_run(&self.data);
+                self.screen = GameScreen::Playing;
+            }
+            "closing_soon" => {
+                self.session = capture_scenes::closing_soon(&self.data);
                 self.screen = GameScreen::Playing;
             }
             "tool_shop" => {
@@ -184,7 +194,11 @@ impl Game {
             return;
         }
 
-        self.session.update_timer(dt);
+        if self.session.update_timer(dt, &self.data) {
+            self.set_mouse_locked(false);
+            self.notifications
+                .warning("The doors are open - shift over");
+        }
 
         let current_mouse_position: Vec2 = mouse_position().into();
         if is_mouse_button_pressed(MouseButton::Left)
@@ -207,7 +221,10 @@ impl Game {
             self.events.push(UiAction::Settings);
         }
         if is_key_pressed(KeyCode::R) {
-            self.events.push(UiAction::NewGame);
+            self.events.push(match self.session.shift_mode {
+                ShiftMode::Timed => UiAction::NewGame,
+                ShiftMode::Relaxed => UiAction::NewRelaxedGame,
+            });
         }
         if is_key_pressed(KeyCode::E) || is_key_pressed(KeyCode::Space) {
             self.events.push(UiAction::Interact);
@@ -312,13 +329,25 @@ impl Game {
         }
     }
 
+    /// `R` restarts, and it must not silently move a relaxed player onto the
+    /// clock — so it re-runs whichever mode is already in play.
+    fn start_shift(&mut self, mode: ShiftMode) {
+        self.session = GameSession::new(&self.data);
+        self.session.shift_mode = mode;
+        self.screen = GameScreen::Playing;
+        match mode {
+            ShiftMode::Timed => self.notifications.info(format!(
+                "Closing shift: {} until opening",
+                format_mmss(self.data.config.shift_seconds)
+            )),
+            ShiftMode::Relaxed => self.notifications.info("Relaxed run: no deadline"),
+        }
+    }
+
     fn apply_action(&mut self, action: UiAction) {
         match action {
-            UiAction::NewGame => {
-                self.session = GameSession::new(&self.data);
-                self.screen = GameScreen::Playing;
-                self.notifications.info("Fresh cleanup started");
-            }
+            UiAction::NewGame => self.start_shift(ShiftMode::Timed),
+            UiAction::NewRelaxedGame => self.start_shift(ShiftMode::Relaxed),
             UiAction::Continue => {
                 if self.load_game() {
                     self.screen = GameScreen::Playing;

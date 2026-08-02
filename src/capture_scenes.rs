@@ -82,6 +82,14 @@ pub fn mid_run(data: &GameData) -> GameSession {
     session
 }
 
+/// A shift with under a minute left. The HUD clock counts *down* in a timed
+/// run and reddens as opening approaches, none of which a fresh shop shows.
+pub fn closing_soon(data: &GameData) -> GameSession {
+    let mut session = mid_run(data);
+    session.player.elapsed_seconds = data.config.shift_seconds - 44.0;
+    session
+}
+
 /// Shelve `share` of one display's matching toys, straight into their slots.
 fn stock_display(session: &mut GameSession, data: &GameData, display_index: usize, share: f32) {
     let display = &data.displays[display_index];

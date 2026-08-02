@@ -14,51 +14,61 @@ pub(crate) fn draw_title_screen(
     let button_w = 148.0;
     let button_h = 38.0;
     let button_gap = 14.0;
-    let total_w = button_w * 4.0 + button_gap * 3.0;
+    let buttons: [(&str, UiAction, bool, ButtonTone); 5] = [
+        (
+            "Closing Shift",
+            UiAction::NewGame,
+            true,
+            ButtonTone::Primary,
+        ),
+        (
+            "Relaxed Run",
+            UiAction::NewRelaxedGame,
+            true,
+            ButtonTone::Muted,
+        ),
+        (
+            "Continue",
+            UiAction::Continue,
+            continue_enabled,
+            ButtonTone::Positive,
+        ),
+        ("Settings", UiAction::Settings, true, ButtonTone::Muted),
+        ("Quit Game", UiAction::QuitGame, true, ButtonTone::Danger),
+    ];
+    let count = buttons.len() as f32;
+    let total_w = button_w * count + button_gap * (count - 1.0);
     let x = (LOGICAL_WIDTH - total_w) * 0.5;
     let y = 614.0;
 
-    if title_button(
-        Rect::new(x, y, button_w, button_h),
-        "New Game",
-        true,
-        ButtonTone::Primary,
-        mouse,
-    ) {
-        actions.push(UiAction::NewGame);
+    for (index, (label, action, enabled, tone)) in buttons.into_iter().enumerate() {
+        let slot_x = x + (button_w + button_gap) * index as f32;
+        if title_button(
+            Rect::new(slot_x, y, button_w, button_h),
+            label,
+            enabled,
+            tone,
+            mouse,
+        ) {
+            actions.push(action);
+        }
     }
 
-    if title_button(
-        Rect::new(x + button_w + button_gap, y, button_w, button_h),
-        "Continue",
-        continue_enabled,
-        ButtonTone::Positive,
-        mouse,
-    ) {
-        actions.push(UiAction::Continue);
-    }
-
-    if title_button(
-        Rect::new(x + (button_w + button_gap) * 2.0, y, button_w, button_h),
-        "Settings",
-        true,
-        ButtonTone::Muted,
-        mouse,
-    ) {
-        actions.push(UiAction::Settings);
-    }
-
-    if title_button(
-        Rect::new(x + (button_w + button_gap) * 3.0, y, button_w, button_h),
-        "Quit Game",
-        true,
-        ButtonTone::Danger,
-        mouse,
-    ) {
-        actions.push(UiAction::QuitGame);
-    }
+    // The two ways to start differ only in whether the clock can end the run,
+    // which no button label can carry on its own.
+    draw_title_caption(
+        "Closing Shift runs against opening time. Relaxed Run never ends the shift.",
+        y + button_h + 22.0,
+    );
 
     actions
+}
+
+fn draw_title_caption(text: &str, y: f32) {
+    let size = 15.0_f32;
+    let style = TextStyle::new(size, Color::new(0.78, 0.80, 0.84, 0.80));
+    let width = measure_ui_text(text, None, size as u16, 1.0).width;
+    draw_ui_text_ex(text, (LOGICAL_WIDTH - width) * 0.5, y, style.params());
 }
 
 pub(crate) fn draw_settings_screen(

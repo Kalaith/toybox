@@ -7,6 +7,7 @@
   "room_height": 22.0,
   "toy_count": 240,
   "starting_carry_limit": 1,
+  "shift_seconds": 1800.0,
   "player_speed": 3.4,
   "interaction_radius": 1.35,
   "mistake_penalty_seconds": 8.0,

@@ -1,7 +1,8 @@
 //! Save payload, load-time repair, and version migration.
 
 use super::{
-    DisplayState, GamePhase, GameSession, PlayerState, RepairPartKind, ToySpatialGrid, ToyState,
+    DisplayState, GamePhase, GameSession, PlayerState, RepairPartKind, ShiftMode, ToySpatialGrid,
+    ToyState,
 };
 use crate::data::GameData;
 use crate::toys::spawn_pose_for_toy;
@@ -16,6 +17,10 @@ pub struct SaveData {
     pub displays: Vec<DisplayState>,
     pub unlocked_upgrade_ids: Vec<String>,
     pub phase: GamePhase,
+    /// Saves written before relaxed mode existed carry no mode; they were all
+    /// played against the clock, which is what `ShiftMode::default()` is.
+    #[serde(default)]
+    pub shift_mode: ShiftMode,
 }
 
 impl GameSession {
@@ -27,6 +32,7 @@ impl GameSession {
             displays: save.displays,
             unlocked_upgrade_ids: save.unlocked_upgrade_ids,
             phase: save.phase,
+            shift_mode: save.shift_mode,
             spatial: ToySpatialGrid::new(
                 config.room_width,
                 config.room_height,
@@ -45,6 +51,7 @@ impl GameSession {
             displays: self.displays.clone(),
             unlocked_upgrade_ids: self.unlocked_upgrade_ids.clone(),
             phase: self.phase,
+            shift_mode: self.shift_mode,
         }
     }
 

@@ -20,6 +20,10 @@ pub struct GameConfig {
     pub room_height: f32,
     pub toy_count: usize,
     pub starting_carry_limit: usize,
+    /// How long a timed shift lasts before the doors open. Tuned against the
+    /// replay: a bare-handed closer clears the floor in ~28 minutes, so 30 is a
+    /// deadline a careful player meets and a tooled-up one beats comfortably.
+    pub shift_seconds: f32,
     pub player_speed: f32,
     pub interaction_radius: f32,
     pub mistake_penalty_seconds: f32,

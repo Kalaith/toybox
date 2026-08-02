@@ -21,7 +21,9 @@
   | 200 | 4000 | 462.8 min | 328.1 min | 1 |
 
   Cost per toy is ~7.6s bare-handed at every size, so length is linear in `toy_count`; what is *not* linear is completed displays, which collapse as capacity grows because one unrepaired toy holds a whole display open. The old 4000-toy shop completed a single display in nearly eight hours, which put every one of the five tools out of reach for the entire game.
-- Give a run a clear arc: an opening-time deadline with a score screen (toys shelved, repairs, mistakes, zones done) plus a relaxed untimed mode.
+- **Deadline and relaxed mode are in.** `shift_seconds` (1800) ends a timed run at `GamePhase::TimeUp`; the title offers *Closing Shift* against the clock and *Relaxed Run* without one, `ShiftMode` persists in the save, and the HUD counts down (amber under 5 min, red under 1). The mistake penalty now bites, because pushing `elapsed_seconds` can end the shift outright — pinned by `state/tests/shift_clock.rs`.
+- The finish overlay tells the two endings apart but is still the old three-line panel. Rework it into a real score screen: toys shelved, repairs, mistakes, zones done, and a grade — and rework the *finish condition* around zone milestones (`GameSession::zone_progress`) so restoring the shop is not all-or-nothing. Note a zone caps at ~88% until its broken toys are repaired.
+- `shift_seconds` is set from replay minutes, which use an untuned 0.6s-per-interaction constant. Worth a real playthrough before trusting 30 minutes as the deadline.
 
 ## Polish
 
