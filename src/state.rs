@@ -37,6 +37,11 @@ impl WorldPoint {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn from_vec2_for_replay(position: Vec2) -> Self {
+        Self::from_vec2(position)
+    }
+
     pub fn to_vec2(self) -> Vec2 {
         vec2(self.x, self.y)
     }

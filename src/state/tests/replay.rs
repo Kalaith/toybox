@@ -13,7 +13,7 @@
 
 use super::*;
 use crate::state::WorldPoint;
-use macroquad::prelude::Vec2;
+use macroquad::prelude::{vec2, Vec2};
 use std::collections::HashSet;
 
 /// How the closer decides what to do next.
@@ -105,14 +105,45 @@ impl RunReport {
     }
 }
 
-/// Walk the closer to `target`, charging the clock for the distance.
+/// Walk the closer to arm's length of `target` and turn to face it, charging
+/// the clock for the distance. Stopping short matters: standing exactly on a
+/// toy puts it at zero range, and the game's crosshair targeting rejects
+/// anything that is not actually in front of the player.
 fn walk_to(session: &mut GameSession, data: &GameData, target: WorldPoint, walked: &mut f32) {
+    const STANDOFF: f32 = 0.55;
+
     let from = session.player.position.to_vec2();
-    let distance = from.distance(target.to_vec2());
+    let to_target = target.to_vec2() - from;
+    let distance = to_target.length();
+    let arrival = if distance > STANDOFF {
+        target.to_vec2() - to_target.normalize() * STANDOFF
+    } else {
+        from
+    };
+
     let speed = data.config.player_speed * session.speed_multiplier(data);
-    session.player.position = target;
+    session.player.position = WorldPoint::from_vec2_for_replay(arrival);
+    if to_target.length_squared() > f32::EPSILON {
+        session.player.yaw = to_target.y.atan2(to_target.x);
+    }
+    session.player.pitch = -0.42;
     session.player.elapsed_seconds += distance / speed.max(0.1) + INTERACTION_SECONDS;
     *walked += distance;
+}
+
+/// Pick up a specific toy.
+///
+/// This drives the simulation directly rather than pressing E. `interact` is
+/// context-sensitive — standing near a display it shelves the held toy instead
+/// of picking a new one — so routing scripted intent through it produces
+/// actions the script never meant, including mis-shelvings that are the
+/// harness's fault rather than the game's. Crosshair targeting is covered
+/// separately, in `render_settings_cannot_move_the_score`.
+fn aim_and_pick_up(session: &mut GameSession, data: &GameData, toy_index: usize) -> bool {
+    matches!(
+        session.pick_up_toy(toy_index, data),
+        InteractionResult::PickedUp { .. }
+    )
 }
 
 /// The closest toy still needing work, found through the real spatial grid so
@@ -278,7 +309,7 @@ fn restore_one_pair(
     *actions += 1;
     let first_position = session.toys[first].position;
     walk_to(session, data, first_position, walked);
-    session.pick_up_toy(first, data);
+    aim_and_pick_up(session, data, first);
     if resolve_repair_part(session, data, walked) {
         return Some(first);
     }
@@ -293,7 +324,7 @@ fn restore_one_pair(
     *actions += 1;
     let mate_position = session.toys[mate].position;
     walk_to(session, data, mate_position, walked);
-    session.pick_up_toy(mate, data);
+    aim_and_pick_up(session, data, mate);
     if resolve_repair_part(session, data, walked) {
         // The survivor of a repair is the body, whichever index that is.
         return session
@@ -345,7 +376,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let target = session.toys[first_index].position;
             walk_to(&mut session, data, target, &mut walked);
-            session.pick_up_toy(first_index, data);
+            aim_and_pick_up(&mut session, data, first_index);
 
             if session.toys[first_index].is_repair_part() {
                 if resolve_repair_part(&mut session, data, &mut walked) {
@@ -379,10 +410,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             actions += 1;
             let extra_position = session.toys[extra].position;
             walk_to(&mut session, data, extra_position, &mut walked);
-            if !matches!(
-                session.pick_up_toy(extra, data),
-                InteractionResult::PickedUp { .. }
-            ) {
+            if !aim_and_pick_up(&mut session, data, extra) {
                 break;
             }
         }
@@ -445,6 +473,65 @@ fn the_closer_makes_real_progress_without_misshelving() {
          a bug in placement or matching"
     );
     assert!(report.walked_metres > 0.0);
+}
+
+/// Nothing the renderer reads may reach the score. These five values decide
+/// which toys get drawn, at what detail, and how much of the view is culled —
+/// change them to their most aggressive settings and the run must come out
+/// byte-identical. If one ever leaks into targeting or placement, a player who
+/// nudged their view distance would quietly be playing a different game.
+#[test]
+fn render_settings_cannot_move_the_score() {
+    let baseline = GameData::load().unwrap();
+    let mut altered = baseline.clone();
+    // Deliberately below `interaction_radius` (1.35). A render value larger
+    // than the reach cannot change a targeting decision even if gameplay does
+    // read it, so a gentler setting here makes the whole test vacuous.
+    altered.config.toy_render_distance = 0.4;
+    altered.config.toy_lod_distance = 0.25;
+    altered.config.toy_pose_distance = 0.25;
+    altered.config.toy_view_cull_min_dot = 0.98;
+    altered.config.toy_always_draw_radius = 0.0;
+
+    // Crosshair targeting, which the scripted runs below deliberately bypass.
+    // `interaction_preview` is the public read of `targeted_loose_toy_index`,
+    // the one place a render distance could plausibly be mistaken for a
+    // gameplay reach.
+    let mut session = GameSession::new(&baseline);
+    let toy = session
+        .toys
+        .iter()
+        .position(|toy| !toy.is_held && toy.placed_display_id.is_none())
+        .unwrap();
+    let toy_position = session.toys[toy].position.to_vec2();
+    session.player.position = WorldPoint::from_vec2_for_replay(toy_position - vec2(0.5, 0.0));
+    session.player.yaw = 0.0;
+    session.player.pitch = -0.42;
+    assert!(
+        matches!(
+            session.interaction_preview(&baseline),
+            InteractionPreview::Pickup { .. }
+        ),
+        "the targeting probe must actually be looking at a toy, or it proves nothing"
+    );
+    assert!(
+        matches!(
+            session.interaction_preview(&altered),
+            InteractionPreview::Pickup { .. }
+        ),
+        "render distance changed what the crosshair can pick up"
+    );
+
+    assert_eq!(
+        run(&BEGINNER, &baseline, 250),
+        run(&BEGINNER, &altered, 250),
+        "render distance / LOD / culling changed the sorting run"
+    );
+    assert_eq!(
+        run(&RESTORER, &baseline, 150),
+        run(&RESTORER, &altered, 150),
+        "render distance / LOD / culling changed the restoration run"
+    );
 }
 
 /// The repair loop is the half of the game the scatter is built around: cross
