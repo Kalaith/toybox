@@ -1,7 +1,7 @@
 //! Per-zone completion — the "which aisle still needs work" readout.
 
 use super::{toy_matches_display, GameSession, RepairPartKind};
-use crate::data::{DisplayDef, GameData};
+use crate::data::{DisplayDef, GameData, ToyCategory};
 use std::collections::HashMap;
 
 /// How far one zone's displays are from fully stocked.
@@ -15,6 +15,15 @@ pub struct ZoneProgress {
     pub zone_index: usize,
     pub placed: usize,
     pub capacity: usize,
+    /// Toys belonging to this aisle that are currently in two halves — counted
+    /// once per break, not once per part.
+    ///
+    /// Without this the aisle reads "43 / 48" and a player who has shelved
+    /// every whole toy in it goes looking for five they will never find,
+    /// because those five are heads and bodies scattered across other zones
+    /// waiting for the repair bench. The shortfall is real; what was missing
+    /// was any way to tell it apart from having missed something.
+    pub broken: usize,
 }
 
 impl ZoneProgress {
@@ -38,6 +47,15 @@ impl ZoneProgress {
     /// however diligently its whole toys are shelved.
     pub fn is_restored(self) -> bool {
         self.placed >= self.capacity
+    }
+
+    /// Slots this aisle is short that are *not* waiting on the repair bench —
+    /// toys still loose, or shelved somewhere wrong. This is the number that
+    /// means "keep looking".
+    pub fn still_to_find(self) -> usize {
+        self.capacity
+            .saturating_sub(self.placed)
+            .saturating_sub(self.broken)
     }
 }
 
@@ -91,6 +109,7 @@ impl GameSession {
                 zone_index,
                 placed: 0,
                 capacity: 0,
+                broken: 0,
             })
             .collect();
 
@@ -113,6 +132,30 @@ impl GameSession {
             // Wrongly shelved toys sit on a display without counting toward it.
             if toy_matches_display(toy, display) {
                 progress[zone_index].placed += 1;
+            }
+        }
+
+        // A split toy matches no display, so it never reaches the loop above —
+        // it is simply absent from its aisle's count. Attribute it by the
+        // category and theme the parts still carry. Bodies only: a break is one
+        // toy owed, not two.
+        let home_zone: Vec<(ToyCategory, &str, usize)> = data
+            .displays
+            .iter()
+            .filter_map(|display| {
+                zone_index_of(data, display)
+                    .map(|zone_index| (display.category, display.theme.as_str(), zone_index))
+            })
+            .collect();
+        for toy in &self.toys {
+            if toy.repair_part_kind() != Some(RepairPartKind::Body) {
+                continue;
+            }
+            if let Some(&(_, _, zone_index)) = home_zone
+                .iter()
+                .find(|(category, theme, _)| *category == toy.category && *theme == toy.theme)
+            {
+                progress[zone_index].broken += 1;
             }
         }
 

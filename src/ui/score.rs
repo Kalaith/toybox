@@ -163,6 +163,27 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
         y + 14.0,
         TextStyle::new(15.0, label_color).params(),
     );
+    // "43 / 48" alone sends a player who shelved the whole aisle back out to
+    // hunt five toys that are lying around in halves. Split the shortfall into
+    // the two jobs it actually is — and show both, because an aisle can want
+    // more searching *and* more mending, and reporting only one of those is how
+    // the bare shortfall misled in the first place.
+    let mut shortfall = Vec::new();
+    if zone.still_to_find() > 0 {
+        shortfall.push(format!("{} to find", zone.still_to_find()));
+    }
+    if zone.broken > 0 {
+        shortfall.push(format!("{} to mend", zone.broken));
+    }
+    if !shortfall.is_empty() {
+        draw_ui_text_ex(
+            &shortfall.join("  -  "),
+            x + 168.0,
+            y + 14.0,
+            TextStyle::new(13.0, Color::new(0.86, 0.72, 0.94, 1.0)).params(),
+        );
+    }
+
     draw_ui_text_ex(
         &format!("{} / {}", zone.placed, zone.capacity),
         x + width - 128.0,

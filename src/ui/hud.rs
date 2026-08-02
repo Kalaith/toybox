@@ -103,10 +103,19 @@ fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
     } else {
         "no shelves".to_owned()
     };
+    // The percentage alone stalls short of 100 with no explanation once every
+    // whole toy in the aisle is shelved. The count rides on the label rather
+    // than the value: the label is the smaller font and has the room, and
+    // "90% +5 to mend" ran straight off the edge of the panel.
+    let label = if here.broken > 0 {
+        format!("{} - {} to mend", zone.name, here.broken)
+    } else {
+        zone.name.clone()
+    };
     draw_status_row(
         origin,
         IconKind::Star,
-        &zone.name,
+        &label,
         &value,
         here.fraction(),
         accent,
