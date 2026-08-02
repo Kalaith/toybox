@@ -200,6 +200,10 @@ impl Game {
                 self.session = capture_scenes::tool_shop(&self.data);
                 self.screen = GameScreen::ToolShop;
             }
+            "tool_shop_early" => {
+                self.session = capture_scenes::tool_shop_early(&self.data);
+                self.screen = GameScreen::ToolShop;
+            }
             "lamp_contrast" => {
                 self.session = capture_scenes::lamp_contrast(&self.data);
                 self.screen = GameScreen::Playing;

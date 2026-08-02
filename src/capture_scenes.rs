@@ -300,6 +300,25 @@ pub fn tool_shop(data: &GameData) -> GameSession {
     session
 }
 
+/// The tool shop as a player actually meets it: two aisles' worth of credits,
+/// the Toy Scanner already bought, and everything else out of reach one way or
+/// another.
+///
+/// `tool_shop` hands out twelve credits so every row renders its buyable state,
+/// which is the *rarest* thing a player sees — by the time you can afford
+/// everything the shift is nearly over. The three states that fill the screen
+/// early on (owned, unaffordable, locked) had never been rendered at all.
+pub fn tool_shop_early(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    // Two completed displays: enough to unlock the trolley but, with the
+    // scanner's credit already spent, not enough to buy it.
+    for display_index in 0..2 {
+        stock_display(&mut session, data, display_index, 1.0);
+    }
+    session.unlocked_upgrade_ids.push("toy_scanner".to_owned());
+    session
+}
+
 /// The checkout, framed on the counter with the shopfront window behind it —
 /// the view that shows the till clutter and the night sky through the glass.
 pub fn checkout(data: &GameData) -> GameSession {
