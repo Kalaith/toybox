@@ -26,6 +26,12 @@
 - **The ~88% zone cap is now legible rather than weakened.** `ZoneProgress::broken` counts an aisle's toys currently in halves and `still_to_find()` the rest of its shortfall, so the score screen reads "41 to find - 5 to mend" and the HUD "Plush Corner - 5 to mend / 90%". An aisle with toys in pieces is genuinely not restored, so `is_restored` was left alone; what was wrong was that a player who had shelved every whole toy in an aisle had no way to tell the remainder from toys they had missed. Pinned by `every_aisle_slot_is_accounted_for_as_shelved_broken_or_missing`.
 - **The deadline is reachable.** `the_deadline_is_reachable_by_a_closer_who_buys_tools` adds `Strategy::Earner` — the only loadout a timed run ever really has, since tools do not carry between shifts — and it clears the shop in 20.0 min against the 30 min deadline, versus 27.9 bare-handed. Ten minutes of slack for a near-optimal closer that teleports in straight lines and never backtracks, so a real player should find 30 minutes comfortable played well and tight played carelessly. Still worth a human playthrough, since the replay's 0.6s-per-interaction constant is untuned.
 
+## Validation
+
+- **The end-to-end publish runs clean.** `.\publish.ps1` (preview target, not production) builds Windows and WebGL, packs `assets.zip`, renders `index.html` from `game_page.json`, and deploys to `D:\xampp\htdocs\games\toybox`. The wasm links at 1.7 MB, the generated page carries the `Q`-key controls row added with the trolley fix, and its scripts resolve to `shared-assets/runtime/` rather than per-game copies.
+- **Not yet verified in an actual browser.** The Chrome extension was not connected, so nothing above proves the page *boots* — only that it builds, packages and deploys. Loading `http://127.0.0.1/games/toybox/` by hand is the outstanding check, and the one place a WASM-only failure (asset pack, storage bridge, WebGL context) would show up.
+- Deploying surfaced a save-migration gap worth keeping: `strip_post_expansion_fields` did not strip `player.repairs` or `shift_mode`, so no test exercised a save written before the score screen and the deadline. Those saves are sitting in real players' localStorage. Now stripped, with the load asserting Timed mode and a shift that has not already ended.
+
 ## Polish
 
 - README refreshed for the 240-toy shop, both shift modes, the tool table and the `Q` key. `catalog_thumbnail.png` needed no regeneration: it is a crop of the title art, not a screenshot of the menu, so the new buttons do not appear in it.

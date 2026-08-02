@@ -24,6 +24,12 @@ fn strip_post_expansion_fields(mut save: Value) -> Value {
     let player = save["player"].as_object_mut().unwrap();
     player.remove("yaw");
     player.remove("pitch");
+    // Added with the score screen and the shift deadline. A save written before
+    // those has neither key, and in a WebGL build that save is sitting in a
+    // real player's localStorage — so the defaults have to hold without a
+    // migration step, not merely compile.
+    player.remove("repairs");
+    save.as_object_mut().unwrap().remove("shift_mode");
     save
 }
 
@@ -72,6 +78,16 @@ fn pre_expansion_save_loads_without_the_fields_it_never_had() {
         .all(|toy| !toy.spawn_pose.is_uninitialized() || toy.placed_display_id.is_some()));
     assert!(session.player.yaw.is_finite());
     assert!(session.player.pitch.abs() <= GameSession::MAX_LOOK_PITCH);
+
+    // A save with no recorded mode was played against the clock, because that
+    // was the only mode there was. Loading it as Relaxed would silently hand
+    // someone an untimed run they never chose.
+    assert_eq!(session.shift_mode, ShiftMode::Timed);
+    assert_eq!(session.player.repairs, 0);
+    assert!(
+        session.shift_remaining(&data) > 0.0,
+        "an old save loaded with the shift already over"
+    );
 }
 
 #[test]
