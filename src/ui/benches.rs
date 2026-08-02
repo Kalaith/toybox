@@ -174,7 +174,7 @@ fn draw_bench_status_beacon(center: Vec3, bench: &BenchDef, status: BenchStatus)
     );
     draw_cube(head, vec3(0.27, 0.10, 0.27), None, lamp);
     let breath = if pulses {
-        0.55 + 0.45 * ((get_time() as f32 * 2.2).sin() * 0.5 + 0.5)
+        0.55 + 0.45 * ((crate::ui::animation_seconds() * 2.2).sin() * 0.5 + 0.5)
     } else {
         0.30
     };

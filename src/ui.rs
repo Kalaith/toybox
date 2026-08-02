@@ -34,6 +34,29 @@ use widgets::{draw_fitted_text, draw_wrapped_text, WrapStyle};
 pub const LOGICAL_WIDTH: f32 = 1280.0;
 pub const LOGICAL_HEIGHT: f32 = 720.0;
 
+thread_local! {
+    static ANIMATION_SECONDS: std::cell::Cell<f32> = const { std::cell::Cell::new(0.0) };
+}
+
+/// Advance the view layer's animation clock by one frame.
+///
+/// Ambient animation — lamp breathing, dust motes, completion sparkles, the
+/// scanner beacon pulse — used to read `get_time()`, macroquad's wall clock.
+/// The capture harness simulates a fixed number of frames at a fixed timestep
+/// *precisely* so a screenshot is reproducible, and the wall clock defeated
+/// that: the same scene captured twice came out with different bytes, so no
+/// drift check could ever distinguish a stale reference image from a fresh one.
+/// Driving it from the same `dt` the simulation gets makes captures repeatable
+/// and costs normal play nothing, since there `dt` is the frame time anyway.
+pub fn advance_animation_clock(dt: f32) {
+    ANIMATION_SECONDS.with(|clock| clock.set(clock.get() + dt));
+}
+
+/// Seconds of animation elapsed. View-only: gameplay state never reads this.
+pub(crate) fn animation_seconds() -> f32 {
+    ANIMATION_SECONDS.with(|clock| clock.get())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UiAction {
     NewGame,

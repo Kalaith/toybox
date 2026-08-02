@@ -48,7 +48,7 @@ pub(crate) fn draw_counterpart_beacon(ctx: &UiContext<'_>) {
         SCANNER_CYAN
     };
     let ground = vec3(counterpart.position.x, 0.0, counterpart.position.y);
-    let pulse = (get_time() as f32 * 2.4).sin() * 0.5 + 0.5;
+    let pulse = (crate::ui::animation_seconds() * 2.4).sin() * 0.5 + 0.5;
 
     // Column, plus a ring at floor level so the exact spot reads once close.
     draw_cube(

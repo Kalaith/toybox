@@ -192,6 +192,9 @@ impl Game {
             return;
         }
         self.notifications.update(dt);
+        // Before any early return: the title, settings and tool-shop screens
+        // all draw the animated shop behind them.
+        ui::advance_animation_clock(dt);
         self.debug_overlay.record_frame(dt);
         if self.data.config.debug_overlay_enabled && is_key_pressed(KeyCode::F3) {
             self.debug_overlay.toggle();

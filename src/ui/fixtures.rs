@@ -347,7 +347,7 @@ fn draw_generic_display(display: &DisplayDef, accent: Color) {
 fn draw_completion_lights(display: &DisplayDef, accent: Color) {
     let gold = Color::new(0.98, 0.86, 0.46, 1.0);
     let center = display_center(display, 1.55);
-    let time = get_time() as f32;
+    let time = crate::ui::animation_seconds();
 
     // Soft glow column rising from the display, breathing slowly.
     let pulse = (time * 1.6 + display.x * 0.7).sin() * 0.5 + 0.5;

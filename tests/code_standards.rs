@@ -50,6 +50,57 @@ fn the_view_layer_cannot_mutate_the_session() {
     );
 }
 
+/// Rendering must animate off the simulation clock, never the wall clock.
+///
+/// The screenshot harness simulates a fixed number of frames at a fixed
+/// timestep so a capture is reproducible. Four `get_time()` calls — a lamp
+/// breathing, dust motes, completion sparkles, the scanner beacon — defeated
+/// that: the same scene captured twice came out with different bytes, because
+/// the animation phase depended on how long the process took to reach the
+/// capture frame. A reference screenshot that changes every time it is taken
+/// cannot be diffed, which is why fifty stale toy images went unnoticed for
+/// three weeks. `ui::animation_seconds()` accumulates the same `dt` the
+/// simulation gets, and this keeps the wall clock out.
+#[test]
+fn rendering_animates_off_the_simulation_clock() {
+    let ui_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ui");
+    let toys_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/toys");
+    let mut sources = vec![
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/ui.rs"),
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/toys.rs"),
+    ];
+    collect_rust_sources(&ui_root, &mut sources);
+    collect_rust_sources(&toys_root, &mut sources);
+    assert!(
+        sources.len() > 20,
+        "expected the ui and toy modules, found {}",
+        sources.len()
+    );
+
+    let mut offenders = Vec::new();
+    for path in &sources {
+        let text = fs::read_to_string(path).expect("read render source");
+        for (line_number, line) in text.lines().enumerate() {
+            let code = line.split("//").next().unwrap_or("");
+            if code.contains("get_time()") {
+                offenders.push(format!(
+                    "{}:{}: {}",
+                    path.display(),
+                    line_number + 1,
+                    line.trim()
+                ));
+            }
+        }
+    }
+
+    assert!(
+        offenders.is_empty(),
+        "rendering read the wall clock, which makes screenshot captures \
+         irreproducible; use `crate::ui::animation_seconds()`:\n{}",
+        offenders.join("\n")
+    );
+}
+
 fn collect_rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;

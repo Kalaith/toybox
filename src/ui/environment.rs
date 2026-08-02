@@ -231,7 +231,7 @@ fn draw_zone_lamps(data: &GameData) {
 /// Slow-drifting dust motes inside a light column. View-only animation:
 /// gameplay state never touches the clock.
 fn draw_dust_motes(base: Vec3, seed: usize, tint: Color) {
-    let time = get_time() as f32;
+    let time = crate::ui::animation_seconds();
     for mote in 0..5 {
         let phase = (seed + mote * 29) as f32;
         let orbit = 0.15 + mote as f32 * 0.11;
