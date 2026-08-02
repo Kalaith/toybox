@@ -220,6 +220,14 @@ impl GameSession {
         let Some(bench) = self.nearest_bench(data) else {
             return InteractionResult::NothingNearby;
         };
+        // Refuse a part from a different break. Accepting it fills the bench
+        // with two halves that can never be joined, and the only way out is to
+        // notice, aim at one, and take it back — a dead end the game gave no
+        // hint about. Refusing means a bench is always empty, holding one
+        // part, or holding a pair that repairs.
+        if !self.carried_part_matches_bench(data, active_toy) {
+            return InteractionResult::RepairMismatch;
+        }
         let Some(slot_index) = self.next_bench_slot(bench) else {
             return InteractionResult::RepairBenchFull;
         };

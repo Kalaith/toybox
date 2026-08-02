@@ -396,7 +396,11 @@ fn prompt_for_interaction(ctx: &UiContext<'_>) -> Option<PromptVisual> {
             PromptVisual::action("E", format!("Repair {toy_name}"))
         }
         InteractionPreview::RepairBenchFull => PromptVisual::warning("Bench full"),
-        InteractionPreview::RepairMismatch => PromptVisual::warning("Parts do not match"),
+        // Now the common case is carrying a part to a bench already holding
+        // someone else's half, so name what is in the way, not just "no".
+        InteractionPreview::RepairMismatch => {
+            PromptVisual::warning("Bench holds another toy's half")
+        }
         InteractionPreview::AwaitingRepairMatch {
             toy_name,
             missing_part,

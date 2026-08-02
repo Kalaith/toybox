@@ -157,22 +157,28 @@ fn home_display_index(data: &GameData, toy: &ToyState) -> Option<usize> {
 /// Bench a carried repair part, repairing if its other half is already there.
 /// Returns true when the closer walks away holding a repaired toy.
 fn resolve_repair_part(session: &mut GameSession, data: &GameData, walked: &mut f32) -> bool {
-    let bench = data.primary_bench();
-    walk_to(
-        session,
-        data,
-        WorldPoint {
-            x: bench.x,
-            y: bench.y,
-        },
-        walked,
-    );
+    // If the other half is already waiting on a bench, go to *that* bench.
+    // This is the route the Toy Scanner exists to give the player; without it
+    // a closer walks to the nearest bench, is refused because that bench holds
+    // someone else's half, and the pair never meets.
+    let counterpart = session.carried_counterpart();
+    let target = match counterpart {
+        Some(location) if location.on_bench => location.position,
+        _ => {
+            let bench = data.primary_bench();
+            WorldPoint {
+                x: bench.x,
+                y: bench.y,
+            }
+        }
+    };
+    walk_to(session, data, target, walked);
     session.interact(data);
 
     // Only reach for the repair when the bench actually holds a matching pair.
     // Interacting at a bench holding one lone part picks that part back up,
     // which is correct in game and would leave the closer stuck holding it.
-    if session.bench_status(bench).stage == BenchStage::Ready
+    if session.bench_status(data.primary_bench()).stage == BenchStage::Ready
         && matches!(session.interact(data), InteractionResult::Repaired { .. })
     {
         return true;

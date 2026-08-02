@@ -315,7 +315,9 @@ fn bench_status_reports_every_stage_for_the_beacon() {
     assert_eq!(session.bench_status(bench).stage, BenchStage::AwaitingMatch);
     assert_eq!(session.bench_status(bench).filled, 1);
 
-    // A head from a different break fills the bench without matching.
+    // Mismatched is no longer reachable by placing — the bench refuses a part
+    // from another break — but a save written before that fix still holds one,
+    // and the beacon has to report it. Stage it the way such a save would.
     let stranger_index = session
         .toys
         .iter()
@@ -330,8 +332,13 @@ fn bench_status_reports_every_stage_for_the_beacon() {
             )
         })
         .unwrap();
-    session.pick_up_toy(stranger_index, &data);
-    session.interact(&data);
+    session.toys[stranger_index].bench_id = Some(bench.id.clone());
+    session.toys[stranger_index].bench_slot_index = Some(1);
+    let mut session = GameSession::from_save(session.to_save("3.0.0"), &data);
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
 
     assert_eq!(session.bench_status(bench).stage, BenchStage::Mismatched);
     assert_eq!(session.bench_status(bench).filled, bench.capacity);
@@ -360,7 +367,7 @@ fn bench_status_reports_every_stage_for_the_beacon() {
 }
 
 #[test]
-fn carrying_an_unrelated_part_warns_before_it_is_benched() {
+fn a_bench_refuses_a_part_from_a_different_break() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
     let bench = data.primary_bench();
@@ -400,11 +407,21 @@ fn carrying_an_unrelated_part_warns_before_it_is_benched() {
         InteractionPreview::RepairMismatch
     ));
 
-    // The warning is guidance only — placing it is still allowed.
+    // The prompt warns and the placement is actually refused, so the bench
+    // cannot be filled with two halves that will never join.
     assert!(matches!(
         session.interact(&data),
-        InteractionResult::PlacedOnRepairBench { .. }
+        InteractionResult::RepairMismatch
     ));
+    assert_eq!(
+        session.bench_status(bench).filled,
+        1,
+        "the waiting half should still be alone on the bench"
+    );
+    assert!(
+        session.active_toy().is_some(),
+        "a refused part stays in the player's hands rather than vanishing"
+    );
 }
 
 #[test]
