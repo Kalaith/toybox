@@ -35,8 +35,8 @@ fn cannot_pick_up_second_toy_while_holding_one() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
 
-    let first_result = session.pick_up_toy(0);
-    let second_result = session.pick_up_toy(1);
+    let first_result = session.pick_up_toy(0, &data);
+    let second_result = session.pick_up_toy(1, &data);
 
     assert!(matches!(first_result, InteractionResult::PickedUp { .. }));
     assert!(matches!(second_result, InteractionResult::InventoryFull));
@@ -51,7 +51,7 @@ fn interact_places_held_toy_on_floor_when_no_target_is_active() {
     let mut session = GameSession::new(&data);
     let toy_id = session.toys[0].id.clone();
 
-    session.pick_up_toy(0);
+    session.pick_up_toy(0, &data);
     session.player.position = WorldPoint { x: 9.0, y: 10.8 };
     session.player.yaw = 0.0;
     session.player.pitch = 0.0;
@@ -81,7 +81,7 @@ fn can_pick_up_toy_from_display_slot() {
         .unwrap();
     let toy_id = session.toys[toy_index].id.clone();
 
-    session.pick_up_toy(toy_index);
+    session.pick_up_toy(toy_index, &data);
     let _ = session.place_active_toy(0, 0, &data);
     session.player.position = display_slot_position(display, 0, data.config.room_width);
     session.player.yaw = 0.0;
@@ -112,7 +112,7 @@ fn spatial_grid_tracks_pickup_place_and_drop() {
         .indices_near(spawn, 0.1)
         .contains(&toy_index));
 
-    session.pick_up_toy(toy_index);
+    session.pick_up_toy(toy_index, &data);
     assert!(!session
         .spatial
         .indices_near(spawn, 0.1)
@@ -125,7 +125,7 @@ fn spatial_grid_tracks_pickup_place_and_drop() {
         .indices_near(placed, 0.1)
         .contains(&toy_index));
 
-    session.pick_up_toy(toy_index);
+    session.pick_up_toy(toy_index, &data);
     session.drop_active(&data).unwrap();
     let dropped = session.toys[toy_index].position.to_vec2();
     assert!(session

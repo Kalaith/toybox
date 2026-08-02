@@ -91,7 +91,7 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
 
     let mut actions = Vec::new();
     let mouse = logical_mouse_position();
-    let panel = Rect::new(338.0, 132.0, 604.0, 450.0);
+    let panel = Rect::new(330.0, 74.0, 620.0, 572.0);
     draw_surface(
         panel,
         &SurfaceStyle::new(Color::new(0.060, 0.068, 0.078, 0.98))
@@ -127,9 +127,9 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
     for (index, upgrade) in ctx.data.upgrades.iter().enumerate() {
         let row = Rect::new(
             panel.x + 24.0,
-            panel.y + 104.0 + index as f32 * 104.0,
+            panel.y + 104.0 + index as f32 * 92.0,
             panel.w - 48.0,
-            86.0,
+            80.0,
         );
         draw_tool_row(row, upgrade, &ctx, mouse, &mut actions);
     }
@@ -271,7 +271,9 @@ fn tool_status(upgrade: &UpgradeDef, ctx: &UiContext<'_>) -> (String, Color, boo
     }
 
     (
-        format!("Available: {} credit(s)", upgrade.cost),
+        // "Available: 1 credit(s)" reads as the player's balance, not the
+        // price — actively wrong next to a Tool Credits counter showing 9.
+        format!("Costs {} credit(s)", upgrade.cost),
         Color::new(0.56, 0.92, 0.92, 1.0),
         true,
     )

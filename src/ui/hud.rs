@@ -53,7 +53,7 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
         Color::new(1.0, 0.72, 0.16, 1.0),
     );
 
-    let carry_limit = ctx.session.carry_limit(&ctx.data.config).max(1);
+    let carry_limit = ctx.session.carry_limit(ctx.data).max(1);
     let carried = ctx.session.player.carried_toy_ids.len();
     draw_status_row(
         vec2(rect.x + 18.0, rect.y + 128.0),
@@ -145,7 +145,7 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
         rows.push(row);
     }
 
-    if ctx.session.scanner_enabled() {
+    if ctx.session.scanner_enabled(ctx.data) {
         if let Some(active_toy) = ctx.session.active_toy() {
             let text = if active_toy.is_repair_part() {
                 counterpart_scanner_text(ctx)

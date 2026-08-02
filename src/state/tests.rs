@@ -5,4 +5,5 @@ mod placement;
 mod repair_and_tools;
 mod save_migration;
 mod session_setup;
+mod upgrade_effects;
 mod zone_progress;

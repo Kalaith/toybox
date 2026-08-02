@@ -161,7 +161,7 @@ fn the_retired_tag_lantern_id_still_grants_the_scanner() {
 
     let reloaded = GameSession::from_save(session.to_save("2.1.0"), &data);
 
-    assert!(reloaded.scanner_enabled());
+    assert!(reloaded.scanner_enabled(&data));
     // The retired id must still spend its credit, or the tool comes out free.
     assert_eq!(reloaded.available_tool_credits(&data), 0);
 }

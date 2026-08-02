@@ -15,7 +15,7 @@ fn broken_part_must_be_repaired_before_display() {
         .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
         .unwrap();
 
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     let result = session.place_active_toy(robot_display_index, 0, &data);
 
     assert!(matches!(result, InteractionResult::NeedsRepair { .. }));
@@ -67,7 +67,7 @@ fn repair_bench_repairs_matching_benched_parts() {
         .iter()
         .position(|toy| toy.id == body_id)
         .unwrap();
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     let result = session.interact(&data);
 
     assert!(matches!(
@@ -90,7 +90,7 @@ fn repair_bench_repairs_matching_benched_parts() {
         .iter()
         .position(|toy| toy.id == head_id)
         .unwrap();
-    session.pick_up_toy(head_index);
+    session.pick_up_toy(head_index, &data);
     let result = session.interact(&data);
 
     assert!(matches!(
@@ -133,7 +133,7 @@ fn parts_bench_at_the_nearest_bench() {
         .iter()
         .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
         .unwrap();
-    session.pick_up_toy(head_index);
+    session.pick_up_toy(head_index, &data);
     session.player.position = WorldPoint {
         x: second_bench.x,
         y: second_bench.y,
@@ -171,7 +171,7 @@ fn a_lone_benched_part_names_the_counterpart_still_missing() {
         RepairState::BrokenPart { repaired_name, .. } => repaired_name.clone(),
         _ => unreachable!("selected a broken part"),
     };
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     session.interact(&data);
 
     assert_eq!(
@@ -196,7 +196,7 @@ fn a_lone_benched_part_names_the_counterpart_still_missing() {
         .iter()
         .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
         .unwrap();
-    session.pick_up_toy(head_index);
+    session.pick_up_toy(head_index, &data);
     session.interact(&data);
     assert_eq!(session.lone_benched_part(&data), None);
 }
@@ -238,7 +238,7 @@ fn the_scanner_locates_the_carried_parts_counterpart() {
         .unwrap();
     let head_position = session.toys[head_index].position;
 
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     let located = session.carried_counterpart().unwrap();
 
     assert_eq!(located.part, RepairPartKind::Head);
@@ -253,7 +253,7 @@ fn the_scanner_locates_the_carried_parts_counterpart() {
         .iter()
         .position(|toy| !toy.is_repair_part() && !toy.is_consumed_repair_part())
         .unwrap();
-    session.pick_up_toy(whole_index);
+    session.pick_up_toy(whole_index, &data);
     assert!(session.carried_counterpart().is_none());
 
     // Once the counterpart is benched the scanner says so, so the player knows
@@ -264,9 +264,9 @@ fn the_scanner_locates_the_carried_parts_counterpart() {
         x: bench.x,
         y: bench.y,
     };
-    session.pick_up_toy(head_index);
+    session.pick_up_toy(head_index, &data);
     session.interact(&data);
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
 
     let located = session.carried_counterpart().unwrap();
     assert_eq!(located.part, RepairPartKind::Head);
@@ -309,7 +309,7 @@ fn bench_status_reports_every_stage_for_the_beacon() {
         .iter()
         .position(|toy| toy.id == body_id)
         .unwrap();
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     session.interact(&data);
 
     assert_eq!(session.bench_status(bench).stage, BenchStage::AwaitingMatch);
@@ -330,14 +330,14 @@ fn bench_status_reports_every_stage_for_the_beacon() {
             )
         })
         .unwrap();
-    session.pick_up_toy(stranger_index);
+    session.pick_up_toy(stranger_index, &data);
     session.interact(&data);
 
     assert_eq!(session.bench_status(bench).stage, BenchStage::Mismatched);
     assert_eq!(session.bench_status(bench).filled, bench.capacity);
 
     // Swap the stranger for the real counterpart and the beacon goes green.
-    session.pick_up_toy(stranger_index);
+    session.pick_up_toy(stranger_index, &data);
     let matching_head_index = session
         .toys
         .iter()
@@ -353,7 +353,7 @@ fn bench_status_reports_every_stage_for_the_beacon() {
         })
         .unwrap();
     session.drop_active(&data);
-    session.pick_up_toy(matching_head_index);
+    session.pick_up_toy(matching_head_index, &data);
     session.interact(&data);
 
     assert_eq!(session.bench_status(bench).stage, BenchStage::Ready);
@@ -375,7 +375,7 @@ fn carrying_an_unrelated_part_warns_before_it_is_benched() {
         .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
         .unwrap();
     let benched_repair_id = session.toys[body_index].repair_state.clone();
-    session.pick_up_toy(body_index);
+    session.pick_up_toy(body_index, &data);
     session.interact(&data);
 
     // A head from a different break shares no repair_id with the benched body.
@@ -393,7 +393,7 @@ fn carrying_an_unrelated_part_warns_before_it_is_benched() {
                 )
         })
         .unwrap();
-    session.pick_up_toy(stranger_index);
+    session.pick_up_toy(stranger_index, &data);
 
     assert!(matches!(
         session.interaction_preview(&data),
@@ -412,8 +412,8 @@ fn tool_purchases_use_completed_display_credits() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
 
-    assert_eq!(session.carry_limit(&data.config), 1);
-    assert!(!session.scanner_enabled());
+    assert_eq!(session.carry_limit(&data), 1);
+    assert!(!session.scanner_enabled(&data));
     assert!(matches!(
         session.purchase_tool(&data, "toy_scanner"),
         ToolPurchaseResult::Locked { .. }
@@ -430,8 +430,8 @@ fn tool_purchases_use_completed_display_credits() {
             remaining_credits: 0,
         } if tool_name == "Toy Scanner"
     ));
-    assert!(session.scanner_enabled());
-    assert_eq!(session.carry_limit(&data.config), 1);
+    assert!(session.scanner_enabled(&data));
+    assert_eq!(session.carry_limit(&data), 1);
 
     complete_display_by_index(&mut session, &data, 1);
     assert_eq!(session.available_tool_credits(&data), 1);
@@ -439,7 +439,7 @@ fn tool_purchases_use_completed_display_credits() {
         session.purchase_tool(&data, "small_trolley"),
         ToolPurchaseResult::NoToolsAvailable
     ));
-    assert_eq!(session.carry_limit(&data.config), 1);
+    assert_eq!(session.carry_limit(&data), 1);
 }
 
 fn complete_display_by_index(session: &mut GameSession, data: &GameData, display_index: usize) {
@@ -466,7 +466,7 @@ fn complete_display_by_index(session: &mut GameSession, data: &GameData, display
             .iter()
             .position(|toy| toy.id == toy_id)
             .unwrap();
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, data);
         let _ = session.place_active_toy(display_index, slot_index, data);
     }
 }

@@ -2,8 +2,41 @@
   {
     "id": "toy_scanner",
     "name": "Toy Scanner",
-    "description": "Shows the correct display for the held toy and highlights that display in the shop.",
+    "description": "Names the display a held toy belongs to, highlights it across the shop, and points to the far half of a carried repair part.",
     "unlock_completed_displays": 1,
-    "cost": 1
+    "cost": 1,
+    "effect": { "kind": "scanner" }
+  },
+  {
+    "id": "sorting_trolley",
+    "name": "Sorting Trolley",
+    "description": "Wheel three toys at once instead of one. Cycle the held toy with G.",
+    "unlock_completed_displays": 2,
+    "cost": 2,
+    "effect": { "kind": "carry_limit", "toys": 3 }
+  },
+  {
+    "id": "grippy_sneakers",
+    "name": "Grippy Sneakers",
+    "description": "Cross the shop floor a third faster without skidding into a display.",
+    "unlock_completed_displays": 3,
+    "cost": 2,
+    "effect": { "kind": "speed", "multiplier": 1.35 }
+  },
+  {
+    "id": "long_handled_grabber",
+    "name": "Long-Handled Grabber",
+    "description": "Reach further into a pile, so a toy no longer has to be underfoot to pick up.",
+    "unlock_completed_displays": 4,
+    "cost": 3,
+    "effect": { "kind": "reach", "multiplier": 1.6 }
+  },
+  {
+    "id": "managers_nod",
+    "name": "Manager's Nod",
+    "description": "The next twenty-five toys on the wrong shelf still count as mistakes, but cost you no time.",
+    "unlock_completed_displays": 5,
+    "cost": 3,
+    "effect": { "kind": "mistake_forgiveness", "mistakes": 25 }
   }
 ]

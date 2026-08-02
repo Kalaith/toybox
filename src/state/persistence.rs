@@ -93,7 +93,7 @@ impl GameSession {
         }
         self.repair_display_slots(data);
         self.repair_bench_slots(data);
-        self.normalize_active_carry();
+        self.normalize_active_carry(self.carry_limit(data));
         self.repair_player_view();
         self.refresh_display_completion(data);
         self.spatial.rebuild(&self.toys);

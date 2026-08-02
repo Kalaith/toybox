@@ -1,15 +1,63 @@
 //! Tool-shop economy: which upgrades are owned, what they cost, and how the
 //! credits earned from completed displays are spent.
 
-use super::{GameSession, ToolPurchaseResult, SINGLE_CARRY_LIMIT};
-use crate::data::{GameConfig, GameData};
+use super::{GameSession, ToolPurchaseResult};
+use crate::data::{GameData, UpgradeEffect};
 
 pub(super) const TOY_SCANNER_ID: &str = "toy_scanner";
 const LEGACY_TAG_LANTERN_ID: &str = "tag_lantern";
 
 impl GameSession {
-    pub fn carry_limit(&self, _config: &GameConfig) -> usize {
-        SINGLE_CARRY_LIMIT
+    /// The effects of every tool the player currently owns.
+    fn owned_effects<'a>(&'a self, data: &'a GameData) -> impl Iterator<Item = UpgradeEffect> + 'a {
+        data.upgrades
+            .iter()
+            .filter(|upgrade| self.has_upgrade(&upgrade.id))
+            .map(|upgrade| upgrade.effect)
+    }
+
+    /// How many toys the player can hold. Carry tools do not stack — owning a
+    /// bigger trolley replaces a smaller one rather than adding to it.
+    pub fn carry_limit(&self, data: &GameData) -> usize {
+        self.owned_effects(data)
+            .filter_map(|effect| match effect {
+                UpgradeEffect::CarryLimit { toys } => Some(toys),
+                _ => None,
+            })
+            .max()
+            .unwrap_or(data.config.starting_carry_limit)
+            .max(1)
+    }
+
+    pub fn speed_multiplier(&self, data: &GameData) -> f32 {
+        self.owned_effects(data)
+            .filter_map(|effect| match effect {
+                UpgradeEffect::Speed { multiplier } => Some(multiplier),
+                _ => None,
+            })
+            .fold(1.0, f32::max)
+    }
+
+    /// How far the player can reach to pick a toy up, in world units.
+    pub fn interaction_reach(&self, data: &GameData) -> f32 {
+        let multiplier = self
+            .owned_effects(data)
+            .filter_map(|effect| match effect {
+                UpgradeEffect::Reach { multiplier } => Some(multiplier),
+                _ => None,
+            })
+            .fold(1.0, f32::max);
+        data.config.interaction_radius * multiplier
+    }
+
+    /// Mis-shelved toys that cost no time. Forgiveness tools do stack.
+    pub fn forgiven_mistakes(&self, data: &GameData) -> u32 {
+        self.owned_effects(data)
+            .filter_map(|effect| match effect {
+                UpgradeEffect::MistakeForgiveness { mistakes } => Some(mistakes),
+                _ => None,
+            })
+            .sum()
     }
 
     pub fn has_upgrade(&self, upgrade_id: &str) -> bool {
@@ -25,8 +73,9 @@ impl GameSession {
                     .any(|existing_id| existing_id == LEGACY_TAG_LANTERN_ID)
     }
 
-    pub fn scanner_enabled(&self) -> bool {
-        self.has_upgrade(TOY_SCANNER_ID)
+    pub fn scanner_enabled(&self, data: &GameData) -> bool {
+        self.owned_effects(data)
+            .any(|effect| matches!(effect, UpgradeEffect::Scanner))
     }
 
     pub fn available_tool_credits(&self, data: &GameData) -> usize {

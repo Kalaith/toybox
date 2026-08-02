@@ -240,7 +240,7 @@ impl GameSession {
         self.player
             .carried_toy_ids
             .retain(|toy_id| toy_id != &active_id);
-        self.normalize_active_carry();
+        self.normalize_active_carry(self.carry_limit(data));
 
         InteractionResult::PlacedOnRepairBench {
             toy_name: active_name,

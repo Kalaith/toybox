@@ -8,7 +8,6 @@
 ## Game loop and progression
 
 - Rework the finish condition and finish screen around zone milestones now that per-zone completion exists (`GameSession::zone_progress`), and decide an intended run length. Note a zone caps at ~88% until its broken toys are repaired — milestones need to account for that or no zone ever reads done.
-- Expand the tool shop — `upgrades.json` holds only `toy_scanner`. Add 4–6 tools (carry capacity, speed, part compass, sort hint, mistake forgiveness) with real implementations in `state/` and costs tuned to zone pacing.
 - Give a run a clear arc: an opening-time deadline with a score screen (toys shelved, repairs, mistakes, zones done) plus a relaxed untimed mode.
 
 ## Polish
@@ -20,6 +19,6 @@
 
 - Deterministic replay tests at the 4000-toy scale for sorting, scoring, mistake penalties, timer acceleration, and completion goals.
 - Scenario fixtures for beginner, mid-upgrade, and high-pressure sorting runs.
-- Validate upgrade availability and challenge metadata before a run starts so new toy types cannot break progression.
+- Balance the five tools against real play: costs and unlock thresholds were picked to fit inside one run's credits, not from measured pacing. The Sorting Trolley in particular (carry 1 -> 3) is untested against the mistake/timer economy.
 - Separate 3D scene rendering from session mutation so camera and visual effects cannot affect scoring.
 - Fold the release-build capture path back into the shared `macroquad-toolkit/scripts/capture_ui.ps1` (a `-Release` switch) so other large games do not each need a local `capture_scene.ps1`.

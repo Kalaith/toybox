@@ -54,11 +54,9 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
             draw_completion_lights(display, accent);
         }
 
-        if ctx
-            .session
-            .active_toy()
-            .is_some_and(|toy| ctx.session.scanner_enabled() && toy_matches_display(toy, display))
-        {
+        if ctx.session.active_toy().is_some_and(|toy| {
+            ctx.session.scanner_enabled(ctx.data) && toy_matches_display(toy, display)
+        }) {
             draw_scanner_guidance(display);
         }
     }

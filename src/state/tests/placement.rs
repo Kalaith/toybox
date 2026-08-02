@@ -23,7 +23,7 @@ fn correct_placement_completes_a_display() {
             .iter()
             .position(|toy| toy.id == toy_id)
             .unwrap();
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, &data);
         session.player.position = WorldPoint {
             x: display.x + display.w * 0.5,
             y: display.y + display.h * 0.5,
@@ -53,7 +53,7 @@ fn placement_uses_target_slot() {
         .position(|toy| toy.id == toy_id)
         .unwrap();
 
-    session.pick_up_toy(toy_index);
+    session.pick_up_toy(toy_index, &data);
     session.player.position = WorldPoint {
         x: display.x + display.w * 0.5,
         y: display.y + display.h * 0.5,
@@ -79,7 +79,7 @@ fn wrong_placement_still_places_toy_and_counts_mistake() {
         .unwrap();
     let toy_id = session.toys[toy_index].id.clone();
 
-    session.pick_up_toy(toy_index);
+    session.pick_up_toy(toy_index, &data);
     let _ = session.place_active_toy(0, 0, &data);
 
     let placed = session.toys.iter().find(|toy| toy.id == toy_id).unwrap();
@@ -113,7 +113,7 @@ fn cannot_place_into_filled_slot() {
         .iter()
         .position(|toy| toy.id == toy_ids[0])
         .unwrap();
-    session.pick_up_toy(first_index);
+    session.pick_up_toy(first_index, &data);
     let _ = session.place_active_toy(0, 0, &data);
 
     let second_index = session
@@ -121,7 +121,7 @@ fn cannot_place_into_filled_slot() {
         .iter()
         .position(|toy| toy.id == toy_ids[1])
         .unwrap();
-    session.pick_up_toy(second_index);
+    session.pick_up_toy(second_index, &data);
     let result = session.place_active_toy(0, 0, &data);
 
     assert!(matches!(result, InteractionResult::ShelfSlotUnavailable));
@@ -161,7 +161,7 @@ fn wrong_toys_do_not_complete_display() {
             .iter()
             .position(|toy| toy.id == toy_id)
             .unwrap();
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, &data);
         let _ = session.place_active_toy(0, slot_index, &data);
     }
 
@@ -192,7 +192,7 @@ fn full_shelf_rejects_extra_toy() {
             .iter()
             .position(|toy| toy.id == toy_id)
             .unwrap();
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, &data);
         let _ = session.place_active_toy(0, slot_index, &data);
     }
 
@@ -201,7 +201,7 @@ fn full_shelf_rejects_extra_toy() {
         .iter()
         .position(|toy| !toy_matches_display(toy, display) && !toy.is_repair_part())
         .unwrap();
-    session.pick_up_toy(extra_toy_index);
+    session.pick_up_toy(extra_toy_index, &data);
     let result = session.place_active_toy(0, 0, &data);
 
     assert!(matches!(result, InteractionResult::ShelfFull));

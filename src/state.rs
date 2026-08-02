@@ -215,8 +215,6 @@ pub struct DisplaySlotTarget {
     pub slot_index: usize,
 }
 
-const SINGLE_CARRY_LIMIT: usize = 1;
-
 impl GameSession {
     pub const MAX_LOOK_PITCH: f32 = 1.18;
     pub const WRONG_MARKER_SECONDS: f32 = 2.5;
@@ -297,7 +295,8 @@ impl GameSession {
             return;
         }
 
-        let step = world_direction.normalize() * config.player_speed * dt;
+        let step =
+            world_direction.normalize() * config.player_speed * self.speed_multiplier(data) * dt;
         let current = self.player.position.to_vec2();
         let clamp_x = |x: f32| x.clamp(0.45, config.room_width - 0.45);
         let clamp_y = |y: f32| y.clamp(0.45, config.room_height - 0.45);
@@ -357,7 +356,7 @@ impl GameSession {
         self.toys[toy_index].position = drop_position;
         self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
-        self.normalize_active_carry();
+        self.normalize_active_carry(self.carry_limit(data));
 
         Some(toy_name)
     }
@@ -431,8 +430,8 @@ impl GameSession {
         }
     }
 
-    fn normalize_active_carry(&mut self) {
-        if self.player.carried_toy_ids.len() > SINGLE_CARRY_LIMIT {
+    fn normalize_active_carry(&mut self, carry_limit: usize) {
+        if self.player.carried_toy_ids.len() > carry_limit {
             let kept_id = self
                 .player
                 .carried_toy_ids

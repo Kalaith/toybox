@@ -66,6 +66,27 @@ pub struct UpgradeDef {
     pub unlock_completed_displays: usize,
     #[serde(default = "default_upgrade_cost")]
     pub cost: usize,
+    /// What owning this tool actually does. Required: a tool with no declared
+    /// effect would sell for credits and change nothing.
+    pub effect: UpgradeEffect,
+}
+
+/// The mechanical effect of a tool, declared in `upgrades.json` so new tools
+/// are content rather than new dispatch arms in `state/`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum UpgradeEffect {
+    /// Names the correct display for the held toy and highlights it in the
+    /// shop, and locates the far half of a carried repair part.
+    Scanner,
+    /// Raises how many toys the player can hold at once. Highest owned wins.
+    CarryLimit { toys: usize },
+    /// Scales walking speed. Highest owned wins.
+    Speed { multiplier: f32 },
+    /// Scales how far the player can reach to pick a toy up. Highest wins.
+    Reach { multiplier: f32 },
+    /// Waives the time penalty for this many mis-shelved toys. Cumulative.
+    MistakeForgiveness { mistakes: u32 },
 }
 
 fn default_upgrade_cost() -> usize {
@@ -202,7 +223,40 @@ mod tests {
 
         assert_eq!(data.config.game_name, "toybox_after_hours");
         assert_eq!(data.displays.len(), 20);
-        assert_eq!(data.upgrades.len(), 1);
         assert_eq!(total_capacity, data.config.toy_count);
+    }
+
+    /// A tool nobody can reach is dead content, and a duplicate id is bought
+    /// once but owned twice — `has_upgrade` matches by id.
+    #[test]
+    fn every_tool_is_reachable_and_uniquely_named() {
+        let data = GameData::load().unwrap();
+        assert!(!data.upgrades.is_empty());
+
+        let mut seen = std::collections::HashSet::new();
+        let mut total_cost = 0;
+        for upgrade in &data.upgrades {
+            assert!(
+                seen.insert(upgrade.id.as_str()),
+                "duplicate id {}",
+                upgrade.id
+            );
+            assert!(
+                upgrade.unlock_completed_displays <= data.displays.len(),
+                "{} unlocks at {} completed displays but only {} exist",
+                upgrade.id,
+                upgrade.unlock_completed_displays,
+                data.displays.len()
+            );
+            total_cost += upgrade.cost;
+        }
+
+        // Credits come one per completed display, so the whole shop has to be
+        // affordable inside a single run or the last tools never sell.
+        assert!(
+            total_cost <= data.displays.len(),
+            "tools cost {total_cost} credits but a run yields at most {}",
+            data.displays.len()
+        );
     }
 }

@@ -1,6 +1,6 @@
 use super::{
     display_slot_position, toy_matches_display, DisplaySlotTarget, GamePhase, GameSession,
-    InteractionPreview, InteractionResult, ToyState, SINGLE_CARRY_LIMIT,
+    InteractionPreview, InteractionResult, ToyState,
 };
 use crate::data::{DisplayDef, GameConfig, GameData};
 use macroquad::prelude::*;
@@ -56,19 +56,19 @@ impl GameSession {
             if let Some(toy_index) =
                 self.toy_index_at_display_slot(display, target.slot_index, data.config.room_width)
             {
-                if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
+                if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
                     return InteractionResult::InventoryFull;
                 }
                 return self.pick_up_placed_toy(toy_index, data);
             }
         }
 
-        if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
+        if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
             return InteractionResult::InventoryFull;
         }
 
-        if let Some(toy_index) = self.targeted_loose_toy_index(&data.config) {
-            return self.pick_up_toy(toy_index);
+        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
+            return self.pick_up_toy(toy_index, data);
         }
 
         if self.is_near_repair_bench(data) && self.repair_bench_is_full(data) {
@@ -129,7 +129,7 @@ impl GameSession {
             if let Some(toy) =
                 self.toy_at_display_slot(display, target.slot_index, data.config.room_width)
             {
-                if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
+                if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
                     return InteractionPreview::InventoryFull;
                 }
                 return InteractionPreview::Pickup {
@@ -138,11 +138,11 @@ impl GameSession {
             }
         }
 
-        if self.player.carried_toy_ids.len() >= self.carry_limit(&data.config) {
+        if self.player.carried_toy_ids.len() >= self.carry_limit(data) {
             return InteractionPreview::InventoryFull;
         }
 
-        if let Some(toy_index) = self.targeted_loose_toy_index(&data.config) {
+        if let Some(toy_index) = self.targeted_loose_toy_index(data) {
             return InteractionPreview::Pickup {
                 toy_name: self.toys[toy_index].name.clone(),
             };
@@ -247,11 +247,12 @@ impl GameSession {
             .map(|toy_index| &self.toys[toy_index])
     }
 
-    pub(crate) fn pick_up_toy(&mut self, toy_index: usize) -> InteractionResult {
+    pub(crate) fn pick_up_toy(&mut self, toy_index: usize, data: &GameData) -> InteractionResult {
+        let carry_limit = self.carry_limit(data);
         let toy_id = self.toys[toy_index].id.clone();
         let toy_name = self.toys[toy_index].name.clone();
         let already_carried = self.player.carried_toy_ids.iter().any(|id| id == &toy_id);
-        if !already_carried && self.player.carried_toy_ids.len() >= SINGLE_CARRY_LIMIT {
+        if !already_carried && self.player.carried_toy_ids.len() >= carry_limit {
             return InteractionResult::InventoryFull;
         }
 
@@ -310,7 +311,11 @@ impl GameSession {
         let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
         if is_wrong_display {
             self.player.mistakes += 1;
-            self.player.elapsed_seconds += data.config.mistake_penalty_seconds;
+            // The mistake is still recorded; a forgiveness tool only waives the
+            // clock penalty, so the score screen still sees what happened.
+            if self.player.mistakes > self.forgiven_mistakes(data) {
+                self.player.elapsed_seconds += data.config.mistake_penalty_seconds;
+            }
         }
 
         self.toys[toy_index].is_held = false;
@@ -327,7 +332,7 @@ impl GameSession {
             display_slot_position(display, slot_index, data.config.room_width);
         self.spatial.sync_toy(toy_index, &self.toys[toy_index]);
         self.player.carried_toy_ids.retain(|id| id != &toy_id);
-        self.normalize_active_carry();
+        self.normalize_active_carry(self.carry_limit(data));
 
         let was_complete = self.is_display_complete(&display.id);
         self.refresh_display_completion(data);
@@ -434,7 +439,7 @@ impl GameSession {
     }
 
     fn pick_up_placed_toy(&mut self, toy_index: usize, data: &GameData) -> InteractionResult {
-        let result = self.pick_up_toy(toy_index);
+        let result = self.pick_up_toy(toy_index, data);
         self.refresh_display_completion(data);
         result
     }
@@ -456,7 +461,8 @@ impl GameSession {
             })
     }
 
-    fn targeted_loose_toy_index(&self, config: &GameConfig) -> Option<usize> {
+    fn targeted_loose_toy_index(&self, data: &GameData) -> Option<usize> {
+        let reach = self.interaction_reach(data);
         let player_2d = self.player.position.to_vec2();
         let eye = vec3(player_2d.x, PLAYER_EYE_HEIGHT, player_2d.y);
         let forward = self.look_forward_3d();
@@ -465,7 +471,7 @@ impl GameSession {
         }
 
         self.spatial
-            .indices_near(player_2d, config.interaction_radius)
+            .indices_near(player_2d, reach)
             .into_iter()
             .map(|index| (index, &self.toys[index]))
             .filter(|(_, toy)| {
@@ -473,7 +479,7 @@ impl GameSession {
             })
             .filter_map(|(index, toy)| {
                 let horizontal_distance = toy.position.to_vec2().distance(player_2d);
-                if horizontal_distance > config.interaction_radius {
+                if horizontal_distance > reach {
                     return None;
                 }
 

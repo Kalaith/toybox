@@ -35,7 +35,7 @@ pub(crate) fn draw_scanner_guidance(display: &DisplayDef) {
 /// Amber once the counterpart is already waiting on a bench, cyan while it is
 /// still loose on the floor.
 pub(crate) fn draw_counterpart_beacon(ctx: &UiContext<'_>) {
-    if !ctx.session.scanner_enabled() {
+    if !ctx.session.scanner_enabled(ctx.data) {
         return;
     }
     let Some(counterpart) = ctx.session.carried_counterpart() else {

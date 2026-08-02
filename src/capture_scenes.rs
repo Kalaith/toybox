@@ -59,9 +59,21 @@ fn stock_display(session: &mut GameSession, data: &GameData, display_index: usiz
         let Some(toy_index) = session.toys.iter().position(|toy| toy.id == toy_id) else {
             continue;
         };
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, data);
         session.place_active_toy(display_index, slot_index, data);
     }
+}
+
+/// The tool shop with every tool unlocked and affordable, so the row layout
+/// can be checked against the real list rather than a single entry.
+pub fn tool_shop(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    // Credits come one per completed display; hand out enough that every row
+    // renders its buyable state.
+    for display_index in 0..data.displays.len().min(12) {
+        stock_display(&mut session, data, display_index, 1.0);
+    }
+    session
 }
 
 /// A bench holding one half of a broken toy, framed from the front — the view
@@ -79,7 +91,7 @@ pub fn repair_bench(data: &GameData) -> GameSession {
         .iter()
         .position(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
     {
-        session.pick_up_toy(body_index);
+        session.pick_up_toy(body_index, data);
         session.interact(data);
     }
 

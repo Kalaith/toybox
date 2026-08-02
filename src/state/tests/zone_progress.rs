@@ -63,7 +63,7 @@ fn wrongly_shelved_toys_do_not_count_toward_a_zone() {
         .iter()
         .position(|toy| !toy.is_repair_part() && !toy.is_held && !toy_matches_display(toy, display))
         .unwrap();
-    session.pick_up_toy(wrong_index);
+    session.pick_up_toy(wrong_index, &data);
     session.place_active_toy(0, 0, &data);
 
     let placed: usize = session
@@ -92,7 +92,7 @@ fn complete_display_by_index(session: &mut GameSession, data: &GameData, display
             .iter()
             .position(|toy| toy.id == toy_id)
             .unwrap();
-        session.pick_up_toy(toy_index);
+        session.pick_up_toy(toy_index, data);
         let _ = session.place_active_toy(display_index, slot_index, data);
     }
 }
