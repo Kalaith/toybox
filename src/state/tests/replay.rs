@@ -93,6 +93,11 @@ struct RunReport {
     grabbed_neighbour: usize,
     deferred_parts: usize,
     displays_complete: usize,
+    /// Toys still on the floor when the run stopped. Together with `actions`
+    /// this says whether a short run ran out of budget or stalled: a run that
+    /// spent its whole budget and left most of the shop loose is doing
+    /// something other than shelving.
+    still_loose: usize,
     walked_metres: f32,
     minutes: f32,
 }
@@ -100,9 +105,12 @@ struct RunReport {
 impl RunReport {
     fn line(&self, name: &str) -> String {
         format!(
-            "{name:>15}: {:>5} shelved  {:>3} repaired  {:>2} mistakes  \
-             {:>3} deferred  {:>4} whiffed  {:>4} neighbour  {:>2} displays  {:>6.0}m walked               {:>5.1} min",
+            "{name:>15}: {:>5} actions  {:>5} shelved  {:>5} loose  {:>3} repaired  \
+             {:>2} mistakes  {:>4} deferred  {:>4} whiffed  {:>4} neighbour  \
+             {:>2} displays  {:>6.0}m walked  {:>6.1} min",
+            self.actions,
             self.shelved,
+            self.still_loose,
             self.repaired,
             self.mistakes,
             self.deferred_parts,
@@ -321,10 +329,38 @@ fn counterpart_index(session: &GameSession, toy_index: usize) -> Option<usize> {
     })
 }
 
-fn home_display_index(data: &GameData, toy: &ToyState) -> Option<usize> {
+/// Where a toy belongs: the nearest display of its category and theme that
+/// still has a free slot.
+///
+/// Every category owns four displays, so "the first one that matches" is not a
+/// shelf-choosing rule, it is a way to ignore three quarters of the shop. A
+/// closer using it fills 1000 of the 4000 slots, and then every remaining toy
+/// it picks up is carried to a shelf that has been full for hours and dropped
+/// again — 9700 wasted actions in an 8000-action shift, which is what made a
+/// full shop look unfinishable. Room first, then distance, because a player
+/// who walks to a full shelf has to walk somewhere else anyway.
+fn home_display_index(
+    data: &GameData,
+    toy: &ToyState,
+    next_slot: &[usize],
+    from: Vec2,
+) -> Option<usize> {
     data.displays
         .iter()
-        .position(|display| toy_matches_display(toy, display))
+        .enumerate()
+        .filter(|(index, display)| {
+            toy_matches_display(toy, display) && next_slot[*index] < display.capacity
+        })
+        .min_by(|(_, left), (_, right)| {
+            display_centre(left)
+                .distance_squared(from)
+                .total_cmp(&display_centre(right).distance_squared(from))
+        })
+        .map(|(index, _)| index)
+}
+
+fn display_centre(display: &crate::data::DisplayDef) -> Vec2 {
+    vec2(display.x + display.w * 0.5, display.y + display.h * 0.5)
 }
 
 /// Bench a carried repair part, repairing if its other half is already there.
@@ -485,7 +521,9 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         let Some(active) = session.active_toy().cloned() else {
             continue;
         };
-        let Some(display_index) = home_display_index(data, &active) else {
+        let Some(display_index) =
+            home_display_index(data, &active, &next_slot, session.player.position.to_vec2())
+        else {
             session.drop_active(data);
             continue;
         };
@@ -550,6 +588,13 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         grabbed_neighbour: neighbours,
         deferred_parts: deferred.len(),
         displays_complete: session.completed_display_count(),
+        still_loose: session
+            .toys
+            .iter()
+            .filter(|toy| {
+                !toy.is_held && toy.placed_display_id.is_none() && !toy.is_consumed_repair_part()
+            })
+            .count(),
         walked_metres: walked,
         minutes: session.player.elapsed_seconds / 60.0,
     }
@@ -561,19 +606,38 @@ fn a_replay_is_reproducible() {
     assert_eq!(run(&BEGINNER, &data, 300), run(&BEGINNER, &data, 300));
 }
 
+/// A bare-handed closer must be able to empty the floor of whole toys, and to
+/// do it without spinning. Both halves matter: a closer that only ever walks to
+/// the *first* display of each category fills a quarter of the shop and then
+/// carries every remaining toy to a shelf that has been full for hours, and the
+/// only symptom is a run that burns its whole budget with the floor still
+/// covered. Asserting on the budget is what hid that for so long.
 #[test]
-fn the_closer_makes_real_progress_without_misshelving() {
+fn the_closer_clears_the_floor_without_misshelving() {
     let data = GameData::load().unwrap();
-    let report = run(&BEGINNER, &data, 400);
+    let budget = data.config.toy_count * 4;
+    let report = run(&BEGINNER, &data, budget);
 
-    assert_eq!(report.actions, 400);
-    assert!(report.shelved > 0, "nothing reached a shelf");
+    assert!(report.actions < budget, "the closer never ran out of work");
     assert_eq!(
         report.mistakes, 0,
         "the closer only ever targets a toy's own display, so any mistake is \
          a bug in placement or matching"
     );
     assert!(report.walked_metres > 0.0);
+
+    // What is left on the floor should be the repair parts this strategy
+    // deliberately defers, not whole toys it could not find a home for.
+    // Saturating because the deferred set can outnumber what is actually loose:
+    // a toy the crosshair handed over as a neighbour gets shelved even though
+    // its index was written off earlier.
+    let whole_left = report.still_loose.saturating_sub(report.deferred_parts);
+    assert!(
+        whole_left * 20 < data.config.toy_count,
+        "{whole_left} whole toys never reached a shelf out of {}: the closer is \
+         running out of somewhere to put them",
+        data.config.toy_count
+    );
 }
 
 /// Nothing the renderer reads may reach the score. These five values decide
@@ -699,7 +763,40 @@ fn tools_pay_for_themselves_over_the_same_work() {
 fn a_full_shift_completes_the_shop() {
     let data = GameData::load().unwrap();
     for scenario in [BEGINNER, FULLY_EQUIPPED] {
-        let report = run(&scenario, &data, data.config.toy_count * 2);
+        let report = run(&scenario, &data, data.config.toy_count * 4);
         println!("{}", report.line(scenario.name));
+    }
+}
+
+/// What a shift costs at each shop size, for deciding `toy_count`.
+///
+/// Every display holds the same number, so one knob moves the whole shop and
+/// keeps the capacity-equals-`toy_count` invariant intact. Run it with
+/// `cargo test --release shop_scale -- --ignored --nocapture`.
+///
+/// Note that `displays` stays near zero at every size: a display cannot
+/// complete until its broken toys are rejoined, and this closer defers the
+/// repair errand rather than running it. Read the shelved/minutes columns for
+/// length and `the_restoration_errand_is_winnable` for the other half.
+#[test]
+#[ignore = "shop-scaling sweep: for retuning toy_count, not part of the normal suite"]
+fn shop_scale_sets_the_length_of_a_shift() {
+    let base = GameData::load().unwrap();
+
+    for per_display in [8usize, 12, 20, 40, 100, 200] {
+        let mut data = base.clone();
+        for display in &mut data.displays {
+            display.capacity = per_display;
+        }
+        data.config.toy_count = per_display * data.displays.len();
+
+        for scenario in [BEGINNER, FULLY_EQUIPPED] {
+            let report = run(&scenario, &data, data.config.toy_count * 4);
+            println!(
+                "cap {per_display:>3} / {:>4} toys  {}",
+                data.config.toy_count,
+                report.line(scenario.name)
+            );
+        }
     }
 }
