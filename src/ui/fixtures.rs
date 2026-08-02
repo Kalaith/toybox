@@ -1,5 +1,6 @@
 use crate::data::DisplayDef;
 use crate::state::toy_matches_display;
+use crate::ui::scanner::draw_scanner_guidance;
 use crate::ui::signs::draw_stock_sign;
 use crate::ui::wood::{draw_dark_trim, draw_wood_cube};
 use crate::ui::UiContext;
@@ -399,28 +400,7 @@ fn draw_completion_lights(display: &DisplayDef, accent: Color) {
     }
 }
 
-fn draw_scanner_guidance(display: &DisplayDef) {
-    let color = Color::new(0.42, 0.95, 0.96, 0.92);
-    let center = display_center(display, 0.88);
-    draw_cube_wires(
-        center,
-        vec3(display.w + 0.34, 1.36, display.h + 0.34),
-        color,
-    );
-    draw_sphere(center + vec3(0.0, 0.82, 0.0), 0.12, None, color);
-    draw_line_3d(
-        center + vec3(-display.w * 0.44, 1.58, -display.h * 0.44),
-        center + vec3(display.w * 0.44, 1.58, display.h * 0.44),
-        color,
-    );
-    draw_line_3d(
-        center + vec3(-display.w * 0.44, 1.58, display.h * 0.44),
-        center + vec3(display.w * 0.44, 1.58, -display.h * 0.44),
-        color,
-    );
-}
-
-fn display_center(display: &DisplayDef, height: f32) -> Vec3 {
+pub(crate) fn display_center(display: &DisplayDef, height: f32) -> Vec3 {
     vec3(
         display.x + display.w * 0.5,
         height,

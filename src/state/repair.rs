@@ -55,6 +55,15 @@ pub enum BenchStage {
     Ready,
 }
 
+/// Where the other half of a carried repair part currently sits — what the
+/// Toy Scanner reports once it is unlocked.
+#[derive(Debug, Clone, Copy)]
+pub struct CounterpartLocation {
+    pub part: RepairPartKind,
+    pub position: WorldPoint,
+    pub on_bench: bool,
+}
+
 impl RepairPartKind {
     pub fn label(self) -> &'static str {
         match self {
@@ -124,6 +133,23 @@ impl GameSession {
                 .repaired_name()
                 .unwrap_or(&first_part.name)
                 .to_owned()
+        })
+    }
+
+    /// The other half of the part the player is carrying, wherever it ended up.
+    /// `None` when nothing is carried, the carried toy is whole, or the
+    /// counterpart has already been consumed by a repair.
+    pub fn carried_counterpart(&self) -> Option<CounterpartLocation> {
+        let active = self.active_toy()?;
+        let repair_id = active.repair_id()?;
+        let counterpart = self.toys.iter().find(|toy| {
+            toy.id != active.id && toy.is_repair_part() && toy.repair_id() == Some(repair_id)
+        })?;
+
+        Some(CounterpartLocation {
+            part: counterpart.repair_part_kind()?,
+            position: counterpart.position,
+            on_bench: counterpart.bench_slot_index.is_some(),
         })
     }
 

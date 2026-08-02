@@ -14,6 +14,7 @@ mod hud;
 mod hud_chrome;
 mod hud_icons;
 mod minimap;
+mod scanner;
 mod scene3d;
 mod signs;
 mod space;

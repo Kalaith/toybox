@@ -6,7 +6,9 @@ use super::hud_chrome::{
     PromptVisual,
 };
 use super::hud_icons::{draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind};
-use crate::state::{toy_matches_display, GamePhase, InteractionPreview, ToyState};
+use crate::state::{
+    toy_matches_display, CounterpartLocation, GamePhase, InteractionPreview, ToyState,
+};
 use crate::ui::widgets::draw_fitted_text;
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use macroquad::prelude::*;
@@ -115,7 +117,7 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
     if ctx.session.scanner_enabled() {
         if let Some(active_toy) = ctx.session.active_toy() {
             let text = if active_toy.is_repair_part() {
-                "Scanner: Repair Bench".to_owned()
+                counterpart_scanner_text(ctx)
             } else if let Some(display) = ctx
                 .data
                 .displays
@@ -175,6 +177,39 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
             );
         }
     }
+}
+
+/// Scanner readout for a carried repair part: where its other half is, in
+/// zone-and-distance terms. Falls back to the bench hint when the counterpart
+/// has already been consumed by an earlier repair.
+fn counterpart_scanner_text(ctx: &UiContext<'_>) -> String {
+    let Some(counterpart) = ctx.session.carried_counterpart() else {
+        return "Scanner: Repair Bench".to_owned();
+    };
+    describe_counterpart(ctx, counterpart)
+}
+
+fn describe_counterpart(ctx: &UiContext<'_>, counterpart: CounterpartLocation) -> String {
+    let distance = ctx
+        .session
+        .player
+        .position
+        .to_vec2()
+        .distance(counterpart.position.to_vec2());
+    let place = if counterpart.on_bench {
+        "on a bench".to_owned()
+    } else {
+        ctx.data
+            .layout
+            .zone_name_at(counterpart.position.x, counterpart.position.y)
+            .map(str::to_owned)
+            .unwrap_or_else(|| "the shop floor".to_owned())
+    };
+
+    format!(
+        "Scanner: {} {place}, {distance:.0}m",
+        counterpart.part.label()
+    )
 }
 
 fn draw_carried_card(ctx: &UiContext<'_>) {

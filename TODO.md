@@ -2,9 +2,8 @@
 
 ## Repair flow at scale
 
-- Give the Toy Scanner (or a new tool) the ability to locate a carried part's counterpart.
 - Balance pass now that ~12% of 4000 toys spawn broken: mistake penalty, timer, and repair pacing, all tuned through `assets/data/*.json`.
-- Repair parts still render as the generic head/body model for every category.
+- Repair parts render per *category* but not per *identity* — every plush head is the same model, so a broken Bear and a broken Octopus are indistinguishable while split. Decide whether identity-level parts are worth 50×2 renderers or whether identity-derived detail on the existing 10 is enough.
 
 ## Game loop and progression
 

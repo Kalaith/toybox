@@ -202,6 +202,78 @@ fn a_lone_benched_part_names_the_counterpart_still_missing() {
 }
 
 #[test]
+fn the_scanner_locates_the_carried_parts_counterpart() {
+    let data = GameData::load().unwrap();
+    let mut session = GameSession::new(&data);
+
+    // Nothing carried, nothing to locate.
+    assert!(session.carried_counterpart().is_none());
+
+    let (body_index, pair_repair_id) = session
+        .toys
+        .iter()
+        .enumerate()
+        .find_map(|(index, toy)| match &toy.repair_state {
+            RepairState::BrokenPart {
+                repair_id,
+                part: RepairPartKind::Body,
+                ..
+            } => Some((index, repair_id.clone())),
+            _ => None,
+        })
+        .unwrap();
+    let head_index = session
+        .toys
+        .iter()
+        .position(|toy| {
+            matches!(
+                &toy.repair_state,
+                RepairState::BrokenPart {
+                    repair_id,
+                    part: RepairPartKind::Head,
+                    ..
+                } if *repair_id == pair_repair_id
+            )
+        })
+        .unwrap();
+    let head_position = session.toys[head_index].position;
+
+    session.pick_up_toy(body_index);
+    let located = session.carried_counterpart().unwrap();
+
+    assert_eq!(located.part, RepairPartKind::Head);
+    assert!(!located.on_bench);
+    assert_eq!(located.position.x, head_position.x);
+    assert_eq!(located.position.y, head_position.y);
+
+    // A whole toy has no counterpart to point at.
+    session.drop_active(&data);
+    let whole_index = session
+        .toys
+        .iter()
+        .position(|toy| !toy.is_repair_part() && !toy.is_consumed_repair_part())
+        .unwrap();
+    session.pick_up_toy(whole_index);
+    assert!(session.carried_counterpart().is_none());
+
+    // Once the counterpart is benched the scanner says so, so the player knows
+    // to head for the bench rather than hunt the floor.
+    session.drop_active(&data);
+    let bench = data.primary_bench();
+    session.player.position = WorldPoint {
+        x: bench.x,
+        y: bench.y,
+    };
+    session.pick_up_toy(head_index);
+    session.interact(&data);
+    session.pick_up_toy(body_index);
+
+    let located = session.carried_counterpart().unwrap();
+    assert_eq!(located.part, RepairPartKind::Head);
+    assert!(located.on_bench);
+}
+
+#[test]
 fn bench_status_reports_every_stage_for_the_beacon() {
     let data = GameData::load().unwrap();
     let mut session = GameSession::new(&data);
