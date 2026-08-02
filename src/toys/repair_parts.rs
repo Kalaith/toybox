@@ -6,6 +6,11 @@
 //! broken Bear from a broken Octopus is the `PartAccent` each one is handed.
 //! See `part_accents.rs` for why that is a table of numbers rather than a
 //! hundred more models.
+//!
+//! Heads wear the crest; bodies scale their own limbs by the same
+//! `accent_scale`. Bodies drew the crest too at first, which put rabbit ears on
+//! a headless torso and cost the halves the one distinction that matters while
+//! a toy is split.
 
 use super::library::ToyIdentity;
 use super::part_accents::{accent_for, draw_crest, PartAccent};
@@ -85,21 +90,22 @@ fn plush_body(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         None,
         color,
     );
+    // Limbs carry the identity on a body, the way the crest does on a head.
+    let limb = accent.accent_scale;
     for side in [-1.0_f32, 1.0] {
         draw_toy_sphere(
             center + vec3(side * 0.20, 0.18, 0.0) * scale,
-            0.08 * scale,
+            0.08 * limb * scale,
             None,
             darken(color, 0.06),
         );
         draw_toy_sphere(
             center + vec3(side * 0.10, 0.0, -0.04) * scale,
-            0.09 * scale,
+            0.09 * limb * scale,
             None,
             darken(color, 0.06),
         );
     }
-    draw_crest(accent, center, 0.34, 0.21, darken(color, 0.10), scale);
     break_ring(center, 0.36, 0.28, scale);
 }
 
@@ -123,10 +129,11 @@ fn dragon_body(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         None,
         color,
     );
+    let limb = accent.accent_scale;
     for side in [-1.0_f32, 1.0] {
         draw_cube(
             center + vec3(side * 0.21, 0.20, 0.06) * scale,
-            vec3(0.05, 0.14, 0.18) * scale,
+            vec3(0.05, 0.14 * limb, 0.18 * limb) * scale,
             None,
             darken(color, 0.10),
         );
@@ -137,7 +144,6 @@ fn dragon_body(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         None,
         brighten(color, 0.08),
     );
-    draw_crest(accent, center, 0.30, 0.19, darken(color, 0.08), scale);
     break_ring(center, 0.32, 0.24, scale);
 }
 
@@ -163,15 +169,15 @@ fn robot_body(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         None,
         color,
     );
+    let limb = accent.accent_scale;
     for side in [-1.0_f32, 1.0] {
         draw_cube(
             center + vec3(side * 0.32, 0.12, 0.0) * scale,
-            vec3(0.12, 0.28, 0.12) * scale,
+            vec3(0.12 * limb, 0.28 * limb, 0.12 * limb) * scale,
             None,
             darken(color, 0.12),
         );
     }
-    draw_crest(accent, center, 0.30, 0.21, darken(color, 0.12), scale);
     break_ring(center, 0.34, 0.30, scale);
 }
 
@@ -197,21 +203,21 @@ fn game_base(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         vec3(0.42, 0.05, 0.40) * scale,
         darken(color, 0.06),
     );
+    let wall = accent.accent_scale;
     for side in [-1.0_f32, 1.0] {
         draw_cube(
             center + vec3(side * 0.19, 0.13, 0.0) * scale,
-            vec3(0.04, 0.14, 0.40) * scale,
+            vec3(0.04, 0.14 * wall, 0.40) * scale,
             None,
             color,
         );
         draw_cube(
             center + vec3(0.0, 0.13, side * 0.18) * scale,
-            vec3(0.34, 0.14, 0.04) * scale,
+            vec3(0.34, 0.14 * wall, 0.04) * scale,
             None,
             color,
         );
     }
-    draw_crest(accent, center, 0.20, 0.21, brighten(color, 0.08), scale);
     break_ring(center, 0.22, 0.40, scale);
 }
 
@@ -231,11 +237,11 @@ fn block_base(accent: PartAccent, center: Vec3, color: Color, scale: f32) {
         vec3(0.38, 0.18, 0.34) * scale,
         color,
     );
+    let stack = accent.accent_scale;
     draw_studded_block(
         center + vec3(0.10, 0.26, -0.04) * scale,
-        vec3(0.18, 0.12, 0.18) * scale,
+        vec3(0.18 * stack, 0.12 * stack, 0.18 * stack) * scale,
         brighten(color, 0.08),
     );
-    draw_crest(accent, center, 0.32, 0.19, brighten(color, 0.16), scale);
     break_ring(center, 0.36, 0.24, scale);
 }

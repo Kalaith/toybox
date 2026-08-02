@@ -147,8 +147,17 @@ pub fn carrying_a_half_scanned(data: &GameData) -> GameSession {
 ///
 /// `TOYBOX_CAPTURE_PART_CATEGORY` picks which category's ten identities to line
 /// up (`plushies` by default), since a plush head and a block top share no
-/// features to compare.
+/// features to compare. `TOYBOX_CAPTURE_PART_KIND=body` shows the other half:
+/// bodies carry a crest too, and they are half the models the accents touch.
 pub fn broken_lineup(data: &GameData) -> GameSession {
+    let part = match std::env::var("TOYBOX_CAPTURE_PART_KIND")
+        .unwrap_or_default()
+        .to_lowercase()
+        .as_str()
+    {
+        "body" => RepairPartKind::Body,
+        _ => RepairPartKind::Head,
+    };
     let wanted = std::env::var("TOYBOX_CAPTURE_PART_CATEGORY")
         .unwrap_or_else(|_| "plushies".to_owned())
         .to_lowercase();
@@ -184,7 +193,7 @@ pub fn broken_lineup(data: &GameData) -> GameSession {
         };
         toy.repair_state = RepairState::BrokenPart {
             repair_id: format!("lineup_{slot_number:02}"),
-            part: RepairPartKind::Head,
+            part,
             repaired_name: toy.name.clone(),
         };
         // Spacing and standoff chosen together: at 1.7m the outer two heads of

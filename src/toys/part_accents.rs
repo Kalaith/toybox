@@ -40,8 +40,9 @@ pub(super) enum Crest {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct PartAccent {
     pub crest: Crest,
-    /// Multiplier on the crest's default size.
-    pub crest_scale: f32,
+    /// Multiplier on the identity's accent geometry: crest size on a head,
+    /// limb size on a body.
+    pub accent_scale: f32,
     /// How far the face juts forward. 0.0 is flat, 1.0 a long snout or beak.
     pub muzzle: f32,
     /// Multiplier on the default eye separation.
@@ -49,10 +50,10 @@ pub(super) struct PartAccent {
 }
 
 impl PartAccent {
-    const fn new(crest: Crest, crest_scale: f32, muzzle: f32, eye_spread: f32) -> Self {
+    const fn new(crest: Crest, accent_scale: f32, muzzle: f32, eye_spread: f32) -> Self {
         Self {
             crest,
-            crest_scale,
+            accent_scale,
             muzzle,
             eye_spread,
         }
@@ -134,9 +135,15 @@ pub(super) fn accent_for(identity: ToyIdentity) -> PartAccent {
 
 /// Draw the crest sitting on a part of half-width `extent`, topped at `top`.
 ///
-/// One helper for all ten renderers: a Rabbit's ears and a Rocket Bot's aerial
-/// are the same two calls with different numbers, and keeping them here is what
-/// makes the accent table cheap enough to be worth having.
+/// **Heads only.** Ears, horns, antennae and spikes are things a head has; a
+/// body wearing them is a headless torso with rabbit ears growing out of the
+/// neck stump, which is both nonsense and ruins the one read that matters while
+/// a toy is split — which half am I holding. Bodies vary their own limbs by
+/// `accent_scale` instead.
+///
+/// One helper for all five head renderers: a Rabbit's ears and a Rocket Bot's
+/// aerial are the same two calls with different numbers, and keeping them here
+/// is what makes the accent table cheap enough to be worth having.
 pub(super) fn draw_crest(
     accent: PartAccent,
     center: Vec3,
@@ -145,7 +152,7 @@ pub(super) fn draw_crest(
     color: Color,
     scale: f32,
 ) {
-    let size = accent.crest_scale;
+    let size = accent.accent_scale;
     match accent.crest {
         Crest::Bare => {}
         Crest::RoundEars => {
@@ -241,7 +248,7 @@ mod tests {
         } else {
             (0, 0)
         };
-        (crest, accent.crest_scale.to_bits(), muzzle, eyes)
+        (crest, accent.accent_scale.to_bits(), muzzle, eyes)
     }
 
     /// The ten identities of a category all share one pair of renderers, so if
@@ -267,7 +274,7 @@ mod tests {
                      identity's: crest {:?}, scale {}",
                     profile.identity,
                     accent_for(profile.identity).crest,
-                    accent_for(profile.identity).crest_scale
+                    accent_for(profile.identity).accent_scale
                 );
             }
             assert_eq!(seen.len(), 10);
@@ -278,7 +285,7 @@ mod tests {
     /// 4.0 would not error anywhere — it would quietly put a Rabbit's ears
     /// through the ceiling.
     #[test]
-    fn crest_scales_stay_within_the_drawn_range() {
+    fn accent_scales_stay_within_the_drawn_range() {
         for slot_number in 1..=10 {
             for category in [
                 ToyCategory::Plushies,
@@ -290,10 +297,10 @@ mod tests {
                 let identity = toy_profile(category, slot_number).identity;
                 let accent = accent_for(identity);
                 assert!(
-                    (0.5..=2.0).contains(&accent.crest_scale),
+                    (0.5..=2.0).contains(&accent.accent_scale),
                     "{identity:?} crest scale {} is outside the range the crest \
                      shapes were sized for",
-                    accent.crest_scale
+                    accent.accent_scale
                 );
                 assert!((0.0..=1.0).contains(&accent.muzzle));
                 assert!((0.5..=2.0).contains(&accent.eye_spread));
