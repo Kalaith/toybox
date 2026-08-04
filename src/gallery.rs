@@ -1,5 +1,6 @@
-//! Capture-only toy gallery: renders a single toy identity from four
-//! compass directions in a 2x2 grid. Driven by the screenshot harness
+//! Capture-only toy gallery: renders a single toy identity from three
+//! compass directions and overhead in a 2x2 grid. Driven by the screenshot
+//! harness
 //! (`TOYBOX_CAPTURE_SCENE=toy_gallery` + `TOYBOX_CAPTURE_TOY=<slug>`);
 //! never reachable from normal play.
 
@@ -61,18 +62,27 @@ impl GalleryScene {
         let half_h = (screen_height() * 0.5) as i32;
 
         // Viewport origin is bottom-left (GL convention), so the top row
-        // uses y = half_h. Reading order on screen: Front, Right / Back, Left.
+        // uses y = half_h. Reading order on screen: Front, Right / Back, Top.
+        //
+        // The fourth quadrant used to be Left, which for a roughly symmetric
+        // toy is Right mirrored — while all four sat at eye height 0.62 looking
+        // at 0.33, an ~8° downward angle that shows any lid detail edge-on. So
+        // the entire *top* surface of all fifty toys was uninspectable, which
+        // matters most for the board games, where the top face is the whole
+        // identity: a maze tray, a chess board, a spread of cards.
         let views = [
-            (vec3(0.0, 0.62, -2.15), (0, half_h)),
-            (vec3(2.15, 0.62, 0.0), (half_w, half_h)),
-            (vec3(0.0, 0.62, 2.15), (0, 0)),
-            (vec3(-2.15, 0.62, 0.0), (half_w, 0)),
+            (vec3(0.0, 0.62, -2.15), vec3(0.0, 1.0, 0.0), (0, half_h)),
+            (vec3(2.15, 0.62, 0.0), vec3(0.0, 1.0, 0.0), (half_w, half_h)),
+            (vec3(0.0, 0.62, 2.15), vec3(0.0, 1.0, 0.0), (0, 0)),
+            // Straight down. `up` cannot be +Y here or it is parallel to the
+            // view direction and the basis collapses; -Z puts north up-screen.
+            (vec3(0.0, 2.50, 0.0), vec3(0.0, 0.0, -1.0), (half_w, 0)),
         ];
-        for (eye, (view_x, view_y)) in views {
+        for (eye, up, (view_x, view_y)) in views {
             set_camera(&Camera3D {
                 position: eye,
                 target: vec3(0.0, 0.33, 0.0),
-                up: vec3(0.0, 1.0, 0.0),
+                up,
                 fovy: 45.0_f32.to_radians(),
                 projection: Projection::Perspective,
                 aspect: Some(half_w as f32 / half_h.max(1) as f32),
@@ -107,7 +117,7 @@ impl GalleryScene {
             ("Front", 14.0, 30.0),
             ("Right", width * 0.5 + 14.0, 30.0),
             ("Back", 14.0, height * 0.5 + 30.0),
-            ("Left", width * 0.5 + 14.0, height * 0.5 + 30.0),
+            ("Top", width * 0.5 + 14.0, height * 0.5 + 30.0),
         ];
         for (label, x, y) in labels {
             draw_text(label, x, y, 26.0, text);

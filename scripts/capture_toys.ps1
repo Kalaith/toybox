@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Captures a 4-view gallery screenshot (front/right/back/left) of every
+    Captures a 4-view gallery screenshot (front/right/back/top) of every
     procedural toy model.
 
 .DESCRIPTION
     Drives the TOYBOX_CAPTURE_* screenshot harness once per toy identity.
-    The toy list is derived from src\toys\*.rs (module names double as toy
-    slugs), so new toys are picked up automatically. PNGs land in
+    The toy list is derived from the draw dispatch in src\toys.rs, so new toys
+    are picked up automatically once they can be drawn. PNGs land in
     docs\verification\toys\<toy>.png.
 
 .EXAMPLE
