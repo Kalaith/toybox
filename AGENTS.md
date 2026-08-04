@@ -35,6 +35,8 @@ These instructions apply to all Rust game projects in this workspace.
 
 ## Commit Messages
 
+- Always commit completed changes at the end of each change task, following
+  this commit style.
 - Follow the catalog's commit convention, documented in `rust_management/docs/COMMIT_STYLE.md` (relative to the workspace root). It is not copied into game projects — read it there.
 - The shape: the subject narrates the change in the game's own voice and ends with a plain-terms parenthetical tag (subsystem, GDD section, and/or milestone); the body is honest prose covering problem, change, and reasoning.
 - Copy the shape, not another game's metaphors. Each game speaks in its own fiction, and the same technical concept should map to the same fictional term in every commit for that game.

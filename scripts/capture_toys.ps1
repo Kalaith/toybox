@@ -9,20 +9,32 @@
     are picked up automatically once they can be drawn. PNGs land in
     docs\verification\toys\<toy>.png.
 
+    The game window stays hidden by default. Pass -Visible to watch the gallery
+    render while diagnosing a capture.
+
 .EXAMPLE
     ./scripts/capture_toys.ps1                      # all toys
     ./scripts/capture_toys.ps1 -Toys bear,duck      # just these two
     ./scripts/capture_toys.ps1 -SkipBuild           # reuse the last build
+    ./scripts/capture_toys.ps1 -Toys bear -Visible  # watch one capture
 #>
 param(
     [string[]]$Toys = @(),
     [int]$Frames = 5,
     [string]$OutputDir = "docs\verification\toys",
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$Visible
 )
 
 $ErrorActionPreference = "Stop"
 $gameDir = Split-Path -Parent $PSScriptRoot
+$captureEnvNames = @(
+    "TOYBOX_CAPTURE_PATH",
+    "TOYBOX_CAPTURE_SCENE",
+    "TOYBOX_CAPTURE_TOY",
+    "TOYBOX_CAPTURE_FRAMES",
+    "TOYBOX_HEADLESS"
+)
 Push-Location $gameDir
 try {
     if (-not $SkipBuild) {
@@ -62,6 +74,7 @@ try {
         $env:TOYBOX_CAPTURE_SCENE = "toy_gallery"
         $env:TOYBOX_CAPTURE_TOY = $toy
         $env:TOYBOX_CAPTURE_FRAMES = "$Frames"
+        $env:TOYBOX_HEADLESS = $(if ($Visible) { "0" } else { "1" })
         & $exe | Out-Null
 
         # A solid-black 1280x720 PNG is ~19 KB; a real 4-view render is far
@@ -74,10 +87,6 @@ try {
         }
     }
 
-    foreach ($name in "TOYBOX_CAPTURE_PATH", "TOYBOX_CAPTURE_SCENE", "TOYBOX_CAPTURE_TOY", "TOYBOX_CAPTURE_FRAMES") {
-        Remove-Item "env:$name" -ErrorAction SilentlyContinue
-    }
-
     Write-Host ""
     Write-Host ("Captured {0}/{1} toys -> {2}" -f ($Toys.Count - $failed.Count), $Toys.Count, $OutputDir)
     if ($failed.Count -gt 0) {
@@ -86,5 +95,8 @@ try {
     }
 }
 finally {
+    foreach ($name in $captureEnvNames) {
+        Remove-Item "env:$name" -ErrorAction SilentlyContinue
+    }
     Pop-Location
 }
