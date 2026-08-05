@@ -208,3 +208,129 @@ fn every_toy_render_band_is_reachable() {
     // where they stop being drawn at all.
     assert!(config.toy_always_draw_radius <= config.toy_render_distance);
 }
+
+#[test]
+fn closing_shift_keeps_the_original_fixed_layout() {
+    let data = GameData::load().unwrap();
+    let implicit = GameSession::new(&data);
+    let explicit = GameSession::new_with_seed(&data, CLOSING_SHIFT_SEED);
+
+    assert_eq!(implicit.shift_seed, CLOSING_SHIFT_SEED);
+    assert_eq!(
+        serde_json::to_vec(&implicit.to_save(&data.config.version)).unwrap(),
+        serde_json::to_vec(&explicit.to_save(&data.config.version)).unwrap()
+    );
+}
+
+#[test]
+fn equal_seeds_repeat_and_distinct_seeds_reshape_the_floor() {
+    let data = GameData::load().unwrap();
+    let seed = 0x2E1A_8ED5_CAFE_0240;
+    let first = GameSession::new_with_seed(&data, seed);
+    let repeated = GameSession::new_with_seed(&data, seed);
+    let different = GameSession::new_with_seed(&data, seed ^ 0x55AA_F00D_1234_5678);
+
+    assert_eq!(
+        serde_json::to_vec(&first.to_save(&data.config.version)).unwrap(),
+        serde_json::to_vec(&repeated.to_save(&data.config.version)).unwrap(),
+        "an equal seed must reproduce the whole serialized session"
+    );
+
+    let moved_bodies = first
+        .toys
+        .iter()
+        .filter(|toy| !toy.id.ends_with("_head"))
+        .filter(|toy| {
+            let other = different
+                .toys
+                .iter()
+                .find(|candidate| candidate.id == toy.id)
+                .expect("every seed keeps the same 240 body identities");
+            toy.position.to_vec2().distance(other.position.to_vec2()) > 0.1
+        })
+        .count();
+    assert!(
+        moved_bodies >= data.config.toy_count * 9 / 10,
+        "only {moved_bodies} body toys materially moved"
+    );
+}
+
+#[test]
+fn varied_seeds_preserve_safe_cross_zone_repair_layouts() {
+    let data = GameData::load().unwrap();
+    for seed in [
+        0x0000_0000_0000_0001,
+        0x2E1A_8ED5_CAFE_0240,
+        0xFFFF_0000_A5A5_5A5A,
+    ] {
+        let session = GameSession::new_with_seed(&data, seed);
+        let bodies: Vec<&ToyState> = session
+            .toys
+            .iter()
+            .filter(|toy| !toy.id.ends_with("_head"))
+            .collect();
+        assert_eq!(bodies.len(), data.config.toy_count);
+
+        for toy in &session.toys {
+            assert!(toy.position.x >= 0.8 && toy.position.x <= data.config.room_width - 0.8);
+            assert!(toy.position.y >= 0.8 && toy.position.y <= data.config.room_height - 0.8);
+            let point = toy.position.to_vec2();
+            let inside_display = data.displays.iter().any(|fixture| {
+                Rect::new(fixture.x, fixture.y, fixture.w, fixture.h).contains(point)
+            });
+            let inside_shelf_or_counter = data
+                .layout
+                .shelving
+                .iter()
+                .chain(data.layout.counters.iter())
+                .any(|fixture| {
+                    Rect::new(fixture.x, fixture.y, fixture.w, fixture.h).contains(point)
+                });
+            let inside_bench = data.layout.benches.iter().any(|bench| {
+                Rect::new(
+                    bench.x - bench.w * 0.5,
+                    bench.y - bench.h * 0.5,
+                    bench.w,
+                    bench.h,
+                )
+                .contains(point)
+            });
+            assert!(
+                !inside_display && !inside_shelf_or_counter && !inside_bench,
+                "seed {seed:016X} put {} inside a fixture",
+                toy.id
+            );
+        }
+
+        let broken_bodies: Vec<&ToyState> = session
+            .toys
+            .iter()
+            .filter(|toy| toy.repair_part_kind() == Some(RepairPartKind::Body))
+            .collect();
+        let heads: Vec<&ToyState> = session
+            .toys
+            .iter()
+            .filter(|toy| toy.repair_part_kind() == Some(RepairPartKind::Head))
+            .collect();
+        assert_eq!(broken_bodies.len(), heads.len());
+        for body in broken_bodies {
+            let RepairState::BrokenPart { repair_id, .. } = &body.repair_state else {
+                unreachable!();
+            };
+            let head = heads
+                .iter()
+                .find(|head| {
+                    matches!(
+                        &head.repair_state,
+                        RepairState::BrokenPart { repair_id: candidate, .. } if candidate == repair_id
+                    )
+                })
+                .expect("every broken body keeps one head");
+            assert_ne!(
+                data.layout.zone_name_at(body.position.x, body.position.y),
+                data.layout.zone_name_at(head.position.x, head.position.y),
+                "seed {seed:016X} left {repair_id} in one zone"
+            );
+        }
+    }
+}

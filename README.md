@@ -12,9 +12,11 @@ Two ways to start, chosen on the title screen:
 
 - **Closing Shift** — 30 minutes until the doors open. The HUD clock counts
   down, ambering under five minutes and reddening under one. When it runs out
-  the shift ends where it stands and the score screen reports the damage.
-- **Relaxed Run** — the same store with no deadline. The clock still counts so
-  a run can be compared against a timed one, but it never ends the shift.
+  the shift ends where it stands and the score screen reports the damage. Its
+  fixed layout keeps record attempts directly comparable.
+- **Relaxed Run** — the same store rules with no deadline and a fresh seeded
+  scatter on every new start. The clock still counts, but never ends the shift.
+  Pause or finish to see the exact layout code; `F5` replays it.
 
 The deterministic closer completes the whole job in about 21.4 minutes: it
 starts empty-handed, earns all five tools, repairs all 28 broken toys, and
@@ -25,8 +27,9 @@ the run early with a "Store Restored" score screen.
 
 Each mode keeps its own best run — most toys shelved, then fewest wrong
 shelves, then fastest — and the score screen shows it so there is something to
-beat. Tools do not carry between shifts; the record is the only thread from one
-run to the next.
+beat. Closing records share one competitive layout; Relaxed records are a
+personal history across varied layouts. Tools do not carry between shifts; the
+record is the only thread from one run to the next.
 
 A first-shift guide teaches movement, pickup, category shelving, repairs,
 display credits, and trolley cycling as each becomes relevant. Press `H` to
@@ -37,8 +40,8 @@ hide it; **Controls & How to Play** in Settings can replay it later.
 - A multi-zone toy store (34×22 m): Plush Corner, Checkout, Dragon Alcove,
   Block Pit, Robot Lab, Backroom, and the Board Game Wall, connected by
   shelving-lined aisles with real player collision
-- **240 deterministic toys** scattered across the zones in messy piles —
-  identical store every fresh run
+- **240 toys** scattered deterministically from the shift seed — fixed for
+  Closing Shift and reshuffled for each new Relaxed Run
 - 50 distinct procedural toy designs (10 per category) built entirely from
   primitives: no image assets, everything drawn in code
 - 20 themed displays (walls, pegboards, bins, shelves, tables) to shelve toys
@@ -55,7 +58,7 @@ hide it; **Controls & How to Play** in Settings can replay it later.
   late-shift search service
 - Procedurally generated footsteps, action cues, closing warnings, and a quiet
   eight-second shop ambience loop; no sampled audio assets are required
-- Toolkit save/load slot support
+- Toolkit save/load slot support, including the exact layout seed
 - 60+ FPS native via spatial-grid culling and distance LOD (F3 shows the debug
   overlay when enabled)
 
@@ -94,7 +97,8 @@ store.
 - `H`: hide the first-shift guide (replay it from Settings)
 - `Esc`: pause and open Settings
 - `Ctrl+S` / `Ctrl+L`: save / load
-- `R`: restart, in whichever mode is already running
+- `R`: start a fresh shift in the current mode (a fresh Relaxed scatter)
+- `F5`: replay the current layout seed exactly
 
 Settings persist fullscreen, field of view, look sensitivity, UI text size,
 high-contrast mode, and separate master/effects/ambience levels separately from

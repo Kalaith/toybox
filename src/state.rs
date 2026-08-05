@@ -3,6 +3,7 @@
 use crate::data::{DisplayDef, GameData, ToyCategory};
 use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
+use macroquad_toolkit::rng::SeededRng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -27,6 +28,25 @@ pub use spatial::ToySpatialGrid;
 pub use tools::{
     STOCKROOM_SPOTLIGHT_COST, STOCKROOM_SPOTLIGHT_MAX_SECONDS, STOCKROOM_SPOTLIGHT_NAME,
 };
+
+/// The catalog-comparable Closing Shift layout. Its derived variation is zero,
+/// preserving the scatter used by every balance replay before seeds existed.
+pub const CLOSING_SHIFT_SEED: u64 = 0xC105_1A6F_7EED_0001;
+
+pub(super) const fn default_shift_seed() -> u64 {
+    CLOSING_SHIFT_SEED
+}
+
+/// A deterministic offset for one part of seeded generation. The competitive
+/// seed intentionally returns zero so adding seeds cannot move its old layout.
+pub(super) fn seeded_offset(shift_seed: u64, salt: u64, upper: usize) -> usize {
+    let variation = shift_seed ^ CLOSING_SHIFT_SEED;
+    if variation == 0 || upper == 0 {
+        0
+    } else {
+        SeededRng::new(variation ^ salt).below(upper)
+    }
+}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -217,6 +237,9 @@ pub struct GameSession {
     pub unlocked_upgrade_ids: Vec<String>,
     pub phase: GamePhase,
     pub shift_mode: ShiftMode,
+    /// Reproduces the initial scatter, tumble poses, and broken-pair layout.
+    /// The live toy state is still saved in full so continuing never rerolls.
+    pub shift_seed: u64,
     spatial: ToySpatialGrid,
 }
 
@@ -337,8 +360,12 @@ impl GameSession {
     pub const WRONG_MARKER_SECONDS: f32 = 2.5;
 
     pub fn new(data: &GameData) -> Self {
+        Self::new_with_seed(data, CLOSING_SHIFT_SEED)
+    }
+
+    pub fn new_with_seed(data: &GameData, shift_seed: u64) -> Self {
         let config = &data.config;
-        let toys = build_toys(data);
+        let toys = build_toys(data, shift_seed);
         let mut spatial = ToySpatialGrid::new(
             config.room_width,
             config.room_height,
@@ -378,6 +405,7 @@ impl GameSession {
             unlocked_upgrade_ids: Vec::new(),
             phase: GamePhase::Playing,
             shift_mode: ShiftMode::default(),
+            shift_seed,
             spatial,
         }
     }

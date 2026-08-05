@@ -1,5 +1,8 @@
 use super::collision::keep_off_fixtures;
-use super::{GameSession, InteractionResult, RepairPartKind, RepairState, ToyState, WorldPoint};
+use super::{
+    seeded_offset, GameSession, InteractionResult, RepairPartKind, RepairState, ToyState,
+    WorldPoint,
+};
 use crate::data::{BenchDef, GameData};
 use macroquad::prelude::*;
 
@@ -418,7 +421,11 @@ fn repair_bench_slot_position(bench: &BenchDef, slot_index: usize) -> WorldPoint
 
 /// Deterministically break a `broken_fraction` share of freshly spawned toys
 /// into a body (kept in place) and a head scattered into a different zone.
-pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameData) {
+pub(super) fn split_initial_broken_toys(
+    toys: &mut Vec<ToyState>,
+    shift_seed: u64,
+    data: &GameData,
+) {
     let broken_per_mille = (data.config.broken_fraction.clamp(0.0, 0.5) * 1000.0) as usize;
     if broken_per_mille == 0 {
         return;
@@ -426,8 +433,9 @@ pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameDat
 
     let original_count = toys.len();
     let mut heads = Vec::with_capacity(original_count / 6);
+    let selector_offset = seeded_offset(shift_seed, 0xB20C_EA75, 1000);
     for (index, toy) in toys.iter_mut().enumerate() {
-        if (index * 379 + 97) % 1000 >= broken_per_mille {
+        if (index * 379 + 97 + selector_offset) % 1000 >= broken_per_mille {
             continue;
         }
         if toy.is_repair_part() {
@@ -439,7 +447,7 @@ pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameDat
         let mut head = toy.clone();
         head.id = format!("{}_head", toy.id);
         head.name = format!("{repaired_name} Head");
-        head.position = head_scatter_position(index, toy.position, data);
+        head.position = head_scatter_position(index, toy.position, shift_seed, data);
         head.repair_state = RepairState::BrokenPart {
             repair_id: repair_id.clone(),
             part: RepairPartKind::Head,
@@ -461,13 +469,34 @@ pub(super) fn split_initial_broken_toys(toys: &mut Vec<ToyState>, data: &GameDat
 
 /// Deterministic head placement spread uniformly inside a zone that differs
 /// from the body's zone, so finding the counterpart is a real errand.
-fn head_scatter_position(toy_index: usize, body: WorldPoint, data: &GameData) -> WorldPoint {
+fn head_scatter_position(
+    toy_index: usize,
+    body: WorldPoint,
+    shift_seed: u64,
+    data: &GameData,
+) -> WorldPoint {
     let config = &data.config;
     let body_zone = data.layout.zone_name_at(body.x, body.y);
 
     let place_in_rect = |x: f32, y: f32, w: f32, h: f32| {
-        let hash_x = (toy_index.wrapping_mul(48_271).wrapping_add(11)) % 9_973;
-        let hash_y = (toy_index.wrapping_mul(69_621).wrapping_add(37)) % 9_973;
+        let hash_x = (toy_index
+            .wrapping_mul(48_271)
+            .wrapping_add(11)
+            .wrapping_add(seeded_offset(
+                shift_seed,
+                toy_index as u64 ^ 0xAEAD_0001,
+                9_973,
+            )))
+            % 9_973;
+        let hash_y = (toy_index
+            .wrapping_mul(69_621)
+            .wrapping_add(37)
+            .wrapping_add(seeded_offset(
+                shift_seed,
+                toy_index as u64 ^ 0xAEAD_0002,
+                9_973,
+            )))
+            % 9_973;
         let inset = 0.5_f32;
         let px = x + inset + (hash_x as f32 / 9_973.0) * (w - inset * 2.0).max(0.1);
         let py = y + inset + (hash_y as f32 / 9_973.0) * (h - inset * 2.0).max(0.1);
@@ -492,7 +521,9 @@ fn head_scatter_position(toy_index: usize, body: WorldPoint, data: &GameData) ->
     // position and walk to the next candidate zone if it slid back home.
     let mut fallback = None;
     for attempt in 0..candidates.len() {
-        let zone = candidates[(toy_index * 13 + attempt) % candidates.len()];
+        let zone_offset =
+            seeded_offset(shift_seed, toy_index as u64 ^ 0x20AE_0003, candidates.len());
+        let zone = candidates[(toy_index * 13 + zone_offset + attempt) % candidates.len()];
         let position = place_in_rect(zone.x, zone.y, zone.w, zone.h);
         if data.layout.zone_name_at(position.x, position.y) != body_zone {
             return position;

@@ -1,4 +1,4 @@
-use super::{logical_mouse_position, UiAction, LOGICAL_HEIGHT, LOGICAL_WIDTH};
+use super::{logical_mouse_position, shift_seed_code, UiAction, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use crate::state::{BestRuns, ShiftMode};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -59,7 +59,7 @@ pub(crate) fn draw_title_screen(
     // The two ways to start differ only in whether the clock can end the run,
     // which no button label can carry on its own.
     draw_title_caption(
-        "Closing Shift runs against opening time. Relaxed Run never ends the shift.",
+        "Closing Shift keeps the fixed record layout. Relaxed Run has no deadline and a fresh scatter.",
         y + button_h + 22.0,
     );
     draw_best_runs(best_runs, y - 18.0);
@@ -157,10 +157,30 @@ pub(crate) fn draw_settings_screen(
         25.0,
         title_parchment(),
     );
+    if view.from_game {
+        let layout = match view.shift_mode {
+            ShiftMode::Timed => format!(
+                "Closing Shift - fixed layout {}",
+                shift_seed_code(view.shift_seed)
+            ),
+            ShiftMode::Relaxed => {
+                format!("Relaxed Run - layout {}", shift_seed_code(view.shift_seed))
+            }
+        };
+        draw_text_centered_in_box(
+            &layout,
+            settings_panel.x,
+            settings_panel.y + 60.0,
+            settings_panel.w,
+            18.0,
+            12.0,
+            Color::new(0.92, 0.72, 0.40, 0.78),
+        );
+    }
 
     let left = settings_panel.x + 52.0;
     let right = settings_panel.x + 360.0;
-    let row1_y = settings_panel.y + 82.0;
+    let row1_y = settings_panel.y + 96.0;
     let fullscreen_label = if view.fullscreen_enabled {
         "Fullscreen: On"
     } else {
@@ -186,7 +206,7 @@ pub(crate) fn draw_settings_screen(
         &mut actions,
     );
 
-    let row2_y = settings_panel.y + 148.0;
+    let row2_y = settings_panel.y + 162.0;
     draw_settings_stepper(
         "LOOK SENSITIVITY",
         &format!("{:.1}×", view.mouse_sensitivity),
@@ -206,7 +226,7 @@ pub(crate) fn draw_settings_screen(
         &mut actions,
     );
 
-    let row3_y = settings_panel.y + 222.0;
+    let row3_y = settings_panel.y + 236.0;
     draw_settings_stepper(
         "MASTER VOLUME",
         &format!("{:.0}%", view.master_volume * 100.0),
@@ -226,7 +246,7 @@ pub(crate) fn draw_settings_screen(
         &mut actions,
     );
 
-    let row4_y = settings_panel.y + 296.0;
+    let row4_y = settings_panel.y + 310.0;
     draw_settings_stepper(
         "AMBIENCE VOLUME",
         &format!("{:.0}%", view.ambience_volume * 100.0),
@@ -254,7 +274,7 @@ pub(crate) fn draw_settings_screen(
         actions.push(UiAction::ToggleHighContrast);
     }
 
-    let row5_y = settings_panel.y + 366.0;
+    let row5_y = settings_panel.y + 380.0;
     if title_button(
         Rect::new((LOGICAL_WIDTH - button_w) * 0.5, row5_y, button_w, button_h),
         "Controls & How to Play",
@@ -317,6 +337,8 @@ pub(crate) struct SettingsView {
     pub effects_volume: f32,
     pub ambience_volume: f32,
     pub from_game: bool,
+    pub shift_mode: ShiftMode,
+    pub shift_seed: u64,
 }
 
 fn draw_settings_stepper(
@@ -417,6 +439,7 @@ pub(crate) fn draw_help_screen(title_texture: Option<&Texture2D>) -> Vec<UiActio
             ("T", "Open the tool rack"),
             ("Tab", "Release or lock mouse look"),
             ("Esc", "Pause and settings"),
+            ("F5", "Replay this exact layout"),
         ],
     );
     draw_help_column(

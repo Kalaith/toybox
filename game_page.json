@@ -50,6 +50,10 @@
     {
       "key": "Ctrl+S / Ctrl+L",
       "desc": "Save / load cleanup progress"
+    },
+    {
+      "key": "R / F5",
+      "desc": "Start a fresh shift / replay this exact layout"
     }
   ],
   "details": [

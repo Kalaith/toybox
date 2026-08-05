@@ -7,7 +7,7 @@
 use crate::data::{GameData, ToyCategory};
 use crate::state::{
     BestRuns, GamePhase, GameSession, RepairPartKind, RepairState, ShiftMode, ShiftRecord,
-    WorldPoint,
+    WorldPoint, CLOSING_SHIFT_SEED,
 };
 use crate::toys::ToySpawnPose;
 use macroquad::prelude::*;
@@ -17,13 +17,18 @@ use macroquad::prelude::*;
 /// clearing the near field puts the bench back on camera while leaving the
 /// stocked store visible behind it.
 const BENCH_CLEARANCE: f32 = 7.0;
+const RELAXED_CAPTURE_SEED: u64 = 0x2E1A_8ED5_CAFE_0240;
+
+fn closing_session(data: &GameData) -> GameSession {
+    GameSession::new_with_seed(data, CLOSING_SHIFT_SEED)
+}
 
 /// Two zones' lamp pools side by side across their shared boundary, floor
 /// swept clean. The per-zone accent blend is subtle by design, and a frame full
 /// of loose toys hides it entirely — this is the view that answers whether the
 /// tint is doing enough work to be worth having.
 pub fn lamp_contrast(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
 
     // Pick the two adjacent zones whose accents differ most, so the comparison
     // is the fairest test the layout can offer rather than a flattering one.
@@ -65,7 +70,11 @@ pub fn lamp_contrast(data: &GameData) -> GameSession {
 /// untouched. A fresh shop reads 0% everywhere, which shows nothing about the
 /// per-zone HUD row or the minimap completion bars.
 pub fn mid_run(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    mid_run_with_seed(data, CLOSING_SHIFT_SEED)
+}
+
+fn mid_run_with_seed(data: &GameData, shift_seed: u64) -> GameSession {
+    let mut session = GameSession::new_with_seed(data, shift_seed);
 
     // Displays 0-3 are the plush wall/bin/table; 4-7 the dragon alcove.
     for display_index in 0..4 {
@@ -90,7 +99,7 @@ pub fn mid_run(data: &GameData) -> GameSession {
 /// other half of the mode switch — the clock counting up with no deadline to
 /// count toward — had never been rendered.
 pub fn relaxed_run(data: &GameData) -> GameSession {
-    let mut session = mid_run(data);
+    let mut session = mid_run_with_seed(data, RELAXED_CAPTURE_SEED);
     session.shift_mode = ShiftMode::Relaxed;
     session.player.elapsed_seconds = 431.0;
     session
@@ -108,7 +117,7 @@ pub fn closing_soon(data: &GameData) -> GameSession {
 /// rest part-done, a handful of repairs and a few wrong shelves. A fresh
 /// `TimeUp` session would score every row zero and prove nothing about layout.
 pub fn shift_over(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
 
     // Plush Corner and the Dragon Alcove finished; the rest partway.
     for display_index in 0..8 {
@@ -138,7 +147,7 @@ pub fn shift_over(data: &GameData) -> GameSession {
 /// mended first and then every display is stocked to capacity. The phase falls
 /// out of the last placement, exactly as it does in play.
 pub fn store_restored(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
 
     // Mend every break: the body survives whole under its repaired name and the
     // head is consumed, which is what `repair_benched_toys` leaves behind.
@@ -186,7 +195,7 @@ pub fn store_restored(data: &GameData) -> GameSession {
 /// and the row of carry pips only appear above a carry limit of one, so every
 /// other scene shows the card in its single-toy form.
 pub fn carrying_armful(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     session
         .unlocked_upgrade_ids
         .push("sorting_trolley".to_owned());
@@ -233,7 +242,7 @@ pub fn previous_best() -> BestRuns {
 /// of the tier, and invisible in every other scene because they either carry a
 /// whole toy or own the scanner.
 pub fn carrying_a_half(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     if let Some(part_index) = session
         .toys
         .iter()
@@ -282,7 +291,7 @@ pub fn broken_lineup(data: &GameData) -> GameSession {
         _ => ToyCategory::Plushies,
     };
 
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     // Stand in an open stretch of the block pit aisle, looking down its length.
     let stand = vec2(data.config.room_width * 0.5, data.config.room_height * 0.5);
     session
@@ -333,7 +342,7 @@ pub fn broken_lineup(data: &GameData) -> GameSession {
 /// press-to-repair prompt had never been rendered.
 pub fn repair_bench_ready(data: &GameData) -> GameSession {
     let bench = data.primary_bench();
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     session.player.position = WorldPoint {
         x: bench.x,
         y: bench.y,
@@ -421,7 +430,7 @@ fn stock_display(session: &mut GameSession, data: &GameData, display_index: usiz
 /// The tool shop with every tool unlocked and affordable, so the row layout
 /// can be checked against the real list rather than a single entry.
 pub fn tool_shop(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     // Credits come one per completed display; hand out enough that every row
     // renders its buyable state.
     for display_index in 0..data.displays.len().min(12) {
@@ -439,7 +448,7 @@ pub fn tool_shop(data: &GameData) -> GameSession {
 /// everything the shift is nearly over. The three states that fill the screen
 /// early on (owned, unaffordable, locked) had never been rendered at all.
 pub fn tool_shop_early(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     // Two completed displays: enough to unlock the trolley but, with the
     // scanner's credit already spent, not enough to buy it.
     for display_index in 0..2 {
@@ -453,7 +462,7 @@ pub fn tool_shop_early(data: &GameData) -> GameSession {
 /// Every display is marked restored so the repeatable spotlight renders with
 /// enough spare credits to call it, matching the state this screen is for.
 pub fn tool_shop_service(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     session
         .unlocked_upgrade_ids
         .extend(data.upgrades.iter().map(|upgrade| upgrade.id.clone()));
@@ -466,7 +475,7 @@ pub fn tool_shop_service(data: &GameData) -> GameSession {
 /// The checkout, framed on the counter with the shopfront window behind it —
 /// the view that shows the till clutter and the night sky through the glass.
 pub fn checkout(data: &GameData) -> GameSession {
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     let counter = data.layout.counters.first().expect("a checkout counter");
     // Stand between the counter and the shopfront window so one frame carries
     // both: the till clutter on the left, the night sky through the glass on
@@ -495,7 +504,7 @@ pub fn checkout(data: &GameData) -> GameSession {
 /// that shows the status beacon's `AwaitingMatch` state.
 pub fn repair_bench(data: &GameData) -> GameSession {
     let bench = data.primary_bench();
-    let mut session = GameSession::new(data);
+    let mut session = closing_session(data);
     session.player.position = WorldPoint {
         x: bench.x,
         y: bench.y,

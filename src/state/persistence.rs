@@ -1,8 +1,8 @@
 //! Save payload, load-time repair, and version migration.
 
 use super::{
-    DisplayState, GamePhase, GameSession, PlayerState, RepairPartKind, ShiftMode, ToySpatialGrid,
-    ToyState,
+    default_shift_seed, DisplayState, GamePhase, GameSession, PlayerState, RepairPartKind,
+    ShiftMode, ToySpatialGrid, ToyState,
 };
 use crate::data::GameData;
 use crate::toys::spawn_pose_for_toy;
@@ -21,6 +21,9 @@ pub struct SaveData {
     /// played against the clock, which is what `ShiftMode::default()` is.
     #[serde(default)]
     pub shift_mode: ShiftMode,
+    /// Saves predating varied Relaxed Runs used the fixed competitive layout.
+    #[serde(default = "default_shift_seed")]
+    pub shift_seed: u64,
 }
 
 impl GameSession {
@@ -33,6 +36,7 @@ impl GameSession {
             unlocked_upgrade_ids: save.unlocked_upgrade_ids,
             phase: save.phase,
             shift_mode: save.shift_mode,
+            shift_seed: save.shift_seed,
             spatial: ToySpatialGrid::new(
                 config.room_width,
                 config.room_height,
@@ -52,6 +56,7 @@ impl GameSession {
             unlocked_upgrade_ids: self.unlocked_upgrade_ids.clone(),
             phase: self.phase,
             shift_mode: self.shift_mode,
+            shift_seed: self.shift_seed,
         }
     }
 
@@ -137,7 +142,9 @@ pub fn migrate_save_value(
                 "Save stocks {} toys but the store now holds {}; restocking fresh",
                 live_toys, data.config.toy_count
             );
-            return Ok(GameSession::new(data).to_save(&data.config.version));
+            let mut fresh = GameSession::new_with_seed(data, current.shift_seed);
+            fresh.shift_mode = current.shift_mode;
+            return Ok(fresh.to_save(&data.config.version));
         }
         current.version = data.config.version.clone();
         return Ok(current);

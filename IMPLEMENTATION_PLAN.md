@@ -171,6 +171,14 @@ Acceptance: equal seeds produce byte-equivalent toy layouts; distinct relaxed
 seeds materially change positions; timed records remain fixed-seed comparisons;
 captures and replays explicitly set their seeds.
 
+Status: completed on 2026-08-05. Closing Shift explicitly uses the fixed
+`C105-1A6F-7EED-0001` seed and retains its pre-seed scatter and balance result.
+New Relaxed Runs receive fresh deterministic positions, poses, colours, broken
+selection, and cross-zone part scatter. The full seed survives old/current
+saves, appears on pause and score screens, and can be replayed with `F5` while
+`R` starts a new scatter. Equal-seed byte equivalence, material seed variation,
+fixture safety, repair invariants, captures, and fixed-seed replays are tested.
+
 ## 7. Final verification and documentation
 
 - Run `cargo test --all-targets` and Clippy with warnings denied.

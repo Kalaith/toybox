@@ -7,7 +7,7 @@ use crate::gallery::GalleryScene;
 use crate::preferences::ToyboxPreferences;
 use crate::state::{
     migrate_save_value, BestRuns, GamePhase, GameSession, InteractionResult, SaveData, ShiftMode,
-    ShiftRecord, ToolPurchaseResult,
+    ShiftRecord, ToolPurchaseResult, CLOSING_SHIFT_SEED,
 };
 use crate::tutorial::TutorialProgress;
 use crate::ui::{self, DebugOverlay, UiAction, UiContext};
@@ -62,6 +62,9 @@ pub struct Game {
     recorded_run: bool,
     /// Set when the finished run beat its mode's record, for the score screen.
     beat_record: bool,
+    /// Advances independently of simulation state so two fresh Relaxed Runs
+    /// cannot receive the same seed even when started in one clock tick.
+    relaxed_seed_nonce: u64,
 }
 
 /// How long the perf probe should run, if it was asked for.
@@ -168,6 +171,7 @@ impl Game {
         );
         let session = GameSession::new(&data);
         let tutorial = TutorialProgress::new(!preferences.tutorial_complete);
+        let relaxed_seed_nonce = macroquad::miniquad::date::now().to_bits();
         Self {
             data,
             session,
@@ -190,6 +194,7 @@ impl Game {
             best_runs,
             recorded_run: false,
             beat_record: false,
+            relaxed_seed_nonce,
         }
     }
 
@@ -207,11 +212,11 @@ impl Game {
                 self.gallery = Some(GalleryScene::new(&slug));
             }
             "gameplay" => {
-                self.session = GameSession::new(&self.data);
+                self.session = GameSession::new_with_seed(&self.data, CLOSING_SHIFT_SEED);
                 self.screen = GameScreen::Playing;
             }
             "tutorial_first_step" => {
-                self.session = GameSession::new(&self.data);
+                self.session = GameSession::new_with_seed(&self.data, CLOSING_SHIFT_SEED);
                 self.tutorial = TutorialProgress::new(true);
                 self.screen = GameScreen::Playing;
             }
@@ -342,7 +347,7 @@ impl Game {
                 self.screen = GameScreen::Playing;
             }
             "paused" => {
-                self.session = capture_scenes::mid_run(&self.data);
+                self.session = capture_scenes::relaxed_run(&self.data);
                 self.settings_from_game = true;
                 self.screen = GameScreen::Settings;
             }
@@ -446,6 +451,9 @@ impl Game {
                 ShiftMode::Relaxed => UiAction::NewRelaxedGame,
             });
         }
+        if is_key_pressed(KeyCode::F5) {
+            self.events.push(UiAction::ReplayShiftSeed);
+        }
         if is_key_pressed(KeyCode::E) || is_key_pressed(KeyCode::Space) {
             self.events.push(UiAction::Interact);
         }
@@ -529,6 +537,8 @@ impl Game {
                     effects_volume: self.settings.sfx_volume,
                     ambience_volume: self.settings.music_volume,
                     from_game: self.settings_from_game,
+                    shift_mode: self.session.shift_mode,
+                    shift_seed: self.session.shift_seed,
                 },
             ),
             GameScreen::Help => ui::draw_help_screen(self.title_texture.as_ref()),

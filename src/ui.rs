@@ -83,6 +83,8 @@ pub enum UiAction {
     NewGame,
     /// A shift with the deadline switched off.
     NewRelaxedGame,
+    /// Restart the current mode with its exact scatter and broken-pair seed.
+    ReplayShiftSeed,
     Continue,
     Settings,
     CloseSettings,
@@ -114,6 +116,17 @@ pub enum UiAction {
     DropActive,
     BuyTool(String),
     BuyStockroomSpotlight,
+}
+
+/// A compact but exact human-readable form of the persisted 64-bit seed.
+pub(crate) fn shift_seed_code(seed: u64) -> String {
+    format!(
+        "{:04X}-{:04X}-{:04X}-{:04X}",
+        seed >> 48,
+        (seed >> 32) & 0xFFFF,
+        (seed >> 16) & 0xFFFF,
+        seed & 0xFFFF
+    )
 }
 
 pub struct UiContext<'a> {

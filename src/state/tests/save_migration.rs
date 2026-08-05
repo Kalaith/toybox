@@ -30,6 +30,7 @@ fn strip_post_expansion_fields(mut save: Value) -> Value {
     // migration step, not merely compile.
     player.remove("repairs");
     save.as_object_mut().unwrap().remove("shift_mode");
+    save.as_object_mut().unwrap().remove("shift_seed");
     save
 }
 
@@ -83,6 +84,7 @@ fn pre_expansion_save_loads_without_the_fields_it_never_had() {
     // was the only mode there was. Loading it as Relaxed would silently hand
     // someone an untimed run they never chose.
     assert_eq!(session.shift_mode, ShiftMode::Timed);
+    assert_eq!(session.shift_seed, CLOSING_SHIFT_SEED);
     assert_eq!(session.player.repairs, 0);
     assert!(
         session.shift_remaining(&data) > 0.0,
@@ -217,7 +219,7 @@ mod on_disk {
     /// repair, and buy a tool. A save of an untouched session would round-trip
     /// even if the payload were being dropped entirely.
     fn played_session(data: &GameData) -> GameSession {
-        let mut session = GameSession::new(data);
+        let mut session = GameSession::new_with_seed(data, 0x5EED_2026_AA55_0240);
         let display = &data.displays[0];
 
         let right = session
@@ -274,6 +276,7 @@ mod on_disk {
         let after = GameSession::from_save(loaded, &data);
 
         assert_eq!(after.shift_mode, ShiftMode::Relaxed);
+        assert_eq!(after.shift_seed, before.shift_seed);
         assert_eq!(after.player.mistakes, before.player.mistakes);
         assert_eq!(after.player.repairs, 3);
         assert_eq!(after.player.elapsed_seconds, 421.5);

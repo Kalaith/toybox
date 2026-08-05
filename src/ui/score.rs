@@ -6,7 +6,7 @@
 //! telling the player what to do next.
 
 use super::hud_chrome::{brass, draw_hud_panel, parchment, warm_card, warm_panel};
-use super::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
+use super::{shift_seed_code, UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use crate::state::{GamePhase, ShiftRecord, ShiftSummary, ZoneProgress};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
@@ -48,7 +48,13 @@ pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
         Color::new(accent.r, accent.g, accent.b, 0.075),
     );
 
-    draw_heading(&summary, ctx.session.shift_mode.label(), restored, accent);
+    draw_heading(
+        &summary,
+        ctx.session.shift_mode.label(),
+        ctx.session.shift_seed,
+        restored,
+        accent,
+    );
     draw_grade_badge(&summary, accent);
 
     let stats_y = PANEL.y + 132.0;
@@ -73,7 +79,13 @@ pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
     draw_footer(restored);
 }
 
-fn draw_heading(summary: &ShiftSummary, mode_label: &str, restored: bool, accent: Color) {
+fn draw_heading(
+    summary: &ShiftSummary,
+    mode_label: &str,
+    shift_seed: u64,
+    restored: bool,
+    accent: Color,
+) {
     let heading = if restored {
         "Store Restored"
     } else {
@@ -91,8 +103,10 @@ fn draw_heading(summary: &ShiftSummary, mode_label: &str, restored: bool, accent
 
     draw_text_centered_in_box(
         &format!(
-            "{mode_label}  -  {} of {} aisles restored",
-            summary.zones_restored, summary.zones_with_shelves
+            "{mode_label} - layout {} - {} of {} aisles restored",
+            shift_seed_code(shift_seed),
+            summary.zones_restored,
+            summary.zones_with_shelves
         ),
         PANEL.x + 24.0,
         PANEL.y + 68.0,
@@ -300,7 +314,7 @@ fn draw_footer(restored: bool) {
         parchment(0.62),
     );
     draw_text_centered_in_box(
-        "R starts another shift  -  Esc for the menu",
+        "R Fresh Shift  -  F5 Replay Layout  -  Esc Menu",
         PANEL.x,
         PANEL.y + PANEL.h - 38.0,
         PANEL.w,

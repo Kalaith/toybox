@@ -601,7 +601,7 @@ fn buy_what_it_can_afford(session: &mut GameSession, data: &GameData) {
 }
 
 fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport {
-    let mut session = GameSession::new(data);
+    let mut session = GameSession::new_with_seed(data, CLOSING_SHIFT_SEED);
     for tool in scenario.tools {
         session.unlocked_upgrade_ids.push((*tool).to_owned());
     }
@@ -859,7 +859,7 @@ fn render_settings_cannot_move_the_score() {
     // `interaction_preview` is the public read of `targeted_loose_toy_index`,
     // the one place a render distance could plausibly be mistaken for a
     // gameplay reach.
-    let mut session = GameSession::new(&baseline);
+    let mut session = GameSession::new_with_seed(&baseline, CLOSING_SHIFT_SEED);
     let toy = session
         .toys
         .iter()

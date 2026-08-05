@@ -6,7 +6,15 @@ impl Game {
     /// `R` restarts, and it must not silently move a relaxed player onto the
     /// clock — so it re-runs whichever mode is already in play.
     pub(super) fn start_shift(&mut self, mode: ShiftMode) {
-        self.session = GameSession::new(&self.data);
+        let seed = match mode {
+            ShiftMode::Timed => CLOSING_SHIFT_SEED,
+            ShiftMode::Relaxed => self.next_relaxed_seed(),
+        };
+        self.start_shift_with_seed(mode, seed);
+    }
+
+    fn start_shift_with_seed(&mut self, mode: ShiftMode, seed: u64) {
+        self.session = GameSession::new_with_seed(&self.data, seed);
         self.session.shift_mode = mode;
         self.recorded_run = false;
         self.beat_record = false;
@@ -20,7 +28,25 @@ impl Game {
                 "Closing shift: {} until opening",
                 format_mmss(self.data.config.shift_seconds)
             )),
-            ShiftMode::Relaxed => self.notifications.info("Relaxed run: no deadline"),
+            ShiftMode::Relaxed => self.notifications.info(format!(
+                "Relaxed run: no deadline - layout {}",
+                ui::shift_seed_code(seed)
+            )),
+        }
+    }
+
+    fn next_relaxed_seed(&mut self) -> u64 {
+        // SplitMix64 is used as a one-way mixer, not a gameplay RNG. The clock
+        // starts the nonce and the increment guarantees fresh successive runs.
+        self.relaxed_seed_nonce = self.relaxed_seed_nonce.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut value = self.relaxed_seed_nonce;
+        value = (value ^ (value >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        value = (value ^ (value >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        value ^= value >> 31;
+        if value == CLOSING_SHIFT_SEED {
+            value ^ 0xA5A5_A5A5_A5A5_A5A5
+        } else {
+            value
         }
     }
 
@@ -28,6 +54,13 @@ impl Game {
         match action {
             UiAction::NewGame => self.start_shift(ShiftMode::Timed),
             UiAction::NewRelaxedGame => self.start_shift(ShiftMode::Relaxed),
+            UiAction::ReplayShiftSeed => {
+                let mode = self.session.shift_mode;
+                let seed = self.session.shift_seed;
+                self.start_shift_with_seed(mode, seed);
+                self.notifications
+                    .success(format!("Replaying layout {}", ui::shift_seed_code(seed)));
+            }
             UiAction::Continue => {
                 if self.load_game() {
                     self.sync_closing_warnings();
