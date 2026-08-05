@@ -123,4 +123,9 @@ cargo test --release shop_scale -- --ignored --nocapture   # run length vs shop 
 cargo test --release full_shift -- --ignored --nocapture   # whole shop, start to finish
 ```
 
+Final review verification on 2026-08-05 passed 106 normal tests plus three
+code-standards checks, warning-free Clippy, both explicit balance reports, all
+76 visual references (26 scenes and 50 toys at 0.000% significant drift), and
+the complete Windows/WebGL `publish.ps1` path.
+
 Outstanding work is tracked in [`TODO.md`](TODO.md).

@@ -182,7 +182,7 @@ fixture safety, repair invariants, captures, and fixed-seed replays are tested.
 ## 7. Final verification and documentation
 
 - Run `cargo test --all-targets` and Clippy with warnings denied.
-- Run the full balance reports and the complete 70-image capture drift gate.
+- Run the full balance reports and the complete 76-image capture drift gate.
 - Run `publish.ps1` with no parameters and verify Windows and WebGL output.
 - Inspect the refreshed title, first-run, gameplay, tool shop, repair, carried
   trolley, settings/help, closing, and both score captures.
@@ -192,3 +192,12 @@ fixture safety, repair invariants, captures, and fixed-seed replays are tested.
 Acceptance: every plan item has direct test, capture, or published-artifact
 evidence; source-size standards pass; the worktree is clean after the final
 commit; no balance or UI claim relies on a partial replay or stale image.
+
+Status: completed on 2026-08-05. The normal suite passes 106 tests with the two
+diagnostic balance reports intentionally ignored; all three code-standards
+checks pass and Clippy accepts every target with warnings denied. The explicit
+shop-scale and full-shift reports reproduce the documented 27.9/17.6-minute
+sorting brackets and the 21.4-minute complete clear (240 shelves, 28 repairs,
+five tools, nine credits). All 26 scene captures and 50 toy references match at
+0.000% significant drift after inspection of the key UI states. `publish.ps1`
+builds, packages, and deploys both Windows and WebGL preview artifacts.
