@@ -98,6 +98,12 @@ impl GameSession {
                 );
             }
         }
+        if !self.player.mistake_guards_initialized {
+            self.player.mistake_guards_remaining = self
+                .forgiven_mistakes(data)
+                .saturating_sub(self.player.mistakes);
+            self.player.mistake_guards_initialized = true;
+        }
         self.repair_display_slots(data);
         self.repair_bench_slots(data);
         self.normalize_active_carry(self.carry_limit(data));

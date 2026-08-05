@@ -8,7 +8,7 @@ use crate::ui::environment::draw_shop_environment;
 use crate::ui::fixtures::{
     draw_aisle_shelving, draw_checkout_counters, draw_displays, placed_height_for_slot,
 };
-use crate::ui::scanner::draw_counterpart_beacon;
+use crate::ui::scanner::{draw_counterpart_beacon, draw_stockroom_spotlight};
 use crate::ui::signs::{draw_wall_posters, draw_zone_sign};
 use crate::ui::UiContext;
 use macroquad::prelude::*;
@@ -43,6 +43,7 @@ pub fn draw_shop_scene(ctx: &UiContext<'_>) -> SceneStats {
     draw_repair_benches(ctx);
     let drawn_toys = draw_loose_toys(ctx) + draw_placed_toys(ctx);
     draw_counterpart_beacon(ctx);
+    draw_stockroom_spotlight(ctx);
     draw_placement_preview(ctx);
     draw_player_presence(ctx);
     SceneStats { drawn_toys }

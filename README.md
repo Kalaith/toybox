@@ -45,7 +45,8 @@ run to the next.
   before either half can be shelved
 - A one-toy carry limit to start with, a wrong-shelf penalty worth about one
   toy's work, and a score screen grading the run
-- Tool credits from completed displays, spent on five tools
+- Tool credits from completed displays, spent on five tools and a bounded
+  late-shift search service
 - Toolkit save/load slot support
 - 60+ FPS native via spatial-grid culling and distance LOD (F3 shows the debug
   overlay when enabled)
@@ -57,11 +58,16 @@ and are bought from the shop screen (`T`); they last the shift, not beyond it.
 
 | Tool | Unlocks at | Cost | Effect |
 |---|---|---|---|
-| Toy Scanner | 1 display | 1 | Names the display a held toy belongs to, and pins the exact spot of a carried part's other half instead of just its aisle |
+| Toy Scanner | 1 display | 1 | Recommends the nearest matching display with room, while still marking the alternatives, and pins the exact spot of a carried part's other half |
 | Sorting Trolley | 2 displays | 2 | Carry three toys instead of one |
 | Grippy Sneakers | 3 displays | 2 | A third faster across the floor |
 | Long-Handled Grabber | 4 displays | 3 | Reach further into a pile |
-| Manager's Nod | 5 displays | 3 | The next twenty-five wrong shelves cost no time |
+| Manager's Nod | 5 displays | 3 | Stops the next twenty-five wrong placements before they leave your hands; they still count as mistakes |
+
+After all five tools are owned, each spare credit can call a **Stockroom
+Spotlight** for 60 seconds. It marks the nearest loose toy in the room and on
+the minimap, stacking up to three minutes; it never moves or sorts the toy for
+you.
 
 Without the scanner a carried repair part still names the aisle its other half
 landed in — enough to make the errand a search rather than a sweep of the whole

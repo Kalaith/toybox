@@ -141,6 +141,32 @@ pub(crate) fn draw_minimap(ctx: &UiContext<'_>) {
         );
     }
 
+    // The paid late-shift service should remain legible while the player is
+    // looking down at the map, not only as a beacon in the 3D scene.
+    if ctx.session.stockroom_spotlight_active() {
+        if let Some(target) = ctx.session.stockroom_spotlight_target() {
+            let target_dot = to_map(target.position.x, target.position.y);
+            let gold = Color::new(1.0, 0.76, 0.18, 1.0);
+            draw_circle_lines(target_dot.x, target_dot.y, 4.8, 1.5, gold);
+            draw_line(
+                target_dot.x - 2.4,
+                target_dot.y,
+                target_dot.x + 2.4,
+                target_dot.y,
+                1.0,
+                gold,
+            );
+            draw_line(
+                target_dot.x,
+                target_dot.y - 2.4,
+                target_dot.x,
+                target_dot.y + 2.4,
+                1.0,
+                gold,
+            );
+        }
+    }
+
     let player = ctx.session.player.position;
     let dot = to_map(player.x, player.y);
     let facing = vec2(ctx.session.player.yaw.cos(), ctx.session.player.yaw.sin());

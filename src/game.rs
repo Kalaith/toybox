@@ -22,6 +22,8 @@ use macroquad_toolkit::prelude::dark;
 use macroquad_toolkit::settings::GameSettings;
 use macroquad_toolkit::ui::format_mmss;
 
+mod actions;
+
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
 const ASSET_PACK_PATH: &str = "assets.zip";
 
@@ -254,6 +256,10 @@ impl Game {
             }
             "tool_shop_early" => {
                 self.session = capture_scenes::tool_shop_early(&self.data);
+                self.screen = GameScreen::ToolShop;
+            }
+            "tool_shop_service" => {
+                self.session = capture_scenes::tool_shop_service(&self.data);
                 self.screen = GameScreen::ToolShop;
             }
             "lamp_contrast" => {
@@ -503,219 +509,6 @@ impl Game {
         let actions: Vec<UiAction> = self.events.drain().collect();
         for action in actions {
             self.apply_action(action);
-        }
-    }
-
-    /// `R` restarts, and it must not silently move a relaxed player onto the
-    /// clock — so it re-runs whichever mode is already in play.
-    fn start_shift(&mut self, mode: ShiftMode) {
-        self.session = GameSession::new(&self.data);
-        self.session.shift_mode = mode;
-        self.recorded_run = false;
-        self.beat_record = false;
-        self.screen = GameScreen::Playing;
-        match mode {
-            ShiftMode::Timed => self.notifications.info(format!(
-                "Closing shift: {} until opening",
-                format_mmss(self.data.config.shift_seconds)
-            )),
-            ShiftMode::Relaxed => self.notifications.info("Relaxed run: no deadline"),
-        }
-    }
-
-    fn apply_action(&mut self, action: UiAction) {
-        match action {
-            UiAction::NewGame => self.start_shift(ShiftMode::Timed),
-            UiAction::NewRelaxedGame => self.start_shift(ShiftMode::Relaxed),
-            UiAction::Continue => {
-                if self.load_game() {
-                    self.screen = GameScreen::Playing;
-                }
-            }
-            UiAction::Settings => {
-                self.settings_from_game = self.screen == GameScreen::Playing;
-                self.set_mouse_locked(false);
-                self.screen = GameScreen::Settings;
-            }
-            UiAction::CloseSettings => {
-                self.screen = if self.settings_from_game {
-                    GameScreen::Playing
-                } else {
-                    GameScreen::Title
-                };
-                self.settings_from_game = false;
-            }
-            UiAction::BackToTitle => {
-                // Keep the shift. This button is the only way out of a run from
-                // the UI, and `Ctrl+S` was the only thing that ever wrote the
-                // save slot — so leaving without saving threw the run away and
-                // then offered "Continue" backed by whatever older save
-                // happened to be on disk, with nothing to say the shift the
-                // player just left was gone. `save_game` holds the rule about
-                // which shifts are worth keeping.
-                self.save_game();
-                self.settings_from_game = false;
-                self.set_mouse_locked(false);
-                self.screen = GameScreen::Title;
-                self.has_save_file =
-                    slot_exists(&self.data.config.game_name, &self.data.config.save_slot);
-            }
-            UiAction::OpenToolShop => {
-                self.set_mouse_locked(false);
-                self.screen = GameScreen::ToolShop;
-            }
-            UiAction::CloseToolShop => {
-                self.screen = GameScreen::Playing;
-            }
-            UiAction::ToggleFullscreen => {
-                self.settings.toggle_fullscreen();
-                if let Err(err) = self.settings.save(&self.data.config.game_name) {
-                    eprintln!("Failed to save settings: {err}");
-                }
-            }
-            UiAction::FovIncrease => {
-                self.fov_degrees =
-                    (self.fov_degrees + FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
-            }
-            UiAction::FovDecrease => {
-                self.fov_degrees =
-                    (self.fov_degrees - FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
-            }
-            UiAction::QuitGame => {
-                self.set_mouse_locked(false);
-                quit();
-            }
-            UiAction::Save => self.save_game(),
-            UiAction::Load => {
-                self.load_game();
-            }
-            UiAction::Interact => self.handle_interaction(),
-            UiAction::CycleCarry => self.session.cycle_carried(),
-            UiAction::DropActive => {
-                if let Some(toy_name) = self.session.drop_active(&self.data) {
-                    self.notifications
-                        .info(format!("Placed {} on the floor", toy_name));
-                }
-            }
-            UiAction::BuyTool(tool_id) => self.handle_tool_purchase(&tool_id),
-        }
-    }
-
-    fn handle_interaction(&mut self) {
-        match self.session.interact(&self.data) {
-            InteractionResult::PickedUp { toy_name } => {
-                self.notifications.info(format!("Picked up {}", toy_name));
-            }
-            InteractionResult::Dropped { toy_name } => {
-                self.notifications
-                    .info(format!("Placed {} on the floor", toy_name));
-            }
-            InteractionResult::Placed {
-                toy_name,
-                display_name,
-                was_wrong,
-                completed_display,
-                completed_zone,
-                available_tools,
-                finished,
-            } => {
-                if was_wrong {
-                    self.notifications
-                        .warning(format!("{} does not belong in {}", toy_name, display_name));
-                } else {
-                    self.notifications
-                        .success(format!("Placed {} in {}", toy_name, display_name));
-                }
-                if let Some(name) = completed_display {
-                    self.notifications.success(format!("Completed {}", name));
-                }
-                // Louder than a single display: an aisle is four of them.
-                if let Some(name) = completed_zone {
-                    self.notifications
-                        .success(format!("{} is fully restored", name));
-                }
-                for tool_name in available_tools {
-                    self.notifications
-                        .info(format!("Tool available: {} (press T)", tool_name));
-                }
-                if finished {
-                    self.notifications.success("Store restored before opening");
-                }
-            }
-            InteractionResult::PlacedOnRepairBench { toy_name } => {
-                self.notifications
-                    .info(format!("Placed {} on the repair bench", toy_name));
-            }
-            InteractionResult::Repaired { toy_name } => {
-                self.notifications
-                    .success(format!("Repaired {}. Ready for display", toy_name));
-            }
-            InteractionResult::NeedsRepair { toy_name } => {
-                self.notifications
-                    .warning(format!("Repair {} before shelving it", toy_name));
-            }
-            InteractionResult::NeedsRepairParts { toy_name } => {
-                self.notifications
-                    .warning(format!("Find the matching part for {}", toy_name));
-            }
-            InteractionResult::InventoryFull => {
-                // Name whatever is actually full. Bare-handed the limit is one,
-                // so this fires long before any tool is bought.
-                let message = match self.session.carry_tool_name(&self.data) {
-                    Some(tool) => format!("{} is full", tool),
-                    None => "Hands full".to_owned(),
-                };
-                self.notifications.warning(message);
-            }
-            InteractionResult::RepairBenchFull => {
-                self.notifications.warning("Repair bench is full")
-            }
-            InteractionResult::RepairMismatch => self
-                .notifications
-                .warning("Those repair parts do not match"),
-            InteractionResult::ShelfFull => self.notifications.warning("That shelf is full"),
-            InteractionResult::ShelfSlotUnavailable => {
-                self.notifications.warning("Look at an empty shelf spot")
-            }
-            InteractionResult::NothingNearby => {
-                self.notifications.info("Move closer to a toy or display");
-            }
-        }
-    }
-
-    fn handle_tool_purchase(&mut self, tool_id: &str) {
-        match self.session.purchase_tool(&self.data, tool_id) {
-            ToolPurchaseResult::Purchased {
-                tool_name,
-                remaining_credits,
-            } => self.notifications.success(format!(
-                "Purchased {}. Tool credits left: {}",
-                tool_name, remaining_credits
-            )),
-            ToolPurchaseResult::NeedMoreCredits {
-                tool_name,
-                cost,
-                available_credits,
-            } => self.notifications.warning(format!(
-                "{} needs {}. You have {}",
-                tool_name,
-                ui::credits_phrase(cost),
-                available_credits
-            )),
-            ToolPurchaseResult::AlreadyOwned { tool_name } => self
-                .notifications
-                .info(format!("{} already owned", tool_name)),
-            ToolPurchaseResult::Locked {
-                tool_name,
-                required_displays,
-                completed_displays,
-            } => self.notifications.warning(format!(
-                "{} unlocks at {}/{} restored displays",
-                tool_name, completed_displays, required_displays
-            )),
-            ToolPurchaseResult::NoToolsAvailable => {
-                self.notifications.info("No tools available to buy")
-            }
         }
     }
 

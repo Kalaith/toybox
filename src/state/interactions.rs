@@ -370,11 +370,15 @@ impl GameSession {
         let is_wrong_display = !toy_matches_display(&self.toys[toy_index], display);
         if is_wrong_display {
             self.player.mistakes += 1;
-            // The mistake is still recorded; a forgiveness tool only waives the
-            // clock penalty, so the score screen still sees what happened.
-            if self.player.mistakes > self.forgiven_mistakes(data) {
-                self.player.elapsed_seconds += data.config.mistake_penalty_seconds;
+            if self.player.mistake_guards_remaining > 0 {
+                self.player.mistake_guards_remaining -= 1;
+                return InteractionResult::PlacementPrevented {
+                    toy_name,
+                    display_name: display.name.clone(),
+                    guards_remaining: self.player.mistake_guards_remaining,
+                };
             }
+            self.player.elapsed_seconds += data.config.mistake_penalty_seconds;
         }
 
         self.toys[toy_index].is_held = false;

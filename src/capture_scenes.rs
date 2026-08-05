@@ -449,6 +449,20 @@ pub fn tool_shop_early(data: &GameData) -> GameSession {
     session
 }
 
+/// The late-shift service screen after the permanent tool rack is complete.
+/// Every display is marked restored so the repeatable spotlight renders with
+/// enough spare credits to call it, matching the state this screen is for.
+pub fn tool_shop_service(data: &GameData) -> GameSession {
+    let mut session = GameSession::new(data);
+    session
+        .unlocked_upgrade_ids
+        .extend(data.upgrades.iter().map(|upgrade| upgrade.id.clone()));
+    for display in &mut session.displays {
+        display.is_complete = true;
+    }
+    session
+}
+
 /// The checkout, framed on the counter with the shopfront window behind it —
 /// the view that shows the till clutter and the night sky through the glass.
 pub fn checkout(data: &GameData) -> GameSession {

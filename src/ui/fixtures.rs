@@ -36,7 +36,14 @@ pub(crate) fn display_style(display: &DisplayDef) -> DisplayStyle {
 }
 
 pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
-    for display in &ctx.data.displays {
+    let active = ctx.session.active_toy();
+    let recommended = active.and_then(|toy| {
+        ctx.session
+            .scanner_enabled(ctx.data)
+            .then(|| ctx.session.recommended_display_index(ctx.data, toy))
+            .flatten()
+    });
+    for (display_index, display) in ctx.data.displays.iter().enumerate() {
         let accent = accent_color(display, 1.0);
         let is_complete = ctx.session.is_display_complete(&display.id);
 
@@ -54,10 +61,10 @@ pub(crate) fn draw_displays(ctx: &UiContext<'_>) {
             draw_completion_lights(display, accent);
         }
 
-        if ctx.session.active_toy().is_some_and(|toy| {
+        if active.is_some_and(|toy| {
             ctx.session.scanner_enabled(ctx.data) && toy_matches_display(toy, display)
         }) {
-            draw_scanner_guidance(display);
+            draw_scanner_guidance(display, recommended == Some(display_index));
         }
     }
 }

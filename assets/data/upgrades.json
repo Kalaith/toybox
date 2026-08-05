@@ -2,7 +2,7 @@
   {
     "id": "toy_scanner",
     "name": "Toy Scanner",
-    "description": "Haloes the display a held toy belongs to, and pins a carried part's other half exactly, not just to its aisle.",
+    "description": "Recommends the nearest matching display with room, and pins a carried part's other half exactly, not just to its aisle.",
     "unlock_completed_displays": 1,
     "cost": 1,
     "effect": { "kind": "scanner" }
@@ -34,7 +34,7 @@
   {
     "id": "managers_nod",
     "name": "Manager's Nod",
-    "description": "The next twenty-five toys on the wrong shelf still count as mistakes, but cost you no time.",
+    "description": "Stops the next twenty-five wrong placements before you let go. They still count as mistakes, but waste no slot or time.",
     "unlock_completed_displays": 5,
     "cost": 3,
     "effect": { "kind": "mistake_forgiveness", "mistakes": 25 }

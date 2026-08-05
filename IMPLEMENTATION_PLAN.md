@@ -60,6 +60,13 @@ Acceptance: scanner text and rendering identify the same recommended display;
 protected mistakes leave the toy carried and the slot empty; every earned
 credit has a useful outlet; save/load preserves all new economy state.
 
+Status: completed on 2026-08-05. The scanner now selects the nearest valid
+display with room through one query used by text and rendering. Manager's Nod
+stops twenty-five future wrong placements while retaining the score mistake.
+After the five-tool rack is complete, spare credits call a deterministic
+60-second Stockroom Spotlight, capped at three minutes and persisted in saves.
+The service has dedicated HUD, minimap, world-beacon, shop, and capture states.
+
 ## 3. Carry the title screen's craft into the game UI
 
 The current gameplay UI is functionally complete but reads as flat black debug

@@ -1,7 +1,10 @@
 //! 3D shop scene orchestration and immediate-mode HUD for Toybox After Hours.
 
 use crate::data::{GameData, UpgradeDef};
-use crate::state::{GameSession, ShiftRecord};
+use crate::state::{
+    GameSession, ShiftRecord, STOCKROOM_SPOTLIGHT_COST, STOCKROOM_SPOTLIGHT_MAX_SECONDS,
+    STOCKROOM_SPOTLIGHT_NAME,
+};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::draw_ui_text_ex;
@@ -93,6 +96,7 @@ pub enum UiAction {
     CycleCarry,
     DropActive,
     BuyTool(String),
+    BuyStockroomSpotlight,
 }
 
 pub struct UiContext<'a> {
@@ -174,17 +178,102 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
         actions.push(UiAction::CloseToolShop);
     }
 
-    for (index, upgrade) in ctx.data.upgrades.iter().enumerate() {
-        let row = Rect::new(
-            panel.x + 24.0,
-            panel.y + 104.0 + index as f32 * 104.0,
-            panel.w - 48.0,
-            92.0,
-        );
-        draw_tool_row(row, upgrade, &ctx, mouse, &mut actions);
+    if ctx.session.all_tools_owned(ctx.data) {
+        draw_stockroom_service(panel, &ctx, mouse, &mut actions);
+    } else {
+        for (index, upgrade) in ctx.data.upgrades.iter().enumerate() {
+            let row = Rect::new(
+                panel.x + 24.0,
+                panel.y + 104.0 + index as f32 * 104.0,
+                panel.w - 48.0,
+                92.0,
+            );
+            draw_tool_row(row, upgrade, &ctx, mouse, &mut actions);
+        }
     }
 
     actions
+}
+
+fn draw_stockroom_service(
+    panel: Rect,
+    ctx: &UiContext<'_>,
+    mouse: Vec2,
+    actions: &mut Vec<UiAction>,
+) {
+    draw_ui_text_ex(
+        "Every shift tool is on the trolley.",
+        panel.x + 24.0,
+        panel.y + 122.0,
+        TextStyle::new(17.0, Color::new(0.62, 0.92, 0.68, 1.0)).params(),
+    );
+    let owned = ctx
+        .data
+        .upgrades
+        .iter()
+        .map(|upgrade| upgrade.name.as_str())
+        .collect::<Vec<_>>()
+        .join("  -  ");
+    draw_wrapped_text(
+        &owned,
+        panel.x + 24.0,
+        panel.y + 150.0,
+        panel.w - 48.0,
+        WrapStyle {
+            size: 14.0,
+            line_height: 20.0,
+            max_lines: 2,
+            color: dark::TEXT_DIM,
+        },
+    );
+
+    let card = Rect::new(panel.x + 24.0, panel.y + 224.0, panel.w - 48.0, 184.0);
+    draw_surface(
+        card,
+        &SurfaceStyle::new(Color::new(0.10, 0.075, 0.025, 0.88))
+            .with_border(1.0, Color::new(0.96, 0.76, 0.28, 0.72))
+            .with_inner_border(3.0, 1.0, Color::new(1.0, 0.88, 0.46, 0.16)),
+    );
+    draw_ui_text_ex(
+        STOCKROOM_SPOTLIGHT_NAME,
+        card.x + 20.0,
+        card.y + 34.0,
+        TextStyle::new(22.0, Color::new(1.0, 0.84, 0.42, 1.0)).params(),
+    );
+    draw_wrapped_text(
+        "Shines a gold beacon over the nearest loose toy for 60 seconds. You still carry, sort, and repair it.",
+        card.x + 20.0,
+        card.y + 64.0,
+        card.w - 164.0,
+        WrapStyle {
+            size: 15.0,
+            line_height: 21.0,
+            max_lines: 3,
+            color: dark::TEXT,
+        },
+    );
+
+    let seconds = ctx.session.player.stockroom_spotlight_seconds;
+    let at_capacity = seconds + f32::EPSILON >= STOCKROOM_SPOTLIGHT_MAX_SECONDS;
+    let can_buy =
+        !at_capacity && ctx.session.available_tool_credits(ctx.data) >= STOCKROOM_SPOTLIGHT_COST;
+    let status = if at_capacity {
+        "At 3:00 maximum".to_owned()
+    } else if seconds > 0.0 {
+        format!("Active: {:.0}s  -  Costs 1 credit", seconds.ceil())
+    } else {
+        "Ready  -  Costs 1 credit".to_owned()
+    };
+    draw_ui_text_ex(
+        &status,
+        card.x + 20.0,
+        card.bottom() - 24.0,
+        TextStyle::new(14.0, Color::new(0.96, 0.78, 0.36, 1.0)).params(),
+    );
+    let button = Rect::new(card.right() - 122.0, card.y + 62.0, 94.0, 42.0);
+    if tool_shop_button(button, "Call", can_buy, mouse) {
+        actions.push(UiAction::BuyStockroomSpotlight);
+    }
 }
 
 pub fn movement_from_keys() -> Vec2 {

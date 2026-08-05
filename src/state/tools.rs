@@ -1,11 +1,15 @@
 //! Tool-shop economy: which upgrades are owned, what they cost, and how the
 //! credits earned from completed displays are spent.
 
-use super::{GameSession, ToolPurchaseResult};
+use super::{toy_matches_display, GameSession, ToolPurchaseResult, ToyState};
 use crate::data::{GameData, UpgradeEffect};
 
 pub(super) const TOY_SCANNER_ID: &str = "toy_scanner";
 const LEGACY_TAG_LANTERN_ID: &str = "tag_lantern";
+pub const STOCKROOM_SPOTLIGHT_NAME: &str = "Stockroom Spotlight";
+pub const STOCKROOM_SPOTLIGHT_COST: usize = 1;
+pub const STOCKROOM_SPOTLIGHT_SECONDS: f32 = 60.0;
+pub const STOCKROOM_SPOTLIGHT_MAX_SECONDS: f32 = 180.0;
 
 impl GameSession {
     /// The effects of every tool the player currently owns.
@@ -69,7 +73,8 @@ impl GameSession {
         data.config.interaction_radius * multiplier
     }
 
-    /// Mis-shelved toys that cost no time. Forgiveness tools do stack.
+    /// Placement guards granted by owned tools. Used to initialise old saves;
+    /// live play consumes `player.mistake_guards_remaining` instead.
     pub fn forgiven_mistakes(&self, data: &GameData) -> u32 {
         self.owned_effects(data)
             .filter_map(|effect| match effect {
@@ -97,9 +102,71 @@ impl GameSession {
             .any(|effect| matches!(effect, UpgradeEffect::Scanner))
     }
 
+    /// The closest compatible display with an unoccupied slot. All four
+    /// fixtures in a category accept the same stock, so the scanner is route
+    /// guidance rather than a claim that a toy has one arbitrary true shelf.
+    pub fn recommended_display_index(&self, data: &GameData, toy: &ToyState) -> Option<usize> {
+        let player = self.player.position.to_vec2();
+        data.displays
+            .iter()
+            .enumerate()
+            .filter(|(_, display)| {
+                toy_matches_display(toy, display)
+                    && self
+                        .toys
+                        .iter()
+                        .filter(|placed| {
+                            placed.placed_display_id.as_deref() == Some(display.id.as_str())
+                        })
+                        .count()
+                        < display.capacity
+            })
+            .min_by(|(_, left), (_, right)| {
+                let left_center =
+                    macroquad::prelude::vec2(left.x + left.w * 0.5, left.y + left.h * 0.5);
+                let right_center =
+                    macroquad::prelude::vec2(right.x + right.w * 0.5, right.y + right.h * 0.5);
+                left_center
+                    .distance_squared(player)
+                    .total_cmp(&right_center.distance_squared(player))
+            })
+            .map(|(index, _)| index)
+    }
+
+    pub fn all_tools_owned(&self, data: &GameData) -> bool {
+        data.upgrades
+            .iter()
+            .all(|upgrade| self.has_upgrade(&upgrade.id))
+    }
+
+    pub fn stockroom_spotlight_active(&self) -> bool {
+        self.player.stockroom_spotlight_seconds > 0.0
+    }
+
+    /// The nearest unfinished piece of floor work. The spotlight deliberately
+    /// does not move or identify the toy's home; it only prevents the last few
+    /// small objects from becoming a minimap pixel hunt.
+    pub fn stockroom_spotlight_target(&self) -> Option<&ToyState> {
+        let player = self.player.position.to_vec2();
+        self.toys
+            .iter()
+            .filter(|toy| {
+                !toy.is_held
+                    && toy.placed_display_id.is_none()
+                    && toy.bench_slot_index.is_none()
+                    && !toy.is_consumed_repair_part()
+            })
+            .min_by(|left, right| {
+                left.position
+                    .to_vec2()
+                    .distance_squared(player)
+                    .total_cmp(&right.position.to_vec2().distance_squared(player))
+            })
+    }
+
     pub fn available_tool_credits(&self, data: &GameData) -> usize {
         self.completed_display_count()
-            .saturating_sub(self.spent_tool_credits(data))
+            .saturating_sub(self.spent_tool_credits(data) + self.player.service_credits_spent)
     }
 
     pub fn next_available_upgrade<'a>(
@@ -145,8 +212,46 @@ impl GameSession {
         }
 
         self.unlocked_upgrade_ids.push(upgrade.id.clone());
+        if let UpgradeEffect::MistakeForgiveness { mistakes } = upgrade.effect {
+            self.player.mistake_guards_remaining = self
+                .player
+                .mistake_guards_remaining
+                .saturating_add(mistakes);
+            self.player.mistake_guards_initialized = true;
+        }
         ToolPurchaseResult::Purchased {
             tool_name: upgrade.name.clone(),
+            remaining_credits: self.available_tool_credits(data),
+        }
+    }
+
+    pub fn purchase_stockroom_spotlight(&mut self, data: &GameData) -> ToolPurchaseResult {
+        if !self.all_tools_owned(data) {
+            return ToolPurchaseResult::NoToolsAvailable;
+        }
+        if self.player.stockroom_spotlight_seconds + f32::EPSILON >= STOCKROOM_SPOTLIGHT_MAX_SECONDS
+        {
+            return ToolPurchaseResult::ServiceAtCapacity {
+                service_name: STOCKROOM_SPOTLIGHT_NAME,
+                seconds_active: self.player.stockroom_spotlight_seconds,
+            };
+        }
+        let available_credits = self.available_tool_credits(data);
+        if available_credits < STOCKROOM_SPOTLIGHT_COST {
+            return ToolPurchaseResult::NeedMoreCredits {
+                tool_name: STOCKROOM_SPOTLIGHT_NAME.to_owned(),
+                cost: STOCKROOM_SPOTLIGHT_COST,
+                available_credits,
+            };
+        }
+
+        self.player.service_credits_spent += STOCKROOM_SPOTLIGHT_COST;
+        self.player.stockroom_spotlight_seconds = (self.player.stockroom_spotlight_seconds
+            + STOCKROOM_SPOTLIGHT_SECONDS)
+            .min(STOCKROOM_SPOTLIGHT_MAX_SECONDS);
+        ToolPurchaseResult::ServicePurchased {
+            service_name: STOCKROOM_SPOTLIGHT_NAME,
+            seconds_active: self.player.stockroom_spotlight_seconds,
             remaining_credits: self.available_tool_credits(data),
         }
     }

@@ -24,6 +24,9 @@ pub use progress::{ShiftSummary, ZoneProgress};
 pub use records::{BestRuns, ShiftRecord};
 pub use repair::{BenchStage, BenchStatus, CounterpartLocation};
 pub use spatial::ToySpatialGrid;
+pub use tools::{
+    STOCKROOM_SPOTLIGHT_COST, STOCKROOM_SPOTLIGHT_MAX_SECONDS, STOCKROOM_SPOTLIGHT_NAME,
+};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct WorldPoint {
@@ -68,6 +71,21 @@ pub struct PlayerState {
     /// counted them, so they load as zero rather than refusing to load.
     #[serde(default)]
     pub repairs: u32,
+    /// Protected wrong placements still count, but the manager stops the toy
+    /// before it leaves the player's hands. Kept as remaining uses so buying
+    /// the tool after earlier mistakes still grants the advertised full count.
+    #[serde(default)]
+    pub mistake_guards_remaining: u32,
+    /// Distinguishes an old save with no guard field from a current save whose
+    /// guards were legitimately used up.
+    #[serde(default)]
+    pub mistake_guards_initialized: bool,
+    /// Credits spent on repeatable shop services rather than permanent tools.
+    #[serde(default)]
+    pub service_credits_spent: usize,
+    /// Remaining seconds of the nearest-loose-toy beacon.
+    #[serde(default)]
+    pub stockroom_spotlight_seconds: f32,
     pub elapsed_seconds: f32,
 }
 
@@ -222,6 +240,11 @@ pub enum InteractionResult {
         available_tools: Vec<String>,
         finished: bool,
     },
+    PlacementPrevented {
+        toy_name: String,
+        display_name: String,
+        guards_remaining: u32,
+    },
     PlacedOnRepairBench {
         toy_name: String,
     },
@@ -291,6 +314,15 @@ pub enum ToolPurchaseResult {
         cost: usize,
         available_credits: usize,
     },
+    ServicePurchased {
+        service_name: &'static str,
+        seconds_active: f32,
+        remaining_credits: usize,
+    },
+    ServiceAtCapacity {
+        service_name: &'static str,
+        seconds_active: f32,
+    },
     NoToolsAvailable,
 }
 
@@ -335,6 +367,10 @@ impl GameSession {
                 active_carry_index: 0,
                 mistakes: 0,
                 repairs: 0,
+                mistake_guards_remaining: 0,
+                mistake_guards_initialized: true,
+                service_credits_spent: 0,
+                stockroom_spotlight_seconds: 0.0,
                 elapsed_seconds: 0.0,
             },
             toys,
@@ -363,6 +399,10 @@ impl GameSession {
         }
         for toy in &mut self.toys {
             toy.wrong_marker_seconds = (toy.wrong_marker_seconds - dt).max(0.0);
+        }
+        if self.phase == GamePhase::Playing {
+            self.player.stockroom_spotlight_seconds =
+                (self.player.stockroom_spotlight_seconds - dt).max(0.0);
         }
         just_ran_out
     }

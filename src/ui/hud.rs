@@ -6,9 +6,7 @@ use super::hud_chrome::{
     PromptVisual,
 };
 use super::hud_icons::{draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind};
-use crate::state::{
-    toy_matches_display, CounterpartLocation, GamePhase, InteractionPreview, ToyState, ZoneProgress,
-};
+use crate::state::{CounterpartLocation, GamePhase, InteractionPreview, ToyState, ZoneProgress};
 use crate::ui::widgets::draw_fitted_text;
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use macroquad::prelude::*;
@@ -221,10 +219,9 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
             (counterpart_text(ctx, scanner), NoticeTone::Scanner)
         } else if scanner {
             let named = ctx
-                .data
-                .displays
-                .iter()
-                .find(|display| toy_matches_display(active_toy, display))
+                .session
+                .recommended_display_index(ctx.data, active_toy)
+                .and_then(|index| ctx.data.displays.get(index))
                 .map(|display| format!("Scanner: {} - {}", display.name, display.theme))
                 .unwrap_or_default();
             (named, NoticeTone::Scanner)
@@ -239,6 +236,23 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
                 tone,
             });
         }
+    }
+
+    if ctx.session.stockroom_spotlight_active() {
+        rows.push(NoticeRow {
+            key: None,
+            text: format!(
+                "Spotlight: nearest loose toy, {:.0}s",
+                ctx.session.player.stockroom_spotlight_seconds.ceil()
+            ),
+            tone: NoticeTone::Warning,
+        });
+    } else if ctx.session.all_tools_owned(ctx.data) && credits > 0 {
+        rows.push(NoticeRow {
+            key: Some("T"),
+            text: "Call the Stockroom Spotlight".to_owned(),
+            tone: NoticeTone::Warning,
+        });
     }
 
     if rows.is_empty() {
