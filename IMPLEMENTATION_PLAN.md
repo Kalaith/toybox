@@ -32,6 +32,11 @@ Acceptance: the complete replay asserts `Finished`, 240/240 shelving, all 28
 repairs, no loose usable toys, and meaningful deadline headroom. The normal
 suite guards the invariant; the ignored report remains available for retuning.
 
+Status: completed on 2026-08-05. The earned-tool route finishes 240/240 with
+all 28 repairs, all five tools, no loose usable toys, and 8.6 minutes / 28.7%
+headroom inside the unchanged 30-minute deadline. The old twenty-minute claim
+was removed because it described only the sortable floor.
+
 ## 2. Make every tool and credit tell the truth
 
 The scanner currently names the first matching fixture while highlighting all

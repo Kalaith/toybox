@@ -26,11 +26,13 @@ enum Strategy {
     /// wherever in the shop it landed, rejoin them, then shelve the result.
     /// This measures the repair loop, which the scatter is designed around.
     Restorer,
-    /// Sort like `NearestFirst`, but spend credits the moment they arrive.
+    /// Sort every whole toy, spend credits the moment they arrive, then use
+    /// the earned tools to hunt and mend every broken pair.
     ///
-    /// This is the only loadout a real timed run ever has: tools do not carry
-    /// between shifts, so nobody starts equipped and nobody stays bare-handed.
-    /// The other two scenarios bracket the run; this one is the run.
+    /// This is the only complete timed run here: tools do not carry between
+    /// shifts, so nobody starts equipped and a finish has to include both the
+    /// sorting and restoration loops. The other scenarios isolate one loop or
+    /// bracket its tool value; this one actually closes the store.
     Earner,
 }
 
@@ -107,6 +109,8 @@ struct RunReport {
     place_whiffs: usize,
     deferred_parts: usize,
     displays_complete: usize,
+    tools_owned: usize,
+    credits_remaining: usize,
     /// Toys still on the floor when the run stopped. Together with `actions`
     /// this says whether a short run ran out of budget or stalled: a run that
     /// spent its whole budget and left most of the shop loose is doing
@@ -114,6 +118,7 @@ struct RunReport {
     still_loose: usize,
     walked_metres: f32,
     minutes: f32,
+    finished: bool,
 }
 
 impl RunReport {
@@ -121,7 +126,8 @@ impl RunReport {
         format!(
             "{name:>15}: {:>5} actions  {:>5} shelved  {:>5} loose  {:>3} repaired  \
              {:>2} mistakes  {:>4} deferred  {:>4} whiffed  {:>4} neighbour  \
-             {:>4} noslot  {:>2} displays  {:>6.0}m walked  {:>6.1} min",
+             {:>4} noslot  {:>2} displays  {:>1} tools  {:>2} credits  \
+             {:>6.0}m walked  {:>6.1} min  {}",
             self.actions,
             self.shelved,
             self.still_loose,
@@ -132,8 +138,11 @@ impl RunReport {
             self.grabbed_neighbour,
             self.place_whiffs,
             self.displays_complete,
+            self.tools_owned,
+            self.credits_remaining,
             self.walked_metres,
-            self.minutes
+            self.minutes,
+            if self.finished { "FINISHED" } else { "partial" }
         )
     }
 }
@@ -306,6 +315,26 @@ fn take_directly(session: &mut GameSession, data: &GameData, toy_index: usize) -
 /// The closest toy still needing work, found through the real spatial grid so
 /// the search cost does not dominate a 4000-action run.
 fn nearest_loose_toy(session: &GameSession, from: Vec2, skip: &HashSet<usize>) -> Option<usize> {
+    nearest_loose_toy_matching(session, from, skip, |_| true)
+}
+
+/// The nearest whole toy that can be shelved without a repair. A complete
+/// closer deliberately finishes this pass before starting the cross-zone pair
+/// hunt, so the two costs remain visible while still sharing one real session.
+fn nearest_loose_whole_toy(
+    session: &GameSession,
+    from: Vec2,
+    skip: &HashSet<usize>,
+) -> Option<usize> {
+    nearest_loose_toy_matching(session, from, skip, |toy| !toy.is_repair_part())
+}
+
+fn nearest_loose_toy_matching(
+    session: &GameSession,
+    from: Vec2,
+    skip: &HashSet<usize>,
+    matches: impl Fn(&ToyState) -> bool,
+) -> Option<usize> {
     let mut radius = 2.0_f32;
     while radius <= 64.0 {
         let mut best: Option<(usize, f32)> = None;
@@ -316,6 +345,7 @@ fn nearest_loose_toy(session: &GameSession, from: Vec2, skip: &HashSet<usize>) -
                 || toy.placed_display_id.is_some()
                 || toy.bench_slot_index.is_some()
                 || toy.is_consumed_repair_part()
+                || !matches(toy)
             {
                 continue;
             }
@@ -485,10 +515,11 @@ fn restore_one_pair(
     let from = session.player.position.to_vec2();
     let first = nearest_loose_part(session, from, deferred)?;
     let mate = counterpart_index(session, first)?;
-    if session.toys[mate].bench_slot_index.is_some() || session.toys[mate].is_held {
+    if session.toys[mate].is_held {
         deferred.insert(first);
         return None;
     }
+    let mate_is_waiting = session.toys[mate].bench_slot_index.is_some();
 
     // Half one: fetch it and park it on a bench.
     *actions += 1;
@@ -499,7 +530,17 @@ fn restore_one_pair(
         return None;
     }
     if resolve_repair_part(session, data, walked) {
-        return Some(first);
+        return session
+            .active_toy()
+            .and_then(|toy| session.toys.iter().position(|other| other.id == toy.id));
+    }
+    if mate_is_waiting {
+        // The real sorting loop can park a part encountered in a pile before
+        // the deliberate repair pass begins. Reaching its loose counterpart is
+        // already the second half of the errand; do not try to pick the benched
+        // part up as though both halves were still on the floor.
+        deferred.insert(first);
+        return None;
     }
     if session.toys[first].bench_slot_index.is_none() {
         // The bench would not take it — nothing more to try this errand.
@@ -576,12 +617,19 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
     // the closer parked at the bench so the dropped part is always the nearest
     // thing to it. Deferring is what a player does; without it the run stalls.
     let mut deferred: HashSet<usize> = HashSet::new();
+    // `Earner` is one continuous run with two legible phases. Earlier it used
+    // the nearest-first loop alone, stopped with every broken pair still on the
+    // floor, and was nevertheless reported as a complete twenty-minute shift.
+    let mut repairing_remainder = false;
+    let mut repairs_complete = false;
 
     while actions < action_budget {
         if scenario.strategy == Strategy::Earner {
             buy_what_it_can_afford(&mut session, data);
         }
-        if scenario.strategy == Strategy::Restorer {
+        if scenario.strategy == Strategy::Restorer
+            || (scenario.strategy == Strategy::Earner && repairing_remainder)
+        {
             // Hunt a pair. On success the closer is holding a repaired toy and
             // falls through to shelving it like any other.
             let before = actions;
@@ -589,15 +637,37 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
                 Some(_) => repaired += 1,
                 None => {
                     if actions == before {
+                        if scenario.strategy == Strategy::Earner {
+                            // Return for any whole toys the real crosshair or a
+                            // temporarily crowded slot made us defer. With the
+                            // repair parts gone, that cleanup pass gets a clear
+                            // aim rather than repeating the same obstruction.
+                            repairing_remainder = false;
+                            repairs_complete = true;
+                            deferred.clear();
+                            continue;
+                        }
                         break; // no pairs left to chase
                     }
                     continue;
                 }
             }
         } else {
-            let Some(first_index) =
+            let next = if scenario.strategy == Strategy::Earner {
+                nearest_loose_whole_toy(&session, session.player.position.to_vec2(), &deferred)
+            } else {
                 nearest_loose_toy(&session, session.player.position.to_vec2(), &deferred)
-            else {
+            };
+            let Some(first_index) = next else {
+                if scenario.strategy == Strategy::Earner && !repairs_complete {
+                    // Parts brushed aside while digging whole toys out of a
+                    // pile become eligible again for the deliberate repair
+                    // pass. Deferred whole toys get another try once those
+                    // obstructions have been removed.
+                    deferred.clear();
+                    repairing_remainder = true;
+                    continue;
+                }
                 break;
             };
             actions += 1;
@@ -615,6 +685,16 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             };
 
             if session.toys[held].is_repair_part() {
+                if scenario.strategy == Strategy::Earner {
+                    // Keep the first phase a sorting measurement. A repair part
+                    // grabbed from beside the intended whole toy is set back
+                    // down and revisited once the whole floor is clear. Skip
+                    // the obstructed intended target for this pass so the
+                    // closer does not pick the same dropped part forever.
+                    session.drop_active(data);
+                    deferred.insert(first_index);
+                    continue;
+                }
                 if resolve_repair_part(&mut session, data, &mut walked) {
                     repaired += 1;
                 } else {
@@ -702,6 +782,8 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
         place_whiffs,
         deferred_parts: deferred.len(),
         displays_complete: session.completed_display_count(),
+        tools_owned: session.unlocked_upgrade_ids.len(),
+        credits_remaining: session.available_tool_credits(data),
         still_loose: session
             .toys
             .iter()
@@ -711,6 +793,7 @@ fn run(scenario: &Scenario, data: &GameData, action_budget: usize) -> RunReport 
             .count(),
         walked_metres: walked,
         minutes: session.player.elapsed_seconds / 60.0,
+        finished: session.phase == GamePhase::Finished,
     }
 }
 
@@ -861,6 +944,31 @@ fn the_deadline_is_reachable_by_a_closer_who_buys_tools() {
     }
 
     let earner = reports[1].1;
+    // The shipped counts pin the user-facing promise alongside the phase so a
+    // future config change cannot turn "finished" into a partial report without
+    // making this test explain the new shop.
+    let expected_repairs = (data.config.toy_count as f32 * data.config.broken_fraction) as usize;
+    assert!(
+        earner.finished,
+        "the earned-tool run never restored the store"
+    );
+    assert_eq!(
+        earner.shelved, data.config.toy_count,
+        "not every toy reached a display"
+    );
+    assert_eq!(
+        earner.repaired, expected_repairs,
+        "not every broken toy was repaired"
+    );
+    assert_eq!(
+        earner.still_loose, 0,
+        "the finished run left usable toys loose"
+    );
+    assert_eq!(
+        earner.tools_owned,
+        data.upgrades.len(),
+        "the complete run did not earn and buy the full tool ladder"
+    );
     assert!(
         earner.minutes < limit,
         "a closer that buys tools as it earns them cannot clear the shop before \
@@ -871,6 +979,13 @@ fn the_deadline_is_reachable_by_a_closer_who_buys_tools() {
     assert!(
         earner.minutes < reports[0].1.minutes,
         "buying tools did not beat staying bare-handed"
+    );
+    let headroom = (limit - earner.minutes) / limit;
+    assert!(
+        headroom >= 0.15,
+        "the deterministic closer keeps only {:.1}% deadline headroom; it walks \
+         direct lines and cannot justify calling this comfortable",
+        headroom * 100.0
     );
 }
 
@@ -977,15 +1092,20 @@ fn tools_pay_for_themselves_over_the_same_work() {
     );
 }
 
-/// The whole shop, start to finish. Slow by design — run it explicitly with
+/// The diagnostic whole-shop report. Slow by design — run it explicitly with
 /// `cargo test --release full_shift -- --ignored --nocapture` when retuning.
 #[test]
 #[ignore = "full-shop replay: minutes to run, not part of the normal suite"]
 fn a_full_shift_completes_the_shop() {
     let data = GameData::load().unwrap();
-    for scenario in [BEGINNER, FULLY_EQUIPPED] {
+    for scenario in [BEGINNER, FULLY_EQUIPPED, EARNER] {
         let report = run(&scenario, &data, data.config.toy_count * 4);
         println!("{}", report.line(scenario.name));
+        if scenario.strategy == Strategy::Earner {
+            assert!(report.finished);
+            assert_eq!(report.shelved, data.config.toy_count);
+            assert_eq!(report.still_loose, 0);
+        }
     }
 }
 

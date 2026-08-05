@@ -16,10 +16,12 @@ Two ways to start, chosen on the title screen:
 - **Relaxed Run** — the same store with no deadline. The clock still counts so
   a run can be compared against a timed one, but it never ends the shift.
 
-A shift measures at about 28 minutes bare-handed and 20 for a closer that buys
-tools as it earns them, so the deadline is comfortable played well and tight
-played carelessly. Shelving the store perfectly ends the run early with a
-"Store Restored" score screen.
+The deterministic closer completes the whole job in about 21.4 minutes: it
+starts empty-handed, earns all five tools, repairs all 28 broken toys, and
+shelves all 240. That leaves 8.6 modelled minutes inside the 30-minute deadline;
+the margin is deliberately larger than the replay needs because a person has to
+recognise toys, search, turn, and backtrack. Shelving the store perfectly ends
+the run early with a "Store Restored" score screen.
 
 Each mode keeps its own best run — most toys shelved, then fewest wrong
 shelves, then fastest — and the score screen shows it so there is something to
@@ -86,10 +88,11 @@ cargo clippy --all-targets --all-features -- -D warnings
 .\publish.ps1                                 # Windows + WebGL build and deploy
 ```
 
-Balance numbers come from the deterministic replays in
+Balance numbers come from deterministic replays in
 `src/state/tests/replay.rs`, which drive the real `GameSession` API rather than
-a model of it. Two are `#[ignore]`d because they are slow and only wanted when
-retuning:
+a model of it. The normal suite requires the earned-tool route to finish all
+240 toys with every repair complete and at least 15% deadline headroom. Two
+diagnostic reports are `#[ignore]`d because they are only wanted when retuning:
 
 ```powershell
 cargo test --release shop_scale -- --ignored --nocapture   # run length vs shop size
