@@ -1,5 +1,6 @@
 //! High-level game loop, state transitions, and toolkit integration.
 
+use crate::audio::{AudioDirector, Cue};
 use crate::capture_scenes;
 use crate::data::GameData;
 use crate::gallery::GalleryScene;
@@ -46,6 +47,9 @@ pub struct Game {
     settings: GameSettings,
     preferences: ToyboxPreferences,
     tutorial: TutorialProgress,
+    audio: AudioDirector,
+    warned_five_minutes: bool,
+    warned_one_minute: bool,
     settings_from_game: bool,
     mouse_locked: bool,
     debug_overlay: DebugOverlay,
@@ -131,6 +135,17 @@ impl Game {
         settings.sanitize();
         settings.apply_display();
         let preferences = ToyboxPreferences::load(&data.config.game_name);
+        let audio_disabled =
+            std::env::var_os("TOYBOX_CAPTURE_SCENE").is_some() || bench_seconds().is_some();
+        let audio = if audio_disabled {
+            AudioDirector::silent()
+        } else {
+            AudioDirector::load(
+                settings.effective_sfx_volume(),
+                settings.effective_music_volume(),
+            )
+            .await
+        };
 
         let bench = bench_seconds().map(|duration_seconds| BenchMode {
             duration_seconds,
@@ -164,6 +179,9 @@ impl Game {
             settings,
             preferences,
             tutorial,
+            audio,
+            warned_five_minutes: false,
+            warned_one_minute: false,
             settings_from_game: false,
             mouse_locked: false,
             debug_overlay: DebugOverlay::new(),
@@ -179,6 +197,8 @@ impl Game {
     pub fn begin_capture_scene(&mut self, scene: &str) {
         // Captures stage the UI state they name. A real profile's tutorial
         // preference must never leak an extra card into unrelated references.
+        self.settings = GameSettings::default();
+        self.preferences = ToyboxPreferences::default();
         self.tutorial = TutorialProgress::new(false);
         match scene {
             "toy_gallery" => {
@@ -302,6 +322,11 @@ impl Game {
                 self.settings_from_game = false;
                 self.screen = GameScreen::Settings;
             }
+            "settings_muted" => {
+                self.settings.master_volume = 0.0;
+                self.settings_from_game = false;
+                self.screen = GameScreen::Settings;
+            }
             "controls" => {
                 self.settings_from_game = false;
                 self.screen = GameScreen::Help;
@@ -330,6 +355,7 @@ impl Game {
             return;
         }
         self.notifications.update(dt);
+        self.audio.update(dt);
         // Before any early return: the title, settings and tool-shop screens
         // all draw the animated shop behind them.
         ui::advance_animation_clock(dt);
@@ -353,10 +379,25 @@ impl Game {
             return;
         }
 
+        let remaining_before = self.session.shift_remaining(&self.data);
         if self.session.update_timer(dt, &self.data) {
             self.set_mouse_locked(false);
+            self.audio.play(Cue::ClosingWarning);
             self.notifications
                 .warning("The doors are open - shift over");
+        }
+        let remaining_after = self.session.shift_remaining(&self.data);
+        if self.session.shift_mode.shows_countdown() {
+            if !self.warned_five_minutes && remaining_before > 300.0 && remaining_after <= 300.0 {
+                self.warned_five_minutes = true;
+                self.audio.play(Cue::ClosingWarning);
+                self.notifications.warning("Five minutes until opening");
+            }
+            if !self.warned_one_minute && remaining_before > 60.0 && remaining_after <= 60.0 {
+                self.warned_one_minute = true;
+                self.audio.play(Cue::ClosingWarning);
+                self.notifications.danger("One minute until opening");
+            }
         }
 
         let current_mouse_position: Vec2 = mouse_position().into();
@@ -380,6 +421,9 @@ impl Game {
 
         let movement = ui::movement_from_keys();
         self.session.move_player(movement, &self.data, dt);
+        if movement.length_squared() > 0.0 {
+            self.audio.play_at(Cue::Footstep, 0.20);
+        }
         self.tutorial.observe_navigation(
             movement.length_squared() > 0.0,
             look_delta.length_squared() > 0.0,
@@ -481,6 +525,9 @@ impl Game {
                     mouse_sensitivity: self.preferences.mouse_sensitivity,
                     ui_scale: self.settings.ui_text_scale,
                     high_contrast: self.preferences.high_contrast,
+                    master_volume: self.settings.master_volume,
+                    effects_volume: self.settings.sfx_volume,
+                    ambience_volume: self.settings.music_volume,
                     from_game: self.settings_from_game,
                 },
             ),
@@ -644,6 +691,19 @@ impl Game {
             self.notifications
                 .warning(format!("Could not save settings: {err}"));
         }
+    }
+
+    fn apply_audio_volumes(&mut self) {
+        self.audio.set_volumes(
+            self.settings.effective_sfx_volume(),
+            self.settings.effective_music_volume(),
+        );
+    }
+
+    fn sync_closing_warnings(&mut self) {
+        let remaining = self.session.shift_remaining(&self.data);
+        self.warned_five_minutes = remaining <= 300.0;
+        self.warned_one_minute = remaining <= 60.0;
     }
 
     fn finish_tutorial_if_ready(&mut self) {

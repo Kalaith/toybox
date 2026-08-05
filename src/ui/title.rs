@@ -122,7 +122,7 @@ pub(crate) fn draw_settings_screen(
     let mouse = logical_mouse_position();
     let button_w = 224.0;
     let button_h = 38.0;
-    let settings_panel = Rect::new(322.0, 324.0, 636.0, 344.0);
+    let settings_panel = Rect::new(322.0, 188.0, 636.0, 500.0);
     draw_rectangle(
         settings_panel.x + 6.0,
         settings_panel.y + 7.0,
@@ -207,8 +207,37 @@ pub(crate) fn draw_settings_screen(
     );
 
     let row3_y = settings_panel.y + 222.0;
+    draw_settings_stepper(
+        "MASTER VOLUME",
+        &format!("{:.0}%", view.master_volume * 100.0),
+        vec2(left, row3_y),
+        UiAction::MasterVolumeDecrease,
+        UiAction::MasterVolumeIncrease,
+        mouse,
+        &mut actions,
+    );
+    draw_settings_stepper(
+        "EFFECTS VOLUME",
+        &format!("{:.0}%", view.effects_volume * 100.0),
+        vec2(right, row3_y),
+        UiAction::EffectsVolumeDecrease,
+        UiAction::EffectsVolumeIncrease,
+        mouse,
+        &mut actions,
+    );
+
+    let row4_y = settings_panel.y + 296.0;
+    draw_settings_stepper(
+        "AMBIENCE VOLUME",
+        &format!("{:.0}%", view.ambience_volume * 100.0),
+        vec2(left, row4_y),
+        UiAction::AmbienceVolumeDecrease,
+        UiAction::AmbienceVolumeIncrease,
+        mouse,
+        &mut actions,
+    );
     if title_button(
-        Rect::new(left, row3_y, button_w, button_h),
+        Rect::new(right, row4_y, button_w, button_h),
         if view.high_contrast {
             "High Contrast: On"
         } else {
@@ -224,8 +253,10 @@ pub(crate) fn draw_settings_screen(
     ) {
         actions.push(UiAction::ToggleHighContrast);
     }
+
+    let row5_y = settings_panel.y + 366.0;
     if title_button(
-        Rect::new(right, row3_y, button_w, button_h),
+        Rect::new((LOGICAL_WIDTH - button_w) * 0.5, row5_y, button_w, button_h),
         "Controls & How to Play",
         true,
         ButtonTone::Primary,
@@ -282,6 +313,9 @@ pub(crate) struct SettingsView {
     pub mouse_sensitivity: f32,
     pub ui_scale: f32,
     pub high_contrast: bool,
+    pub master_volume: f32,
+    pub effects_volume: f32,
+    pub ambience_volume: f32,
     pub from_game: bool,
 }
 

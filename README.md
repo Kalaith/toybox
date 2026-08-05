@@ -53,6 +53,8 @@ hide it; **Controls & How to Play** in Settings can replay it later.
   toy's work, and a score screen grading the run
 - Tool credits from completed displays, spent on five tools and a bounded
   late-shift search service
+- Procedurally generated footsteps, action cues, closing warnings, and a quiet
+  eight-second shop ambience loop; no sampled audio assets are required
 - Toolkit save/load slot support
 - 60+ FPS native via spatial-grid culling and distance LOD (F3 shows the debug
   overlay when enabled)
@@ -95,7 +97,8 @@ store.
 - `R`: restart, in whichever mode is already running
 
 Settings persist fullscreen, field of view, look sensitivity, UI text size,
-and high-contrast mode separately from the current cleanup save.
+high-contrast mode, and separate master/effects/ambience levels separately from
+the current cleanup save. Any channel can be lowered to 0% for true mute.
 
 ## Validation
 

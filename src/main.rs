@@ -3,6 +3,7 @@
 use macroquad::prelude::*;
 use macroquad_toolkit::capture;
 
+mod audio;
 mod capture_scenes;
 mod data;
 mod gallery;

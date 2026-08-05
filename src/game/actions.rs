@@ -11,6 +11,9 @@ impl Game {
         self.recorded_run = false;
         self.beat_record = false;
         self.tutorial = TutorialProgress::new(!self.preferences.tutorial_complete);
+        self.warned_five_minutes = false;
+        self.warned_one_minute = false;
+        self.audio.start_ambience();
         self.screen = GameScreen::Playing;
         match mode {
             ShiftMode::Timed => self.notifications.info(format!(
@@ -27,6 +30,8 @@ impl Game {
             UiAction::NewRelaxedGame => self.start_shift(ShiftMode::Relaxed),
             UiAction::Continue => {
                 if self.load_game() {
+                    self.sync_closing_warnings();
+                    self.audio.start_ambience();
                     self.screen = GameScreen::Playing;
                 }
             }
@@ -45,6 +50,7 @@ impl Game {
             }
             UiAction::BackToTitle => {
                 self.save_game();
+                self.audio.stop_ambience();
                 self.settings_from_game = false;
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::Title;
@@ -97,6 +103,38 @@ impl Game {
                 self.preferences.high_contrast = !self.preferences.high_contrast;
                 self.save_preferences();
             }
+            UiAction::MasterVolumeIncrease => {
+                self.settings.master_volume = (self.settings.master_volume + 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+            }
+            UiAction::MasterVolumeDecrease => {
+                self.settings.master_volume = (self.settings.master_volume - 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+            }
+            UiAction::EffectsVolumeIncrease => {
+                self.settings.sfx_volume = (self.settings.sfx_volume + 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+                self.audio.play(Cue::Pickup);
+            }
+            UiAction::EffectsVolumeDecrease => {
+                self.settings.sfx_volume = (self.settings.sfx_volume - 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+                self.audio.play(Cue::Pickup);
+            }
+            UiAction::AmbienceVolumeIncrease => {
+                self.settings.music_volume = (self.settings.music_volume + 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+            }
+            UiAction::AmbienceVolumeDecrease => {
+                self.settings.music_volume = (self.settings.music_volume - 0.1).clamp(0.0, 1.0);
+                self.apply_audio_volumes();
+                self.save_shared_settings();
+            }
             UiAction::OpenHelp => self.screen = GameScreen::Help,
             UiAction::CloseHelp => self.screen = GameScreen::Settings,
             UiAction::ReplayTutorial => {
@@ -107,21 +145,28 @@ impl Game {
                     .success("First-shift guide will appear when you resume play");
             }
             UiAction::QuitGame => {
+                self.audio.stop_ambience();
                 self.set_mouse_locked(false);
                 quit();
             }
             UiAction::Save => self.save_game(),
             UiAction::Load => {
-                self.load_game();
+                if self.load_game() {
+                    self.sync_closing_warnings();
+                }
             }
             UiAction::Interact => self.handle_interaction(),
             UiAction::CycleCarry => {
                 let had_multiple = self.session.player.carried_toy_ids.len() > 1;
                 self.session.cycle_carried();
                 self.tutorial.cycled_trolley(had_multiple);
+                if had_multiple {
+                    self.audio.play_at(Cue::Pickup, 0.45);
+                }
             }
             UiAction::DropActive => {
                 if let Some(toy_name) = self.session.drop_active(&self.data) {
+                    self.audio.play(Cue::Drop);
                     self.notifications
                         .info(format!("Placed {} on the floor", toy_name));
                 }
@@ -136,11 +181,14 @@ impl Game {
         self.tutorial.observe_interaction(&result);
         match result {
             InteractionResult::PickedUp { toy_name } => {
+                self.audio.play(Cue::Pickup);
                 self.notifications.info(format!("Picked up {}", toy_name));
             }
-            InteractionResult::Dropped { toy_name } => self
-                .notifications
-                .info(format!("Placed {} on the floor", toy_name)),
+            InteractionResult::Dropped { toy_name } => {
+                self.audio.play(Cue::Drop);
+                self.notifications
+                    .info(format!("Placed {} on the floor", toy_name));
+            }
             InteractionResult::Placed {
                 toy_name,
                 display_name,
@@ -150,6 +198,15 @@ impl Game {
                 available_tools,
                 finished,
             } => {
+                if finished {
+                    self.audio.play(Cue::Restored);
+                } else if completed_display.is_some() {
+                    self.audio.play(Cue::DisplayComplete);
+                } else if was_wrong {
+                    self.audio.play(Cue::ShelfWrong);
+                } else {
+                    self.audio.play(Cue::ShelfCorrect);
+                }
                 if was_wrong {
                     self.notifications
                         .warning(format!("{} does not belong in {}", toy_name, display_name));
@@ -176,16 +233,23 @@ impl Game {
                 toy_name,
                 display_name,
                 guards_remaining,
-            } => self.notifications.warning(format!(
-                "Manager stopped {} at {}. {} checks left",
-                toy_name, display_name, guards_remaining
-            )),
-            InteractionResult::PlacedOnRepairBench { toy_name } => self
-                .notifications
-                .info(format!("Placed {} on the repair bench", toy_name)),
-            InteractionResult::Repaired { toy_name } => self
-                .notifications
-                .success(format!("Repaired {}. Ready for display", toy_name)),
+            } => {
+                self.audio.play(Cue::ShelfWrong);
+                self.notifications.warning(format!(
+                    "Manager stopped {} at {}. {} checks left",
+                    toy_name, display_name, guards_remaining
+                ));
+            }
+            InteractionResult::PlacedOnRepairBench { toy_name } => {
+                self.audio.play(Cue::Drop);
+                self.notifications
+                    .info(format!("Placed {} on the repair bench", toy_name));
+            }
+            InteractionResult::Repaired { toy_name } => {
+                self.audio.play(Cue::Repair);
+                self.notifications
+                    .success(format!("Repaired {}. Ready for display", toy_name));
+            }
             InteractionResult::NeedsRepair { toy_name } => self
                 .notifications
                 .warning(format!("Repair {} before shelving it", toy_name)),
@@ -220,10 +284,13 @@ impl Game {
             ToolPurchaseResult::Purchased {
                 tool_name,
                 remaining_credits,
-            } => self.notifications.success(format!(
-                "Purchased {}. Tool credits left: {}",
-                tool_name, remaining_credits
-            )),
+            } => {
+                self.audio.play(Cue::ToolPurchase);
+                self.notifications.success(format!(
+                    "Purchased {}. Tool credits left: {}",
+                    tool_name, remaining_credits
+                ));
+            }
             ToolPurchaseResult::NeedMoreCredits {
                 tool_name,
                 cost,
@@ -259,10 +326,13 @@ impl Game {
                 service_name,
                 seconds_active,
                 remaining_credits,
-            } => self.notifications.success(format!(
-                "{} active for {:.0}s. Tool credits left: {}",
-                service_name, seconds_active, remaining_credits
-            )),
+            } => {
+                self.audio.play(Cue::ToolPurchase);
+                self.notifications.success(format!(
+                    "{} active for {:.0}s. Tool credits left: {}",
+                    service_name, seconds_active, remaining_credits
+                ));
+            }
             ToolPurchaseResult::NeedMoreCredits {
                 cost,
                 available_credits,

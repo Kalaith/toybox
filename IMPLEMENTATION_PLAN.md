@@ -146,6 +146,13 @@ Acceptance: every important action has one intelligible cue, repeated sorting
 does not produce fatiguing overlap, zero-volume settings silence their channel,
 and Windows/WebGL publishing includes everything required.
 
+Status: completed on 2026-08-05. Ten short procedural cues cover motion,
+pickup/drop, shelving outcomes, repair, purchases, display completion, closing,
+and restoration; per-cue cooldowns keep repeated sorting restrained. An
+eight-second generated ambience bed follows the active shift. Persisted master,
+effects, and ambience controls reach true zero, capture/bench runs stay silent,
+and decoding failures degrade cue-by-cue without blocking startup.
+
 ## 6. Add deterministic variety without invalidating records
 
 The competitive Closing Shift should remain reproducible, while Relaxed Run
