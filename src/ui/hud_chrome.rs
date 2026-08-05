@@ -9,6 +9,18 @@ use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::{draw_ui_text_ex, measure_ui_text};
 
+thread_local! {
+    static HIGH_CONTRAST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+pub(crate) fn set_high_contrast(enabled: bool) {
+    HIGH_CONTRAST.with(|stored| stored.set(enabled));
+}
+
+fn high_contrast() -> bool {
+    HIGH_CONTRAST.with(std::cell::Cell::get)
+}
+
 pub(in crate::ui) fn draw_toy_badge(rect: Rect, toy: &ToyState) {
     let color = toy_color(toy);
     draw_surface(
@@ -107,19 +119,35 @@ pub(in crate::ui) fn draw_hud_panel(rect: Rect, fill: Color, border: Color) {
 }
 
 pub(in crate::ui) fn warm_panel(alpha: f32) -> Color {
-    Color::new(0.105, 0.064, 0.038, alpha)
+    if high_contrast() {
+        Color::new(0.025, 0.018, 0.014, alpha.max(0.96))
+    } else {
+        Color::new(0.105, 0.064, 0.038, alpha)
+    }
 }
 
 pub(in crate::ui) fn warm_card(alpha: f32) -> Color {
-    Color::new(0.075, 0.054, 0.044, alpha)
+    if high_contrast() {
+        Color::new(0.018, 0.016, 0.015, alpha.max(0.98))
+    } else {
+        Color::new(0.075, 0.054, 0.044, alpha)
+    }
 }
 
 pub(in crate::ui) fn brass(alpha: f32) -> Color {
-    Color::new(0.86, 0.62, 0.25, alpha)
+    if high_contrast() {
+        Color::new(1.0, 0.78, 0.22, alpha.max(0.74))
+    } else {
+        Color::new(0.86, 0.62, 0.25, alpha)
+    }
 }
 
 pub(in crate::ui) fn parchment(alpha: f32) -> Color {
-    Color::new(0.96, 0.88, 0.70, alpha)
+    if high_contrast() {
+        Color::new(1.0, 1.0, 0.96, alpha.max(0.82))
+    } else {
+        Color::new(0.96, 0.88, 0.70, alpha)
+    }
 }
 
 pub(in crate::ui) fn draw_keycap(rect: Rect, label: &str, large: bool) {

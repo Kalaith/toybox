@@ -10,6 +10,7 @@ impl Game {
         self.session.shift_mode = mode;
         self.recorded_run = false;
         self.beat_record = false;
+        self.tutorial = TutorialProgress::new(!self.preferences.tutorial_complete);
         self.screen = GameScreen::Playing;
         match mode {
             ShiftMode::Timed => self.notifications.info(format!(
@@ -51,6 +52,7 @@ impl Game {
                     slot_exists(&self.data.config.game_name, &self.data.config.save_slot);
             }
             UiAction::OpenToolShop => {
+                self.tutorial.opened_tools();
                 self.set_mouse_locked(false);
                 self.screen = GameScreen::ToolShop;
             }
@@ -62,12 +64,47 @@ impl Game {
                 }
             }
             UiAction::FovIncrease => {
-                self.fov_degrees =
-                    (self.fov_degrees + FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
+                self.preferences.fov_degrees = (self.preferences.fov_degrees + FOV_STEP_DEGREES)
+                    .clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
+                self.save_preferences();
             }
             UiAction::FovDecrease => {
-                self.fov_degrees =
-                    (self.fov_degrees - FOV_STEP_DEGREES).clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
+                self.preferences.fov_degrees = (self.preferences.fov_degrees - FOV_STEP_DEGREES)
+                    .clamp(MIN_FOV_DEGREES, MAX_FOV_DEGREES);
+                self.save_preferences();
+            }
+            UiAction::SensitivityIncrease => {
+                self.preferences.mouse_sensitivity =
+                    (self.preferences.mouse_sensitivity + SENSITIVITY_STEP).clamp(0.5, 2.0);
+                self.save_preferences();
+            }
+            UiAction::SensitivityDecrease => {
+                self.preferences.mouse_sensitivity =
+                    (self.preferences.mouse_sensitivity - SENSITIVITY_STEP).clamp(0.5, 2.0);
+                self.save_preferences();
+            }
+            UiAction::UiScaleIncrease => {
+                self.settings.ui_text_scale =
+                    (self.settings.ui_text_scale + UI_SCALE_STEP).clamp(0.9, 1.2);
+                self.save_shared_settings();
+            }
+            UiAction::UiScaleDecrease => {
+                self.settings.ui_text_scale =
+                    (self.settings.ui_text_scale - UI_SCALE_STEP).clamp(0.9, 1.2);
+                self.save_shared_settings();
+            }
+            UiAction::ToggleHighContrast => {
+                self.preferences.high_contrast = !self.preferences.high_contrast;
+                self.save_preferences();
+            }
+            UiAction::OpenHelp => self.screen = GameScreen::Help,
+            UiAction::CloseHelp => self.screen = GameScreen::Settings,
+            UiAction::ReplayTutorial => {
+                self.preferences.tutorial_complete = false;
+                self.tutorial = TutorialProgress::new(true);
+                self.save_preferences();
+                self.notifications
+                    .success("First-shift guide will appear when you resume play");
             }
             UiAction::QuitGame => {
                 self.set_mouse_locked(false);
@@ -78,7 +115,11 @@ impl Game {
                 self.load_game();
             }
             UiAction::Interact => self.handle_interaction(),
-            UiAction::CycleCarry => self.session.cycle_carried(),
+            UiAction::CycleCarry => {
+                let had_multiple = self.session.player.carried_toy_ids.len() > 1;
+                self.session.cycle_carried();
+                self.tutorial.cycled_trolley(had_multiple);
+            }
             UiAction::DropActive => {
                 if let Some(toy_name) = self.session.drop_active(&self.data) {
                     self.notifications
@@ -91,7 +132,9 @@ impl Game {
     }
 
     fn handle_interaction(&mut self) {
-        match self.session.interact(&self.data) {
+        let result = self.session.interact(&self.data);
+        self.tutorial.observe_interaction(&result);
+        match result {
             InteractionResult::PickedUp { toy_name } => {
                 self.notifications.info(format!("Picked up {}", toy_name));
             }

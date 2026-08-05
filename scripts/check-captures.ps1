@@ -35,7 +35,8 @@ param(
         "tool_shop", "tool_shop_early", "tool_shop_service", "checkout", "lamp_contrast", "repair_bench",
         "carrying_a_half", "carrying_a_half_scanned", "carrying_armful",
         "broken_lineup", "settings", "paused", "relaxed_run", "store_restored",
-        "title_first_run", "repair_bench_ready"
+        "title_first_run", "repair_bench_ready", "tutorial_first_step", "controls",
+        "high_contrast", "large_ui"
     ),
     # Counted over pixels differing by more than $SceneMinDelta on a channel,
     # which drops the scene noise floor to a flat 0.000% and so lets this sit an

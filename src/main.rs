@@ -7,8 +7,10 @@ mod capture_scenes;
 mod data;
 mod gallery;
 mod game;
+mod preferences;
 mod state;
 mod toys;
+mod tutorial;
 mod ui;
 
 use game::Game;

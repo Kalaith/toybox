@@ -28,6 +28,10 @@ shelves, then fastest — and the score screen shows it so there is something to
 beat. Tools do not carry between shifts; the record is the only thread from one
 run to the next.
 
+A first-shift guide teaches movement, pickup, category shelving, repairs,
+display credits, and trolley cycling as each becomes relevant. Press `H` to
+hide it; **Controls & How to Play** in Settings can replay it later.
+
 ## The Store
 
 - A multi-zone toy store (34×22 m): Plush Corner, Checkout, Dragon Alcove,
@@ -85,8 +89,13 @@ store.
 - `Q`: cycle which carried toy is active
 - `G`: quick-drop the active toy
 - `T`: open or close the shop tools screen
+- `H`: hide the first-shift guide (replay it from Settings)
+- `Esc`: pause and open Settings
 - `Ctrl+S` / `Ctrl+L`: save / load
 - `R`: restart, in whichever mode is already running
+
+Settings persist fullscreen, field of view, look sensitivity, UI text size,
+and high-contrast mode separately from the current cleanup save.
 
 ## Validation
 

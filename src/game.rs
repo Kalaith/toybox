@@ -3,10 +3,12 @@
 use crate::capture_scenes;
 use crate::data::GameData;
 use crate::gallery::GalleryScene;
+use crate::preferences::ToyboxPreferences;
 use crate::state::{
     migrate_save_value, BestRuns, GamePhase, GameSession, InteractionResult, SaveData, ShiftMode,
     ShiftRecord, ToolPurchaseResult,
 };
+use crate::tutorial::TutorialProgress;
 use crate::ui::{self, DebugOverlay, UiAction, UiContext};
 use macroquad::miniquad::window::quit;
 use macroquad::prelude::*;
@@ -27,11 +29,11 @@ mod actions;
 const TITLE_TEXTURE_PATH: &str = "assets/toybox_title.png";
 const ASSET_PACK_PATH: &str = "assets.zip";
 
-// Vertical field of view. 85 matches the look the game shipped with.
-const DEFAULT_FOV_DEGREES: f32 = 85.0;
 const MIN_FOV_DEGREES: f32 = 60.0;
 const MAX_FOV_DEGREES: f32 = 110.0;
 const FOV_STEP_DEGREES: f32 = 5.0;
+const SENSITIVITY_STEP: f32 = 0.1;
+const UI_SCALE_STEP: f32 = 0.1;
 
 pub struct Game {
     data: GameData,
@@ -42,7 +44,8 @@ pub struct Game {
     screen: GameScreen,
     has_save_file: bool,
     settings: GameSettings,
-    fov_degrees: f32,
+    preferences: ToyboxPreferences,
+    tutorial: TutorialProgress,
     settings_from_game: bool,
     mouse_locked: bool,
     debug_overlay: DebugOverlay,
@@ -96,6 +99,7 @@ const BENCH_SLOW_FRAME_SECONDS: f32 = 1.0 / 60.0;
 enum GameScreen {
     Title,
     Settings,
+    Help,
     ToolShop,
     Playing,
 }
@@ -123,8 +127,10 @@ impl Game {
         };
         let has_save_file = slot_exists(&data.config.game_name, &data.config.save_slot);
         let notifications = NotificationManager::new();
-        let settings = GameSettings::load(&data.config.game_name);
+        let mut settings = GameSettings::load(&data.config.game_name);
+        settings.sanitize();
         settings.apply_display();
+        let preferences = ToyboxPreferences::load(&data.config.game_name);
 
         let bench = bench_seconds().map(|duration_seconds| BenchMode {
             duration_seconds,
@@ -146,6 +152,7 @@ impl Game {
             &data.config.version,
         );
         let session = GameSession::new(&data);
+        let tutorial = TutorialProgress::new(!preferences.tutorial_complete);
         Self {
             data,
             session,
@@ -155,7 +162,8 @@ impl Game {
             screen,
             has_save_file,
             settings,
-            fov_degrees: DEFAULT_FOV_DEGREES,
+            preferences,
+            tutorial,
             settings_from_game: false,
             mouse_locked: false,
             debug_overlay: DebugOverlay::new(),
@@ -169,6 +177,9 @@ impl Game {
 
     /// Seed a scene for the screenshot harness (TOYBOX_CAPTURE_SCENE).
     pub fn begin_capture_scene(&mut self, scene: &str) {
+        // Captures stage the UI state they name. A real profile's tutorial
+        // preference must never leak an extra card into unrelated references.
+        self.tutorial = TutorialProgress::new(false);
         match scene {
             "toy_gallery" => {
                 let slug =
@@ -177,6 +188,11 @@ impl Game {
             }
             "gameplay" => {
                 self.session = GameSession::new(&self.data);
+                self.screen = GameScreen::Playing;
+            }
+            "tutorial_first_step" => {
+                self.session = GameSession::new(&self.data);
+                self.tutorial = TutorialProgress::new(true);
                 self.screen = GameScreen::Playing;
             }
             // The two start buttons, the caption that tells them apart, and a
@@ -286,6 +302,20 @@ impl Game {
                 self.settings_from_game = false;
                 self.screen = GameScreen::Settings;
             }
+            "controls" => {
+                self.settings_from_game = false;
+                self.screen = GameScreen::Help;
+            }
+            "high_contrast" => {
+                self.session = capture_scenes::mid_run(&self.data);
+                self.preferences.high_contrast = true;
+                self.screen = GameScreen::Playing;
+            }
+            "large_ui" => {
+                self.session = capture_scenes::mid_run(&self.data);
+                self.settings.ui_text_scale = 1.2;
+                self.screen = GameScreen::Playing;
+            }
             "paused" => {
                 self.session = capture_scenes::mid_run(&self.data);
                 self.settings_from_game = true;
@@ -312,6 +342,8 @@ impl Game {
         if self.screen != GameScreen::Playing {
             if self.screen == GameScreen::Settings && is_key_pressed(KeyCode::Escape) {
                 self.events.push(UiAction::CloseSettings);
+            } else if self.screen == GameScreen::Help && is_key_pressed(KeyCode::Escape) {
+                self.events.push(UiAction::CloseHelp);
             } else if self.screen == GameScreen::ToolShop
                 && (is_key_pressed(KeyCode::Escape) || is_key_pressed(KeyCode::T))
             {
@@ -338,11 +370,28 @@ impl Game {
         }
 
         let mouse_delta = ui::continuous_mouse_delta_pixels();
-        let look_delta = ui::look_delta_from_input(mouse_delta, self.mouse_locked, dt);
+        let look_delta = ui::look_delta_from_input(
+            mouse_delta,
+            self.mouse_locked,
+            dt,
+            self.preferences.mouse_sensitivity,
+        );
         self.session.update_player_look(look_delta.x, look_delta.y);
 
         let movement = ui::movement_from_keys();
         self.session.move_player(movement, &self.data, dt);
+        self.tutorial.observe_navigation(
+            movement.length_squared() > 0.0,
+            look_delta.length_squared() > 0.0,
+        );
+
+        if self.tutorial.is_active() && is_key_pressed(KeyCode::H) {
+            self.tutorial.skip();
+            self.preferences.tutorial_complete = true;
+            self.save_preferences();
+            self.notifications
+                .info("First-shift guide hidden. Replay it from Settings");
+        }
 
         if is_key_pressed(KeyCode::Escape) {
             self.events.push(UiAction::Settings);
@@ -373,6 +422,7 @@ impl Game {
         }
 
         self.apply_queued_actions();
+        self.finish_tutorial_if_ready();
         self.record_finished_run();
     }
 
@@ -414,7 +464,9 @@ impl Game {
         }
         clear_background(dark::BACKGROUND);
 
-        ui::begin_ui_frame();
+        ui::set_high_contrast(self.preferences.high_contrast);
+        ui::begin_ui_frame(self.settings.ui_text_scale);
+        let tutorial_hint = self.tutorial.hint(&self.session, &self.data);
         let actions = match self.screen {
             GameScreen::Title => ui::draw_title_screen(
                 self.title_texture.as_ref(),
@@ -423,18 +475,25 @@ impl Game {
             ),
             GameScreen::Settings => ui::draw_settings_screen(
                 self.title_texture.as_ref(),
-                self.settings.fullscreen,
-                self.fov_degrees,
-                self.settings_from_game,
+                ui::SettingsView {
+                    fullscreen_enabled: self.settings.fullscreen,
+                    fov_degrees: self.preferences.fov_degrees,
+                    mouse_sensitivity: self.preferences.mouse_sensitivity,
+                    ui_scale: self.settings.ui_text_scale,
+                    high_contrast: self.preferences.high_contrast,
+                    from_game: self.settings_from_game,
+                },
             ),
+            GameScreen::Help => ui::draw_help_screen(self.title_texture.as_ref()),
             GameScreen::ToolShop => {
                 let ctx = UiContext {
                     data: &self.data,
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
-                    fov_degrees: self.fov_degrees,
+                    fov_degrees: self.preferences.fov_degrees,
                     best_run: self.best_runs.best_for(self.session.shift_mode),
                     beat_record: self.beat_record,
+                    tutorial_hint: None,
                 };
                 ui::draw_tool_shop_screen(ctx)
             }
@@ -443,9 +502,10 @@ impl Game {
                     data: &self.data,
                     session: &self.session,
                     mouse_locked: self.mouse_locked,
-                    fov_degrees: self.fov_degrees,
+                    fov_degrees: self.preferences.fov_degrees,
                     best_run: self.best_runs.best_for(self.session.shift_mode),
                     beat_record: self.beat_record,
+                    tutorial_hint: tutorial_hint.as_ref(),
                 };
                 ui::draw_game_ui(ctx, &self.debug_overlay)
             }
@@ -570,6 +630,31 @@ impl Game {
         self.mouse_locked = locked;
         set_cursor_grab(locked);
         show_mouse(!locked);
+    }
+
+    fn save_preferences(&mut self) {
+        if let Err(err) = self.preferences.save(&self.data.config.game_name) {
+            self.notifications
+                .warning(format!("Could not save preferences: {err}"));
+        }
+    }
+
+    fn save_shared_settings(&mut self) {
+        if let Err(err) = self.settings.save(&self.data.config.game_name) {
+            self.notifications
+                .warning(format!("Could not save settings: {err}"));
+        }
+    }
+
+    fn finish_tutorial_if_ready(&mut self) {
+        if !self.tutorial.is_active() || !self.tutorial.is_complete() {
+            return;
+        }
+        self.tutorial.skip();
+        self.preferences.tutorial_complete = true;
+        self.save_preferences();
+        self.notifications
+            .success("First shift learned. Replay the guide from Settings anytime");
     }
 }
 

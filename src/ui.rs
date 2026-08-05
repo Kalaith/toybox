@@ -24,15 +24,17 @@ mod score;
 mod signs;
 mod space;
 mod title;
+mod tutorial;
 mod widgets;
 mod wood;
 
 pub use debug_overlay::DebugOverlay;
 use hud::{draw_game_hud, pointer_blocking_rects};
+pub(crate) use hud_chrome::set_high_contrast;
 use hud_chrome::{brass, draw_hud_panel, parchment, warm_card, warm_panel};
 use scene3d::draw_shop_scene;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
-pub(crate) use title::{draw_settings_screen, draw_title_screen};
+pub(crate) use title::{draw_help_screen, draw_settings_screen, draw_title_screen, SettingsView};
 use widgets::{draw_fitted_text, draw_wrapped_text, WrapStyle};
 
 pub const LOGICAL_WIDTH: f32 = 1280.0;
@@ -90,6 +92,14 @@ pub enum UiAction {
     ToggleFullscreen,
     FovIncrease,
     FovDecrease,
+    SensitivityIncrease,
+    SensitivityDecrease,
+    UiScaleIncrease,
+    UiScaleDecrease,
+    ToggleHighContrast,
+    OpenHelp,
+    CloseHelp,
+    ReplayTutorial,
     QuitGame,
     Save,
     Load,
@@ -109,6 +119,7 @@ pub struct UiContext<'a> {
     /// whether the run now finishing beat it. Only the score screen reads them.
     pub best_run: Option<ShiftRecord>,
     pub beat_record: bool,
+    pub tutorial_hint: Option<&'a crate::tutorial::TutorialHint>,
 }
 
 pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction> {
@@ -124,6 +135,9 @@ pub fn draw_game_ui(ctx: UiContext<'_>, overlay: &DebugOverlay) -> Vec<UiAction>
     } else {
         draw_game_hud(&ctx);
         minimap::draw_minimap(&ctx);
+        if let Some(hint) = ctx.tutorial_hint {
+            tutorial::draw_tutorial_hint(hint);
+        }
     }
     overlay.draw(&ctx, &stats);
 
@@ -322,7 +336,12 @@ pub fn continuous_mouse_delta_pixels() -> Vec2 {
     )
 }
 
-pub fn look_delta_from_input(mouse_delta: Vec2, mouse_locked: bool, dt: f32) -> Vec2 {
+pub fn look_delta_from_input(
+    mouse_delta: Vec2,
+    mouse_locked: bool,
+    dt: f32,
+    sensitivity: f32,
+) -> Vec2 {
     let mut yaw_delta = 0.0;
     let mut pitch_delta = 0.0;
 
@@ -345,7 +364,7 @@ pub fn look_delta_from_input(mouse_delta: Vec2, mouse_locked: bool, dt: f32) -> 
         pitch_delta -= keyboard_speed;
     }
 
-    vec2(yaw_delta, pitch_delta)
+    vec2(yaw_delta, pitch_delta) * sensitivity.clamp(0.5, 2.0)
 }
 
 pub fn should_lock_mouse_from_screen_position(screen_position: Vec2) -> bool {

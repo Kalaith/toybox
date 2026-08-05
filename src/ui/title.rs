@@ -113,20 +113,16 @@ fn draw_title_caption(text: &str, y: f32) {
 
 pub(crate) fn draw_settings_screen(
     title_texture: Option<&Texture2D>,
-    fullscreen_enabled: bool,
-    fov_degrees: f32,
-    from_game: bool,
+    view: SettingsView,
 ) -> Vec<UiAction> {
     draw_title_background(title_texture);
     draw_title_scrim();
 
     let mut actions = Vec::new();
     let mouse = logical_mouse_position();
-    let button_w = 184.0;
+    let button_w = 224.0;
     let button_h = 38.0;
-    let button_gap = 14.0;
-
-    let settings_panel = Rect::new(406.0, 474.0, 468.0, 196.0);
+    let settings_panel = Rect::new(322.0, 324.0, 636.0, 344.0);
     draw_rectangle(
         settings_panel.x + 6.0,
         settings_panel.y + 7.0,
@@ -149,28 +145,29 @@ pub(crate) fn draw_settings_screen(
     );
 
     draw_text_centered_in_box(
-        if from_game { "Paused" } else { "Settings" },
-        0.0,
-        498.0,
-        LOGICAL_WIDTH,
+        if view.from_game {
+            "Paused & Settings"
+        } else {
+            "Settings"
+        },
+        settings_panel.x,
+        settings_panel.y + 22.0,
+        settings_panel.w,
         38.0,
-        24.0,
+        25.0,
         title_parchment(),
     );
 
-    // Row 1: fullscreen toggle and field-of-view stepper.
-    let row1_y = 556.0;
-    let fov_group_w = 44.0 + 6.0 + 96.0 + 6.0 + 44.0;
-    let row1_w = button_w + button_gap + fov_group_w;
-    let row1_x = (LOGICAL_WIDTH - row1_w) * 0.5;
-
-    let fullscreen_label = if fullscreen_enabled {
+    let left = settings_panel.x + 52.0;
+    let right = settings_panel.x + 360.0;
+    let row1_y = settings_panel.y + 82.0;
+    let fullscreen_label = if view.fullscreen_enabled {
         "Fullscreen: On"
     } else {
         "Fullscreen: Off"
     };
     if title_button(
-        Rect::new(row1_x, row1_y, button_w, button_h),
+        Rect::new(left, row1_y, button_w, button_h),
         fullscreen_label,
         true,
         ButtonTone::Primary,
@@ -179,55 +176,77 @@ pub(crate) fn draw_settings_screen(
         actions.push(UiAction::ToggleFullscreen);
     }
 
-    let fov_x = row1_x + button_w + button_gap;
+    draw_settings_stepper(
+        "FIELD OF VIEW",
+        &format!("{}°", view.fov_degrees.round() as i32),
+        vec2(right, row1_y),
+        UiAction::FovDecrease,
+        UiAction::FovIncrease,
+        mouse,
+        &mut actions,
+    );
+
+    let row2_y = settings_panel.y + 148.0;
+    draw_settings_stepper(
+        "LOOK SENSITIVITY",
+        &format!("{:.1}×", view.mouse_sensitivity),
+        vec2(left, row2_y),
+        UiAction::SensitivityDecrease,
+        UiAction::SensitivityIncrease,
+        mouse,
+        &mut actions,
+    );
+    draw_settings_stepper(
+        "UI TEXT SIZE",
+        &format!("{:.0}%", view.ui_scale * 100.0),
+        vec2(right, row2_y),
+        UiAction::UiScaleDecrease,
+        UiAction::UiScaleIncrease,
+        mouse,
+        &mut actions,
+    );
+
+    let row3_y = settings_panel.y + 222.0;
     if title_button(
-        Rect::new(fov_x, row1_y, 44.0, button_h),
-        "-",
+        Rect::new(left, row3_y, button_w, button_h),
+        if view.high_contrast {
+            "High Contrast: On"
+        } else {
+            "High Contrast: Off"
+        },
         true,
-        ButtonTone::Muted,
+        if view.high_contrast {
+            ButtonTone::Positive
+        } else {
+            ButtonTone::Muted
+        },
         mouse,
     ) {
-        actions.push(UiAction::FovDecrease);
+        actions.push(UiAction::ToggleHighContrast);
     }
-    draw_plaque(
-        Rect::new(fov_x + 50.0, row1_y, 96.0, button_h),
-        &title_plaque_style(),
-        &title_button_palette(ButtonTone::Muted),
-        PlaqueState::idle(true),
-    );
-    draw_text_centered_in_box(
-        &format!("FOV {}", fov_degrees.round() as i32),
-        fov_x + 50.0,
-        row1_y - 1.0,
-        96.0,
-        button_h,
-        15.0,
-        title_parchment(),
-    );
     if title_button(
-        Rect::new(fov_x + 152.0, row1_y, 44.0, button_h),
-        "+",
+        Rect::new(right, row3_y, button_w, button_h),
+        "Controls & How to Play",
         true,
-        ButtonTone::Muted,
+        ButtonTone::Primary,
         mouse,
     ) {
-        actions.push(UiAction::FovIncrease);
+        actions.push(UiAction::OpenHelp);
     }
 
-    // Row 2: return where you came from, plus quit-to-title while paused.
-    let row2_y = 614.0;
-    let row2_w = if from_game {
-        button_w * 2.0 + button_gap
+    let bottom_y = settings_panel.bottom() - 54.0;
+    let bottom_w = if view.from_game {
+        button_w * 2.0 + 16.0
     } else {
         button_w
     };
-    let row2_x = (LOGICAL_WIDTH - row2_w) * 0.5;
+    let bottom_x = (LOGICAL_WIDTH - bottom_w) * 0.5;
 
     if title_button(
-        Rect::new(row2_x, row2_y, button_w, button_h),
-        if from_game { "Resume" } else { "Back" },
+        Rect::new(bottom_x, bottom_y, button_w, button_h),
+        if view.from_game { "Resume" } else { "Back" },
         true,
-        if from_game {
+        if view.from_game {
             ButtonTone::Positive
         } else {
             ButtonTone::Muted
@@ -241,9 +260,9 @@ pub(crate) fn draw_settings_screen(
     // shift to the save slot, so the title's Continue picks it back up. A
     // Danger tone said the opposite — that the run was about to be thrown
     // away, which is exactly what used to happen.
-    if from_game
+    if view.from_game
         && title_button(
-            Rect::new(row2_x + button_w + button_gap, row2_y, button_w, button_h),
+            Rect::new(bottom_x + button_w + 16.0, bottom_y, button_w, button_h),
             "Save & Quit",
             true,
             ButtonTone::Muted,
@@ -254,6 +273,177 @@ pub(crate) fn draw_settings_screen(
     }
 
     actions
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct SettingsView {
+    pub fullscreen_enabled: bool,
+    pub fov_degrees: f32,
+    pub mouse_sensitivity: f32,
+    pub ui_scale: f32,
+    pub high_contrast: bool,
+    pub from_game: bool,
+}
+
+fn draw_settings_stepper(
+    label: &str,
+    value: &str,
+    origin: Vec2,
+    decrease: UiAction,
+    increase: UiAction,
+    mouse: Vec2,
+    actions: &mut Vec<UiAction>,
+) {
+    let height = 38.0;
+    draw_text_centered_in_box(
+        label,
+        origin.x,
+        origin.y - 20.0,
+        224.0,
+        18.0,
+        11.0,
+        Color::new(0.88, 0.72, 0.48, 0.86),
+    );
+    if title_button(
+        Rect::new(origin.x, origin.y, 44.0, height),
+        "-",
+        true,
+        ButtonTone::Muted,
+        mouse,
+    ) {
+        actions.push(decrease);
+    }
+    draw_plaque(
+        Rect::new(origin.x + 50.0, origin.y, 124.0, height),
+        &title_plaque_style(),
+        &title_button_palette(ButtonTone::Muted),
+        PlaqueState::idle(true),
+    );
+    draw_text_centered_in_box(
+        value,
+        origin.x + 50.0,
+        origin.y - 1.0,
+        124.0,
+        height,
+        15.0,
+        title_parchment(),
+    );
+    if title_button(
+        Rect::new(origin.x + 180.0, origin.y, 44.0, height),
+        "+",
+        true,
+        ButtonTone::Muted,
+        mouse,
+    ) {
+        actions.push(increase);
+    }
+}
+
+pub(crate) fn draw_help_screen(title_texture: Option<&Texture2D>) -> Vec<UiAction> {
+    draw_title_background(title_texture);
+    draw_title_scrim();
+    let mouse = logical_mouse_position();
+    let mut actions = Vec::new();
+    let panel = Rect::new(224.0, 82.0, 832.0, 570.0);
+    draw_surface(
+        panel,
+        &SurfaceStyle::new(Color::new(0.09, 0.045, 0.022, 0.97))
+            .with_border(2.0, Color::new(0.86, 0.62, 0.25, 0.82))
+            .with_inner_border(7.0, 1.0, Color::new(1.0, 0.84, 0.48, 0.14)),
+    );
+    draw_text_centered_in_box(
+        "Controls & How to Play",
+        panel.x,
+        panel.y + 22.0,
+        panel.w,
+        40.0,
+        28.0,
+        title_parchment(),
+    );
+    draw_text_centered_in_box(
+        "Restore every display before the doors open — or take your time in Relaxed Run.",
+        panel.x,
+        panel.y + 62.0,
+        panel.w,
+        26.0,
+        14.0,
+        Color::new(0.92, 0.78, 0.56, 0.84),
+    );
+
+    draw_help_column(
+        panel.x + 48.0,
+        panel.y + 116.0,
+        "CONTROLS",
+        &[
+            ("WASD", "Walk the shop floor"),
+            ("Mouse", "Look · click to lock"),
+            ("E / Space", "Pick up · shelf · repair"),
+            ("Q", "Cycle the Sorting Trolley"),
+            ("G", "Put the active toy down"),
+            ("T", "Open the tool rack"),
+            ("Tab", "Release or lock mouse look"),
+            ("Esc", "Pause and settings"),
+        ],
+    );
+    draw_help_column(
+        panel.x + 432.0,
+        panel.y + 116.0,
+        "THE CLOSING ROUTINE",
+        &[
+            ("1", "Match toy category to display"),
+            ("2", "Rejoin broken pairs at a bench"),
+            ("3", "Finish displays to earn credits"),
+            ("4", "Buy tools that speed the shift"),
+            ("5", "Use the map for aisle progress"),
+            ("6", "Shelve all 240 toys to finish"),
+        ],
+    );
+
+    let y = panel.bottom() - 62.0;
+    if title_button(
+        Rect::new(panel.x + 184.0, y, 216.0, 40.0),
+        "Replay First-Shift Guide",
+        true,
+        ButtonTone::Primary,
+        mouse,
+    ) {
+        actions.push(UiAction::ReplayTutorial);
+    }
+    if title_button(
+        Rect::new(panel.x + 432.0, y, 216.0, 40.0),
+        "Back to Settings",
+        true,
+        ButtonTone::Muted,
+        mouse,
+    ) {
+        actions.push(UiAction::CloseHelp);
+    }
+    actions
+}
+
+fn draw_help_column(x: f32, y: f32, heading: &str, rows: &[(&str, &str)]) {
+    draw_ui_text_ex(
+        heading,
+        x,
+        y,
+        TextStyle::new(14.0, Color::new(1.0, 0.70, 0.24, 0.94)).params(),
+    );
+    for (index, (key, text)) in rows.iter().enumerate() {
+        let row_y = y + 34.0 + index as f32 * 43.0;
+        draw_plaque(
+            Rect::new(x, row_y - 21.0, 78.0, 29.0),
+            &title_plaque_style(),
+            &title_button_palette(ButtonTone::Muted),
+            PlaqueState::idle(true),
+        );
+        draw_text_centered_in_box(key, x, row_y - 22.0, 78.0, 29.0, 12.0, title_parchment());
+        draw_ui_text_ex(
+            text,
+            x + 92.0,
+            row_y,
+            TextStyle::new(14.0, Color::new(0.94, 0.88, 0.76, 0.92)).params(),
+        );
+    }
 }
 
 fn draw_title_background(texture: Option<&Texture2D>) {

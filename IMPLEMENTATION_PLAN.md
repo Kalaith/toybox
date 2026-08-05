@@ -95,13 +95,13 @@ not overlap or escape its surface; pointer-blocking metadata matches the new
 layout; settings persist; title, gameplay, shop, pause, and score screens feel
 like one game.
 
-Visual status: completed on 2026-08-05. Gameplay now uses a compact walnut and
+Status: completed on 2026-08-05. Gameplay now uses a compact walnut and
 brass shift header, trolley card, matching prompt chrome, and a labelled store
 directory. Tool states are distinct cards and both score outcomes use summary
 cards plus a grade medallion. Settings and pause now sit on the same constructed
-surface as the rest of the UI. The persistent input, audio, scale, contrast,
-and help controls remain intentionally grouped with Sections 4 and 5, where
-their behavior and onboarding/audio dependencies are implemented.
+surface as the rest of the UI. Persistent FOV, sensitivity, UI scale, contrast,
+and help controls are implemented with the onboarding work below; channel
+volume controls are completed with their actual audio paths in Section 5.
 
 ## 4. Teach the shift in play
 
@@ -120,6 +120,13 @@ mouse-lock, its sorting rule, or the repair/trolley interactions in sequence.
 Acceptance: a new profile can learn the loop without README/game-page text;
 experienced players can skip it; save migration defaults safely; capture scenes
 cover the first guidance step and the controls panel.
+
+Status: completed on 2026-08-05. A six-step contextual guide advances from
+navigation through sorting and waits to mention repair, tools, and the trolley
+until each is usable. `H` dismisses it, Controls & How to Play keeps the full
+loop discoverable, and Replay Guide clears the separately persisted completion
+flag. Dedicated tutorial, help, high-contrast, and large-text captures cover the
+new states.
 
 ## 5. Give the shop an audible response
 

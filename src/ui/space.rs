@@ -12,8 +12,10 @@ impl UiSpace {
     }
 }
 
-pub fn begin_ui_frame() -> UiSpace {
-    macroquad_toolkit::ui::set_ui_text_scale_for_screen(LOGICAL_WIDTH, LOGICAL_HEIGHT, 1.45);
+pub fn begin_ui_frame(user_scale: f32) -> UiSpace {
+    let responsive =
+        macroquad_toolkit::ui::set_ui_text_scale_for_screen(LOGICAL_WIDTH, LOGICAL_HEIGHT, 1.45);
+    macroquad_toolkit::ui::set_ui_text_scale((responsive * user_scale).clamp(0.80, 1.65));
     set_ui_camera();
     UiSpace::new()
 }
