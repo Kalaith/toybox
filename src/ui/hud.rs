@@ -1,9 +1,9 @@
 //! Gameplay HUD panels inspired by the warm toy-store reference.
 
 use super::hud_chrome::{
-    draw_divider, draw_hud_panel, draw_identity_token, draw_keycap, draw_notice_dot,
-    draw_progress_bar, draw_prompt_status_icon, draw_toy_badge, NoticeRow, NoticeTone, PromptTone,
-    PromptVisual,
+    brass, draw_hud_panel, draw_identity_token, draw_keycap, draw_notice_dot, draw_progress_bar,
+    draw_prompt_status_icon, draw_toy_badge, parchment, warm_card, warm_panel, NoticeRow,
+    NoticeTone, PromptTone, PromptVisual,
 };
 use super::hud_icons::{draw_icon, draw_open_box_icon, draw_stopwatch_icon, IconKind};
 use crate::state::{CounterpartLocation, GamePhase, InteractionPreview, ToyState, ZoneProgress};
@@ -27,7 +27,7 @@ pub(super) fn pointer_blocking_rects() -> [Rect; 2] {
 
 fn draw_status_panel(ctx: &UiContext<'_>) {
     let rect = status_panel_rect();
-    draw_hud_panel(rect, Color::new(0.025, 0.026, 0.032, 0.86), hud_border());
+    draw_hud_panel(rect, warm_panel(0.90), hud_border());
 
     // A timed shift counts down to opening, because what the player needs to
     // know is how much is left, not how much is gone. A relaxed run has nothing
@@ -50,11 +50,11 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
             dark::TEXT_BRIGHT,
         )
     };
-    draw_stopwatch_icon(vec2(rect.x + 33.0, rect.y + 38.0), 15.0, clock_color);
+    draw_stopwatch_icon(vec2(rect.x + 34.0, rect.y + 55.0), 15.0, clock_color);
     draw_ui_text_ex(
         &time,
-        rect.x + 64.0,
-        rect.y + 51.0,
+        rect.x + 58.0,
+        rect.y + 67.0,
         TextStyle::new(31.0, clock_color).params(),
     );
 
@@ -68,24 +68,27 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
     // Right-aligned off the measured width rather than placed after the digits,
     // since the countdown is five characters and the elapsed clock passes six
     // at an hour.
-    let caption = ctx.session.shift_mode.clock_caption();
-    let caption_size = 12.0;
-    let caption_width = measure_ui_text(caption, None, caption_size as u16, 1.0).width;
+    let caption = format!("TIME {}", ctx.session.shift_mode.clock_caption());
+    let caption_size = 11.0;
+    let caption_width = measure_ui_text(&caption, None, caption_size as u16, 1.0).width;
     draw_ui_text_ex(
-        caption,
-        rect.right() - 14.0 - caption_width,
-        rect.y + 51.0,
-        TextStyle::new(caption_size, Color::new(0.72, 0.70, 0.66, 1.0)).params(),
+        &caption,
+        rect.x + 151.0 - caption_width,
+        rect.y + 88.0,
+        TextStyle::new(caption_size, parchment(0.68)).params(),
     );
 
-    draw_divider(rect.x, rect.y + 69.0, rect.w);
+    for x in [rect.x + 166.0, rect.x + 292.0, rect.x + 392.0] {
+        draw_line(x, rect.y + 18.0, x, rect.bottom() - 16.0, 1.0, brass(0.28));
+    }
 
     let placed = ctx.session.total_placed_toys();
     let toy_count = ctx.data.config.toy_count.max(1);
-    draw_status_row(
-        vec2(rect.x + 18.0, rect.y + 80.0),
+    draw_compact_stat(
+        vec2(rect.x + 180.0, rect.y + 19.0),
+        100.0,
         IconKind::Star,
-        "Toys Put Away",
+        "PUT AWAY",
         &format!("{placed} / {toy_count}"),
         Some(placed as f32 / toy_count as f32),
         Color::new(1.0, 0.72, 0.16, 1.0),
@@ -93,22 +96,23 @@ fn draw_status_panel(ctx: &UiContext<'_>) {
 
     let carry_limit = ctx.session.carry_limit(ctx.data).max(1);
     let carried = ctx.session.player.carried_toy_ids.len();
-    draw_status_row(
-        vec2(rect.x + 18.0, rect.y + 128.0),
+    draw_compact_stat(
+        vec2(rect.x + 306.0, rect.y + 19.0),
+        74.0,
         IconKind::Crate,
-        "Carry",
+        "CARRY",
         &format!("{carried} / {carry_limit}"),
         Some(carried as f32 / carry_limit as f32),
         Color::new(0.93, 0.48, 0.18, 1.0),
     );
 
-    draw_zone_row(ctx, vec2(rect.x + 18.0, rect.y + 176.0));
+    draw_zone_stat(ctx, vec2(rect.x + 406.0, rect.y + 19.0), 166.0);
 }
 
 /// Completion of the aisle the player is standing in. At 4000 toys the overall
 /// count barely moves, so the zone figure is what tells them the last hour was
 /// worth anything — and which aisle to work next.
-fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
+fn draw_zone_stat(ctx: &UiContext<'_>, origin: Vec2, width: f32) {
     let Some(zone_index) = ctx.session.current_zone_index(ctx.data) else {
         return;
     };
@@ -118,7 +122,12 @@ fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
     let accent = Color::new(zone.accent[0], zone.accent[1], zone.accent[2], 1.0);
 
     let value = if here.has_displays() {
-        format!("{:.0}%", here.fraction() * 100.0)
+        format!(
+            "{} / {}  ·  {:.0}%",
+            here.placed,
+            here.capacity,
+            here.fraction() * 100.0
+        )
     } else {
         "no shelves".to_owned()
     };
@@ -135,47 +144,49 @@ fn draw_zone_row(ctx: &UiContext<'_>, origin: Vec2) {
     // aggregates do not count an empty zone as outstanding work — but rendered
     // as a full meter beside the words "no shelves" it reads as a finished
     // aisle, which is a claim about work that does not exist.
-    draw_status_row(
+    draw_compact_stat(
         origin,
+        width,
         IconKind::Star,
-        &label,
+        &label.to_uppercase(),
         &value,
         here.has_displays().then(|| here.fraction()),
         accent,
     );
 }
 
-fn draw_status_row(
+fn draw_compact_stat(
     origin: Vec2,
+    width: f32,
     icon: IconKind,
     label: &str,
     value: &str,
     progress: Option<f32>,
     accent: Color,
 ) {
-    draw_icon(icon, vec2(origin.x + 13.0, origin.y + 13.0), 14.0, accent);
+    draw_icon(icon, vec2(origin.x + 10.0, origin.y + 9.0), 10.0, accent);
     // Fitted, not free-drawn: zone names are data and a longer one added later
     // would silently spill out of the panel again. Truncating is the failure
     // that stays inside the box.
     draw_fitted_text(
         label,
-        origin.x + 36.0,
-        origin.y + 12.0,
-        status_panel_rect().right() - (origin.x + 36.0) - 12.0,
-        13.0,
-        Color::new(0.88, 0.86, 0.80, 1.0),
+        origin.x + 26.0,
+        origin.y + 13.0,
+        width - 26.0,
+        11.0,
+        parchment(0.82),
     );
     draw_ui_text_ex(
         value,
-        origin.x + 36.0,
-        origin.y + 32.0,
+        origin.x,
+        origin.y + 43.0,
         TextStyle::new(18.0, dark::TEXT_BRIGHT).params(),
     );
     // Underline rather than sit beside the value: at 4000 toys the counter
     // reads "1105 / 4000" and ran straight into a bar placed to its right.
     if let Some(progress) = progress {
         draw_progress_bar(
-            Rect::new(origin.x + 36.0, origin.y + 37.0, 122.0, 5.0),
+            Rect::new(origin.x, origin.y + 54.0, width, 5.0),
             progress,
             accent,
         );
@@ -266,7 +277,7 @@ fn draw_notice_panel(ctx: &UiContext<'_>) {
         342.0,
         14.0 + row_height * rows.len() as f32,
     );
-    draw_hud_panel(rect, Color::new(0.020, 0.024, 0.030, 0.75), subtle_border());
+    draw_hud_panel(rect, warm_card(0.88), subtle_border());
 
     for (index, row) in rows.iter().enumerate() {
         let y = rect.y + 9.0 + index as f32 * row_height;
@@ -348,7 +359,7 @@ fn describe_counterpart(
 
 fn draw_carried_card(ctx: &UiContext<'_>) {
     let rect = carried_card_rect();
-    draw_hud_panel(rect, Color::new(0.025, 0.024, 0.030, 0.82), subtle_border());
+    draw_hud_panel(rect, warm_panel(0.90), subtle_border());
 
     if ctx.session.player.carried_toy_ids.is_empty() {
         draw_empty_hands_card(rect);
@@ -360,7 +371,7 @@ fn draw_carried_card(ctx: &UiContext<'_>) {
     };
 
     draw_toy_badge(
-        Rect::new(rect.x + 14.0, rect.y + 14.0, 58.0, 58.0),
+        Rect::new(rect.x + 15.0, rect.y + 17.0, 64.0, 64.0),
         active_toy,
     );
     // Name on its own line above the controls. The pips used to sit beside it
@@ -368,22 +379,22 @@ fn draw_carried_card(ctx: &UiContext<'_>) {
     // three pips and the cycle key.
     draw_fitted_text(
         &active_toy.name,
-        rect.x + 88.0,
-        rect.y + 38.0,
-        rect.w - 106.0,
+        rect.x + 94.0,
+        rect.y + 42.0,
+        rect.w - 112.0,
         20.0,
         dark::TEXT_BRIGHT,
     );
 
     draw_keycap(
-        Rect::new(rect.right() - 70.0, rect.y + 52.0, 25.0, 22.0),
+        Rect::new(rect.right() - 76.0, rect.y + 62.0, 25.0, 22.0),
         "G",
         false,
     );
     draw_ui_text_ex(
         "Drop",
         rect.right() - 38.0,
-        rect.y + 68.0,
+        rect.y + 78.0,
         TextStyle::new(12.0, dark::TEXT_DIM).params(),
     );
 
@@ -391,11 +402,10 @@ fn draw_carried_card(ctx: &UiContext<'_>) {
 }
 
 fn draw_empty_hands_card(rect: Rect) {
-    let icon_rect = Rect::new(rect.x + 18.0, rect.y + 17.0, 50.0, 50.0);
+    let icon_rect = Rect::new(rect.x + 18.0, rect.y + 20.0, 58.0, 58.0);
     draw_surface(
         icon_rect,
-        &SurfaceStyle::new(Color::new(0.10, 0.11, 0.12, 0.88))
-            .with_border(1.0, Color::new(0.46, 0.42, 0.36, 0.56)),
+        &SurfaceStyle::new(warm_card(0.94)).with_border(1.0, brass(0.48)),
     );
     draw_open_box_icon(
         vec2(
@@ -407,14 +417,14 @@ fn draw_empty_hands_card(rect: Rect) {
     );
     draw_ui_text_ex(
         "Hands empty",
-        rect.x + 86.0,
-        rect.y + 36.0,
+        rect.x + 94.0,
+        rect.y + 43.0,
         TextStyle::new(20.0, dark::TEXT_BRIGHT).params(),
     );
     draw_ui_text_ex(
         "Ready to sort",
-        rect.x + 88.0,
-        rect.y + 58.0,
+        rect.x + 96.0,
+        rect.y + 66.0,
         TextStyle::new(13.0, dark::TEXT_DIM).params(),
     );
 }
@@ -422,8 +432,8 @@ fn draw_empty_hands_card(rect: Rect) {
 fn draw_carry_pips(ctx: &UiContext<'_>, rect: Rect, active_toy: &ToyState) {
     let carried = ctx.session.player.carried_toy_ids.len();
     // The controls row, left of the drop hint: [Q] then one pip per toy.
-    let mut x = rect.x + 88.0;
-    let y = rect.y + 54.0;
+    let mut x = rect.x + 94.0;
+    let y = rect.y + 66.0;
 
     // The key that moves the ring, next to the ring it moves. Only once there
     // is more than one toy to cycle between: bare-handed the carry limit is
@@ -469,7 +479,7 @@ fn draw_context_prompt(ctx: &UiContext<'_>) {
 
     let rect = prompt_rect();
     let border = prompt.tone.border();
-    draw_hud_panel(rect, Color::new(0.026, 0.024, 0.030, 0.84), border);
+    draw_hud_panel(rect, warm_panel(0.92), border);
 
     let text_x = if let Some(key) = prompt.key {
         draw_keycap(
@@ -600,29 +610,28 @@ fn draw_crosshair(ctx: &UiContext<'_>) {
 }
 
 fn status_panel_rect() -> Rect {
-    // 190 wide fitted "Plush Corner" and nothing longer: once the zone row
-    // started carrying a repair count, "Dragon Alcove - 7 to mend" drew past
-    // the panel edge and onto the shop floor behind it.
-    Rect::new(18.0, 16.0, 250.0, 226.0)
+    // A shelf-like header keeps the centre of the shop visible while grouping
+    // clock, whole-store progress, trolley load, and the current aisle.
+    Rect::new(18.0, 16.0, 594.0, 104.0)
 }
 
 fn carried_card_rect() -> Rect {
-    Rect::new(24.0, LOGICAL_HEIGHT - 110.0, 300.0, 86.0)
+    Rect::new(18.0, LOGICAL_HEIGHT - 120.0, 360.0, 102.0)
 }
 
 fn prompt_rect() -> Rect {
     Rect::new(
-        (LOGICAL_WIDTH - 420.0) * 0.5,
-        LOGICAL_HEIGHT - 76.0,
-        420.0,
-        52.0,
+        (LOGICAL_WIDTH - 454.0) * 0.5,
+        LOGICAL_HEIGHT - 82.0,
+        454.0,
+        58.0,
     )
 }
 
 fn hud_border() -> Color {
-    Color::new(0.68, 0.64, 0.58, 0.56)
+    brass(0.72)
 }
 
 fn subtle_border() -> Color {
-    Color::new(0.54, 0.50, 0.46, 0.42)
+    brass(0.50)
 }

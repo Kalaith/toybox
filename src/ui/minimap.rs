@@ -1,29 +1,50 @@
 //! Procedural HUD minimap: zones, fixtures, benches, and the player.
 
+use super::hud_chrome::{brass, draw_hud_panel, parchment, warm_card, warm_panel};
 use crate::ui::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use macroquad::prelude::*;
 use macroquad_toolkit::prelude::*;
+use macroquad_toolkit::ui::draw_ui_text_ex;
 
 pub(crate) fn draw_minimap(ctx: &UiContext<'_>) {
     let room_w = ctx.data.config.room_width;
     let room_h = ctx.data.config.room_height;
     let map_w = 210.0;
     let map_h = map_w * room_h / room_w.max(1.0);
-    let panel = Rect::new(
+    let map = Rect::new(
         LOGICAL_WIDTH - map_w - 16.0,
         LOGICAL_HEIGHT - map_h - 16.0,
         map_w,
         map_h,
     );
+    let panel = Rect::new(map.x - 8.0, map.y - 36.0, map.w + 16.0, map.h + 44.0);
 
+    draw_hud_panel(panel, warm_panel(0.90), brass(0.62));
+    draw_ui_text_ex(
+        "STORE DIRECTORY",
+        panel.x + 14.0,
+        panel.y + 24.0,
+        TextStyle::new(12.0, parchment(0.86)).params(),
+    );
+    draw_ui_text_ex(
+        &format!(
+            "{} / {} HOME",
+            ctx.session.total_placed_toys(),
+            ctx.data.config.toy_count
+        ),
+        panel.right() - 92.0,
+        panel.y + 24.0,
+        TextStyle::new(10.0, parchment(0.58)).params(),
+    );
     draw_surface(
-        panel,
-        &SurfaceStyle::new(Color::new(0.030, 0.040, 0.050, 0.86))
-            .with_border(1.0, Color::new(0.55, 0.64, 0.72, 0.60)),
+        map,
+        &SurfaceStyle::new(warm_card(0.94))
+            .with_border(1.0, brass(0.40))
+            .with_inner_border(2.0, 1.0, Color::new(1.0, 0.82, 0.44, 0.08)),
     );
 
     let scale = map_w / room_w.max(1.0);
-    let to_map = |x: f32, y: f32| vec2(panel.x + x * scale, panel.y + y * scale);
+    let to_map = |x: f32, y: f32| vec2(map.x + x * scale, map.y + y * scale);
 
     // Zones fill in as their shelves fill up, and carry a completion bar along
     // the bottom edge, so the map answers "where is there still work" without

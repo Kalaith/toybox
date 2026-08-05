@@ -95,6 +95,14 @@ not overlap or escape its surface; pointer-blocking metadata matches the new
 layout; settings persist; title, gameplay, shop, pause, and score screens feel
 like one game.
 
+Visual status: completed on 2026-08-05. Gameplay now uses a compact walnut and
+brass shift header, trolley card, matching prompt chrome, and a labelled store
+directory. Tool states are distinct cards and both score outcomes use summary
+cards plus a grade medallion. Settings and pause now sit on the same constructed
+surface as the rest of the UI. The persistent input, audio, scale, contrast,
+and help controls remain intentionally grouped with Sections 4 and 5, where
+their behavior and onboarding/audio dependencies are implemented.
+
 ## 4. Teach the shift in play
 
 The web page lists controls, but the game itself does not teach movement,

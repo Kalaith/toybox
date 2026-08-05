@@ -66,34 +66,68 @@ pub(in crate::ui) fn draw_identity_token(rect: Rect, toy: &ToyState) {
 
 pub(in crate::ui) fn draw_hud_panel(rect: Rect, fill: Color, border: Color) {
     draw_rectangle(
-        rect.x + 3.0,
-        rect.y + 4.0,
+        rect.x + 5.0,
+        rect.y + 6.0,
         rect.w,
         rect.h,
-        Color::new(0.0, 0.0, 0.0, 0.30),
+        Color::new(0.0, 0.0, 0.0, 0.38),
     );
     draw_surface(
         rect,
         &SurfaceStyle::new(fill)
-            .with_border(1.0, border)
-            .with_inner_border(3.0, 1.0, Color::new(1.0, 0.78, 0.40, 0.12)),
+            .with_border(2.0, border)
+            .with_inner_border(5.0, 1.0, Color::new(1.0, 0.78, 0.40, 0.16)),
+    );
+    // A slim walnut lip and brass pins make the overlay feel assembled from
+    // the same shop fittings as the title sign, not like floating debug glass.
+    draw_rectangle(
+        rect.x + 5.0,
+        rect.y + 5.0,
+        rect.w - 10.0,
+        4.0,
+        Color::new(0.30, 0.15, 0.065, 0.72),
     );
     draw_line(
-        rect.x + 6.0,
-        rect.y + 4.0,
-        rect.right() - 6.0,
-        rect.y + 4.0,
+        rect.x + 8.0,
+        rect.y + 10.0,
+        rect.right() - 8.0,
+        rect.y + 10.0,
         1.0,
-        Color::new(1.0, 0.88, 0.62, 0.10),
+        Color::new(1.0, 0.88, 0.62, 0.16),
     );
+    for corner in [
+        vec2(rect.x + 8.0, rect.y + 8.0),
+        vec2(rect.right() - 8.0, rect.y + 8.0),
+        vec2(rect.x + 8.0, rect.bottom() - 8.0),
+        vec2(rect.right() - 8.0, rect.bottom() - 8.0),
+    ] {
+        draw_circle(corner.x, corner.y, 2.0, brass(0.84));
+        draw_circle(corner.x - 0.5, corner.y - 0.5, 0.65, brass(1.0));
+    }
+}
+
+pub(in crate::ui) fn warm_panel(alpha: f32) -> Color {
+    Color::new(0.105, 0.064, 0.038, alpha)
+}
+
+pub(in crate::ui) fn warm_card(alpha: f32) -> Color {
+    Color::new(0.075, 0.054, 0.044, alpha)
+}
+
+pub(in crate::ui) fn brass(alpha: f32) -> Color {
+    Color::new(0.86, 0.62, 0.25, alpha)
+}
+
+pub(in crate::ui) fn parchment(alpha: f32) -> Color {
+    Color::new(0.96, 0.88, 0.70, alpha)
 }
 
 pub(in crate::ui) fn draw_keycap(rect: Rect, label: &str, large: bool) {
     draw_surface(
         rect,
-        &SurfaceStyle::new(Color::new(0.92, 0.92, 0.90, 0.98))
-            .with_border(1.0, Color::new(0.22, 0.22, 0.24, 0.74))
-            .with_top_highlight(2.0, Color::new(1.0, 1.0, 1.0, 0.55)),
+        &SurfaceStyle::new(Color::new(0.93, 0.84, 0.66, 0.98))
+            .with_border(1.0, Color::new(0.25, 0.13, 0.06, 0.90))
+            .with_top_highlight(2.0, Color::new(1.0, 0.96, 0.82, 0.56)),
     );
     draw_text_centered_in_box(
         label,
@@ -102,7 +136,7 @@ pub(in crate::ui) fn draw_keycap(rect: Rect, label: &str, large: bool) {
         rect.w,
         rect.h,
         if large { 19.0 } else { 13.0 },
-        Color::new(0.10, 0.10, 0.12, 1.0),
+        Color::new(0.15, 0.075, 0.035, 1.0),
     );
 }
 
@@ -129,17 +163,6 @@ pub(in crate::ui) fn draw_progress_bar(rect: Rect, progress: f32, accent: Color)
         rect.h,
         1.0,
         Color::new(0.90, 0.76, 0.42, 0.28),
-    );
-}
-
-pub(in crate::ui) fn draw_divider(x: f32, y: f32, width: f32) {
-    draw_line(
-        x + 1.0,
-        y,
-        x + width - 1.0,
-        y,
-        1.0,
-        Color::new(0.64, 0.58, 0.50, 0.22),
     );
 }
 

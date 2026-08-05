@@ -5,6 +5,7 @@
 //! figures either way — what changes is the heading, the accent, and the line
 //! telling the player what to do next.
 
+use super::hud_chrome::{brass, draw_hud_panel, parchment, warm_card, warm_panel};
 use super::{UiContext, LOGICAL_HEIGHT, LOGICAL_WIDTH};
 use crate::state::{GamePhase, ShiftRecord, ShiftSummary, ZoneProgress};
 use macroquad::prelude::*;
@@ -12,10 +13,10 @@ use macroquad_toolkit::prelude::*;
 use macroquad_toolkit::ui::{draw_ui_text_ex, format_mmss};
 
 const PANEL: Rect = Rect {
-    x: 300.0,
-    y: 96.0,
-    w: 680.0,
-    h: 528.0,
+    x: 270.0,
+    y: 72.0,
+    w: 740.0,
+    h: 576.0,
 };
 
 pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
@@ -32,19 +33,25 @@ pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
         0.0,
         LOGICAL_WIDTH,
         LOGICAL_HEIGHT,
-        Color::new(0.02, 0.025, 0.03, 0.72),
+        Color::new(0.04, 0.018, 0.008, 0.76),
     );
-    draw_surface(
+    draw_hud_panel(
         PANEL,
-        &SurfaceStyle::new(Color::new(0.070, 0.078, 0.092, 0.98))
-            .with_border(1.0, accent)
-            .with_inner_border(3.0, 1.0, Color::new(0.94, 0.76, 0.42, 0.18)),
+        warm_panel(0.985),
+        Color::new(accent.r, accent.g, accent.b, 0.78),
+    );
+    draw_rectangle(
+        PANEL.x + 8.0,
+        PANEL.y + 12.0,
+        PANEL.w - 16.0,
+        92.0,
+        Color::new(accent.r, accent.g, accent.b, 0.075),
     );
 
     draw_heading(&summary, ctx.session.shift_mode.label(), restored, accent);
     draw_grade_badge(&summary, accent);
 
-    let stats_y = PANEL.y + 148.0;
+    let stats_y = PANEL.y + 132.0;
     draw_stat_row(
         stats_y,
         &[
@@ -61,7 +68,7 @@ pub(super) fn draw_score_screen(ctx: &UiContext<'_>) {
         ],
     );
 
-    draw_zone_table(&summary, PANEL.y + 226.0, accent);
+    draw_zone_table(&summary, PANEL.y + 232.0, accent);
     draw_best_run(ctx.best_run, ctx.beat_record, accent);
     draw_footer(restored);
 }
@@ -74,12 +81,12 @@ fn draw_heading(summary: &ShiftSummary, mode_label: &str, restored: bool, accent
     };
     draw_text_centered_in_box(
         heading,
-        PANEL.x,
-        PANEL.y + 26.0,
-        PANEL.w,
+        PANEL.x + 24.0,
+        PANEL.y + 24.0,
+        PANEL.w - 168.0,
         40.0,
         32.0,
-        accent,
+        parchment(1.0),
     );
 
     draw_text_centered_in_box(
@@ -87,25 +94,37 @@ fn draw_heading(summary: &ShiftSummary, mode_label: &str, restored: bool, accent
             "{mode_label}  -  {} of {} aisles restored",
             summary.zones_restored, summary.zones_with_shelves
         ),
-        PANEL.x,
+        PANEL.x + 24.0,
         PANEL.y + 68.0,
-        PANEL.w,
+        PANEL.w - 168.0,
         26.0,
         16.0,
-        dark::TEXT_DIM,
+        Color::new(accent.r, accent.g, accent.b, 0.90),
     );
 }
 
 fn draw_grade_badge(summary: &ShiftSummary, accent: Color) {
-    let badge = Rect::new(PANEL.x + PANEL.w - 118.0, PANEL.y + 22.0, 92.0, 92.0);
-    draw_surface(
-        badge,
-        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.92)).with_border(1.0, accent),
+    let badge = Rect::new(PANEL.x + PANEL.w - 126.0, PANEL.y + 18.0, 96.0, 96.0);
+    let center = vec2(badge.x + badge.w * 0.5, badge.y + badge.h * 0.5);
+    draw_circle(
+        center.x + 3.0,
+        center.y + 4.0,
+        46.0,
+        Color::new(0.0, 0.0, 0.0, 0.32),
     );
+    draw_circle(center.x, center.y, 46.0, warm_card(1.0));
+    draw_circle_lines(
+        center.x,
+        center.y,
+        45.0,
+        3.0,
+        Color::new(accent.r, accent.g, accent.b, 0.88),
+    );
+    draw_circle_lines(center.x, center.y, 39.0, 1.0, brass(0.44));
     draw_text_centered_in_box(
         summary.grade(),
         badge.x,
-        badge.y + 12.0,
+        badge.y + 9.0,
         badge.w,
         52.0,
         46.0,
@@ -114,7 +133,7 @@ fn draw_grade_badge(summary: &ShiftSummary, accent: Color) {
     draw_text_centered_in_box(
         &format!("{:.0}%", summary.completion() * 100.0),
         badge.x,
-        badge.y + 64.0,
+        badge.y + 63.0,
         badge.w,
         20.0,
         15.0,
@@ -129,12 +148,30 @@ fn draw_stat_row(y: f32, cells: &[(&str, String)]) {
 
     for (index, (label, value)) in cells.iter().enumerate() {
         let x = inner_x + cell_w * index as f32;
-        draw_ui_text_ex(label, x, y, TextStyle::new(13.0, dark::TEXT_DIM).params());
-        draw_ui_text_ex(
+        let card = Rect::new(x + 4.0, y, cell_w - 10.0, 72.0);
+        draw_surface(
+            card,
+            &SurfaceStyle::new(warm_card(0.94))
+                .with_border(1.0, brass(0.30))
+                .with_top_highlight(2.0, brass(0.08)),
+        );
+        draw_text_centered_in_box(
+            &label.to_uppercase(),
+            card.x,
+            card.y + 9.0,
+            card.w,
+            18.0,
+            11.0,
+            parchment(0.56),
+        );
+        draw_text_centered_in_box(
             value,
-            x,
-            y + 26.0,
-            TextStyle::new(22.0, dark::TEXT_BRIGHT).params(),
+            card.x,
+            card.y + 28.0,
+            card.w,
+            32.0,
+            22.0,
+            parchment(1.0),
         );
     }
 }
@@ -144,7 +181,7 @@ fn draw_zone_table(summary: &ShiftSummary, top: f32, accent: Color) {
         "Aisles",
         PANEL.x + 28.0,
         top,
-        TextStyle::new(15.0, dark::TEXT).params(),
+        TextStyle::new(14.0, parchment(0.70)).params(),
     );
 
     for (index, (name, zone)) in summary.zones.iter().enumerate() {
@@ -156,7 +193,11 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
     let x = PANEL.x + 28.0;
     let width = PANEL.w - 56.0;
     let restored = zone.is_restored();
-    let label_color = if restored { accent } else { dark::TEXT };
+    let label_color = if restored { accent } else { parchment(0.92) };
+
+    if ((y / 34.0) as i32) % 2 == 0 {
+        draw_rectangle(x - 8.0, y - 3.0, width + 16.0, 29.0, warm_card(0.42));
+    }
 
     draw_ui_text_ex(
         name,
@@ -181,7 +222,7 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
             &shortfall.join("  -  "),
             x + 168.0,
             y + 14.0,
-            TextStyle::new(13.0, Color::new(0.86, 0.72, 0.94, 1.0)).params(),
+            TextStyle::new(13.0, Color::new(0.88, 0.70, 0.94, 1.0)).params(),
         );
     }
 
@@ -189,7 +230,7 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
         &format!("{} / {}", zone.placed, zone.capacity),
         x + width - 128.0,
         y + 14.0,
-        TextStyle::new(14.0, dark::TEXT_DIM).params(),
+        TextStyle::new(14.0, parchment(0.58)).params(),
     );
 
     // A bar rather than a bare percentage: an aisle one toy short of restored
@@ -200,7 +241,7 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
         bar.y,
         bar.w,
         bar.h,
-        Color::new(0.10, 0.11, 0.13, 0.92),
+        Color::new(0.12, 0.07, 0.04, 0.96),
     );
     draw_rectangle(
         bar.x,
@@ -221,7 +262,7 @@ fn draw_zone_row(name: &str, zone: ZoneProgress, y: f32, accent: Color) {
 /// one run — so without this the game scores you and forgets. A record is the
 /// only thread between runs, which is why it is worth the separate save slot.
 fn draw_best_run(best: Option<ShiftRecord>, beat_record: bool, accent: Color) {
-    let y = PANEL.y + PANEL.h - 96.0;
+    let y = PANEL.y + PANEL.h - 94.0;
     let text = match best {
         Some(record) if beat_record => format!(
             "New best: {} toys in {}",
@@ -236,7 +277,7 @@ fn draw_best_run(best: Option<ShiftRecord>, beat_record: bool, accent: Color) {
         ),
         None => "No record kept for this mode yet.".to_owned(),
     };
-    let colour = if beat_record { accent } else { dark::TEXT_DIM };
+    let colour = if beat_record { accent } else { parchment(0.62) };
     draw_text_centered_in_box(&text, PANEL.x, y, PANEL.w, 24.0, 16.0, colour);
 }
 
@@ -252,19 +293,19 @@ fn draw_footer(restored: bool) {
             "Opening time caught up with you."
         },
         PANEL.x,
-        PANEL.y + PANEL.h - 68.0,
+        PANEL.y + PANEL.h - 66.0,
         PANEL.w,
         24.0,
         16.0,
-        dark::TEXT_DIM,
+        parchment(0.62),
     );
     draw_text_centered_in_box(
         "R starts another shift  -  Esc for the menu",
         PANEL.x,
-        PANEL.y + PANEL.h - 40.0,
+        PANEL.y + PANEL.h - 38.0,
         PANEL.w,
         24.0,
         14.0,
-        dark::TEXT_DIM,
+        parchment(0.52),
     );
 }

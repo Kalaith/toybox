@@ -40,6 +40,8 @@ run to the next.
 - 20 themed displays (walls, pegboards, bins, shelves, tables) to shelve toys
   onto, four per category, twelve slots each
 - Hanging zone signs and a live minimap keep the store navigable
+- A warm wood-and-brass HUD keeps the clock, whole-store progress, current
+  aisle, trolley, prompts, and store directory readable without hiding the room
 - Two repair benches; roughly one toy in eight starts broken, split into a head
   and a body scattered into *different* zones, to be rejoined at one bench
   before either half can be shelved

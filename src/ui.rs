@@ -29,6 +29,7 @@ mod wood;
 
 pub use debug_overlay::DebugOverlay;
 use hud::{draw_game_hud, pointer_blocking_rects};
+use hud_chrome::{brass, draw_hud_panel, parchment, warm_card, warm_panel};
 use scene3d::draw_shop_scene;
 pub use space::{begin_ui_frame, end_ui_frame, set_ui_camera};
 pub(crate) use title::{draw_settings_screen, draw_title_screen};
@@ -138,39 +139,57 @@ pub(crate) fn draw_tool_shop_screen(ctx: UiContext<'_>) -> Vec<UiAction> {
         0.0,
         LOGICAL_WIDTH,
         LOGICAL_HEIGHT,
-        Color::new(0.02, 0.025, 0.03, 0.58),
+        Color::new(0.055, 0.025, 0.012, 0.66),
     );
 
     let mut actions = Vec::new();
     let mouse = logical_mouse_position();
     // Tall enough for two description lines per row: at one line, four of the
     // five tools ended mid-word and the player was buying blind.
-    let panel = Rect::new(330.0, 40.0, 620.0, 648.0);
-    draw_surface(
-        panel,
-        &SurfaceStyle::new(Color::new(0.060, 0.068, 0.078, 0.98))
-            .with_border(1.0, Color::new(0.55, 0.64, 0.72, 0.70))
-            .with_inner_border(3.0, 1.0, Color::new(0.94, 0.76, 0.42, 0.20)),
-    );
+    let panel = Rect::new(260.0, 34.0, 760.0, 652.0);
+    draw_hud_panel(panel, warm_panel(0.985), brass(0.82));
 
     draw_ui_text_ex(
-        "Shop Tools",
-        panel.x + 24.0,
-        panel.y + 42.0,
-        TextStyle::new(26.0, dark::TEXT_BRIGHT).params(),
+        "RESTORATION TOOL RACK",
+        panel.x + 30.0,
+        panel.y + 40.0,
+        TextStyle::new(25.0, parchment(1.0)).params(),
     );
     draw_ui_text_ex(
-        &format!(
-            "Tool Credits: {}",
-            ctx.session.available_tool_credits(ctx.data)
-        ),
-        panel.x + 24.0,
-        panel.y + 72.0,
-        TextStyle::new(17.0, Color::new(0.78, 0.92, 0.90, 1.0)).params(),
+        "Restore displays to earn credits. Every tool lasts this shift.",
+        panel.x + 31.0,
+        panel.y + 68.0,
+        TextStyle::new(14.0, parchment(0.64)).params(),
+    );
+
+    let credit_badge = Rect::new(panel.right() - 218.0, panel.y + 22.0, 92.0, 52.0);
+    draw_surface(
+        credit_badge,
+        &SurfaceStyle::new(warm_card(0.98))
+            .with_border(1.0, brass(0.62))
+            .with_inner_border(3.0, 1.0, brass(0.12)),
+    );
+    draw_text_centered_in_box(
+        &ctx.session.available_tool_credits(ctx.data).to_string(),
+        credit_badge.x,
+        credit_badge.y + 2.0,
+        credit_badge.w,
+        28.0,
+        24.0,
+        Color::new(1.0, 0.78, 0.28, 1.0),
+    );
+    draw_text_centered_in_box(
+        "CREDITS",
+        credit_badge.x,
+        credit_badge.y + 29.0,
+        credit_badge.w,
+        17.0,
+        10.0,
+        parchment(0.62),
     );
 
     if tool_shop_button(
-        Rect::new(panel.right() - 104.0, panel.y + 22.0, 78.0, 32.0),
+        Rect::new(panel.right() - 112.0, panel.y + 27.0, 82.0, 42.0),
         "Back",
         true,
         mouse,
@@ -203,9 +222,9 @@ fn draw_stockroom_service(
 ) {
     draw_ui_text_ex(
         "Every shift tool is on the trolley.",
-        panel.x + 24.0,
-        panel.y + 122.0,
-        TextStyle::new(17.0, Color::new(0.62, 0.92, 0.68, 1.0)).params(),
+        panel.x + 28.0,
+        panel.y + 120.0,
+        TextStyle::new(18.0, Color::new(0.66, 0.94, 0.70, 1.0)).params(),
     );
     let owned = ctx
         .data
@@ -216,9 +235,9 @@ fn draw_stockroom_service(
         .join("  -  ");
     draw_wrapped_text(
         &owned,
-        panel.x + 24.0,
-        panel.y + 150.0,
-        panel.w - 48.0,
+        panel.x + 28.0,
+        panel.y + 151.0,
+        panel.w - 56.0,
         WrapStyle {
             size: 14.0,
             line_height: 20.0,
@@ -227,12 +246,12 @@ fn draw_stockroom_service(
         },
     );
 
-    let card = Rect::new(panel.x + 24.0, panel.y + 224.0, panel.w - 48.0, 184.0);
+    let card = Rect::new(panel.x + 28.0, panel.y + 222.0, panel.w - 56.0, 190.0);
     draw_surface(
         card,
-        &SurfaceStyle::new(Color::new(0.10, 0.075, 0.025, 0.88))
-            .with_border(1.0, Color::new(0.96, 0.76, 0.28, 0.72))
-            .with_inner_border(3.0, 1.0, Color::new(1.0, 0.88, 0.46, 0.16)),
+        &SurfaceStyle::new(Color::new(0.14, 0.085, 0.025, 0.94))
+            .with_border(2.0, brass(0.86))
+            .with_inner_border(5.0, 1.0, brass(0.18)),
     );
     draw_ui_text_ex(
         STOCKROOM_SPOTLIGHT_NAME,
@@ -346,23 +365,51 @@ fn draw_tool_row(
     mouse: Vec2,
     actions: &mut Vec<UiAction>,
 ) {
+    let (status, status_color, can_buy) = tool_status(upgrade, ctx);
     draw_surface(
         rect,
-        &SurfaceStyle::new(Color::new(0.035, 0.040, 0.048, 0.82))
-            .with_border(1.0, Color::new(0.38, 0.45, 0.54, 0.34)),
+        &SurfaceStyle::new(warm_card(0.94))
+            .with_border(
+                1.0,
+                Color::new(status_color.r, status_color.g, status_color.b, 0.42),
+            )
+            .with_inner_border(3.0, 1.0, brass(0.08)),
+    );
+    draw_rectangle(
+        rect.x,
+        rect.y,
+        6.0,
+        rect.h,
+        Color::new(status_color.r, status_color.g, status_color.b, 0.78),
+    );
+    draw_circle(
+        rect.x + 28.0,
+        rect.y + 29.0,
+        15.0,
+        Color::new(0.22, 0.12, 0.055, 0.98),
+    );
+    draw_circle_lines(rect.x + 28.0, rect.y + 29.0, 15.0, 1.0, brass(0.62));
+    draw_text_centered_in_box(
+        &format!("{}", upgrade.unlock_completed_displays),
+        rect.x + 13.0,
+        rect.y + 14.0,
+        30.0,
+        30.0,
+        14.0,
+        parchment(0.92),
     );
 
     draw_ui_text_ex(
         &upgrade.name,
-        rect.x + 16.0,
+        rect.x + 54.0,
         rect.y + 26.0,
-        TextStyle::new(19.0, dark::TEXT_BRIGHT).params(),
+        TextStyle::new(19.0, parchment(1.0)).params(),
     );
     let last_line = draw_wrapped_text(
         &upgrade.description,
-        rect.x + 16.0,
+        rect.x + 54.0,
         rect.y + 48.0,
-        rect.w - 156.0,
+        rect.w - 214.0,
         WrapStyle {
             size: 14.0,
             line_height: 18.0,
@@ -371,18 +418,26 @@ fn draw_tool_row(
         },
     );
 
-    let (status, status_color, can_buy) = tool_status(upgrade, ctx);
     draw_fitted_text(
         &status,
-        rect.x + 16.0,
+        rect.x + 54.0,
         last_line + 20.0,
-        rect.w - 156.0,
+        rect.w - 214.0,
         13.0,
         status_color,
     );
 
-    let button = Rect::new(rect.right() - 104.0, rect.y + 30.0, 82.0, 32.0);
-    if tool_shop_button(button, "Buy", can_buy, mouse) {
+    let button = Rect::new(rect.right() - 132.0, rect.y + 25.0, 108.0, 42.0);
+    let button_label = if ctx.session.has_upgrade(&upgrade.id) {
+        "Owned"
+    } else if can_buy {
+        "Buy"
+    } else if ctx.session.completed_display_count() < upgrade.unlock_completed_displays {
+        "Locked"
+    } else {
+        "Need credit"
+    };
+    if tool_shop_button(button, button_label, can_buy, mouse) {
         actions.push(UiAction::BuyTool(upgrade.id.clone()));
     }
 }
@@ -431,24 +486,17 @@ fn tool_shop_button(rect: Rect, label: &str, enabled: bool, mouse: Vec2) -> bool
     let pressed = hovered && is_mouse_button_down(MouseButton::Left);
     let activated = hovered && is_mouse_button_released(MouseButton::Left);
     let face = if !enabled {
-        Color::new(0.075, 0.080, 0.088, 0.84)
+        Color::new(0.085, 0.055, 0.042, 0.90)
     } else if pressed {
-        Color::new(0.075, 0.130, 0.150, 0.96)
+        Color::new(0.31, 0.17, 0.055, 0.98)
     } else if hovered {
-        Color::new(0.120, 0.190, 0.215, 0.98)
+        Color::new(0.41, 0.24, 0.075, 0.98)
     } else {
-        Color::new(0.090, 0.130, 0.150, 0.94)
+        Color::new(0.28, 0.15, 0.060, 0.96)
     };
     draw_surface(
         rect,
-        &SurfaceStyle::new(face).with_border(
-            1.0,
-            if enabled {
-                Color::new(0.58, 0.78, 0.82, 0.72)
-            } else {
-                Color::new(0.26, 0.30, 0.34, 0.62)
-            },
-        ),
+        &SurfaceStyle::new(face).with_border(1.0, if enabled { brass(0.86) } else { brass(0.28) }),
     );
     draw_text_centered_in_box(
         label,
@@ -457,7 +505,11 @@ fn tool_shop_button(rect: Rect, label: &str, enabled: bool, mouse: Vec2) -> bool
         rect.w - 16.0,
         rect.h,
         14.0,
-        if enabled { dark::TEXT } else { dark::TEXT_DIM },
+        if enabled {
+            parchment(1.0)
+        } else {
+            parchment(0.42)
+        },
     );
     activated
 }

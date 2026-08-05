@@ -126,6 +126,28 @@ pub(crate) fn draw_settings_screen(
     let button_h = 38.0;
     let button_gap = 14.0;
 
+    let settings_panel = Rect::new(406.0, 474.0, 468.0, 196.0);
+    draw_rectangle(
+        settings_panel.x + 6.0,
+        settings_panel.y + 7.0,
+        settings_panel.w,
+        settings_panel.h,
+        Color::new(0.0, 0.0, 0.0, 0.34),
+    );
+    draw_surface(
+        settings_panel,
+        &SurfaceStyle::new(Color::new(0.105, 0.055, 0.026, 0.91))
+            .with_border(2.0, Color::new(0.80, 0.57, 0.24, 0.78))
+            .with_inner_border(6.0, 1.0, Color::new(1.0, 0.82, 0.44, 0.14)),
+    );
+    draw_rectangle(
+        settings_panel.x + 8.0,
+        settings_panel.y + 8.0,
+        settings_panel.w - 16.0,
+        4.0,
+        Color::new(0.34, 0.16, 0.055, 0.72),
+    );
+
     draw_text_centered_in_box(
         if from_game { "Paused" } else { "Settings" },
         0.0,
