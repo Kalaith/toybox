@@ -33,7 +33,7 @@ if (-not (Test-Path -LiteralPath $shared)) { throw "Shared capture script not fo
 
 # -Prefix is not optional: the shared script derives it from the package name
 # (toybox_after_hours -> TOYBOX_AFTER_HOURS), but the game reads TOYBOX_*.
-# Without it the capture vars never match, `CaptureConfig::from_env` returns
+# Without it the capture manifest never matches, `CaptureConfig::all_from_env` returns
 # None, and the exe launches as a normal interactive game that never exits.
 & $shared -GameDir $gameDir -Prefix "TOYBOX" -Scenes $Scenes -Frames $Frames `
     -OutputDir $OutputDir -Release -SkipBuild:$SkipBuild

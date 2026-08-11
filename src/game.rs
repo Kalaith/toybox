@@ -139,7 +139,7 @@ impl Game {
         settings.apply_display();
         let preferences = ToyboxPreferences::load(&data.config.game_name);
         let audio_disabled =
-            std::env::var_os("TOYBOX_CAPTURE_SCENE").is_some() || bench_seconds().is_some();
+            macroquad_toolkit::capture::capture_requested("TOYBOX") || bench_seconds().is_some();
         let audio = if audio_disabled {
             AudioDirector::silent()
         } else {
@@ -198,7 +198,7 @@ impl Game {
         }
     }
 
-    /// Seed a scene for the screenshot harness (TOYBOX_CAPTURE_SCENE).
+    /// Seed a scene for the screenshot harness.
     pub fn begin_capture_scene(&mut self, scene: &str) {
         // Captures stage the UI state they name. A real profile's tutorial
         // preference must never leak an extra card into unrelated references.
@@ -206,9 +206,8 @@ impl Game {
         self.preferences = ToyboxPreferences::default();
         self.tutorial = TutorialProgress::new(false);
         match scene {
-            "toy_gallery" => {
-                let slug =
-                    std::env::var("TOYBOX_CAPTURE_TOY").unwrap_or_else(|_| "bear".to_owned());
+            scene if scene.starts_with("toy_gallery:") => {
+                let slug = scene.strip_prefix("toy_gallery:").unwrap_or("bear");
                 self.gallery = Some(GalleryScene::new(&slug));
             }
             "gameplay" => {

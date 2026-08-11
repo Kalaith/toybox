@@ -39,13 +39,15 @@ fn window_conf() -> Conf {
 async fn main() {
     let mut game = Game::new().await;
 
-    if let Some(config) = capture::CaptureConfig::from_env("TOYBOX") {
-        game.begin_capture_scene(&config.scene);
-        capture::run_capture(&config, |dt| {
-            game.update(dt);
-            game.draw();
-        })
-        .await;
+    if let Some(configs) = capture::CaptureConfig::all_from_env("TOYBOX") {
+        for config in configs {
+            game.begin_capture_scene(&config.scene);
+            capture::run_capture_once(&config, |dt| {
+                game.update(dt);
+                game.draw();
+            })
+            .await;
+        }
         return;
     }
 
