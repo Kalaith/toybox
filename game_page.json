@@ -70,7 +70,7 @@
       "value": "Browser, Windows"
     }
   ],
-  "repository": "https://github.com/Kalaith/toybox",
+  "repository": "https://github.com/WebHatchery/toybox",
   "pointer_lock": {
     "logical_width": 1280,
     "logical_height": 720,
